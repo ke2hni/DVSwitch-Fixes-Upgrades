@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Validate and atomically save mode-scoped dashboard favorites."""
+
+import json
+import os
+import re
+import sys
+import tempfile
+from pathlib import Path
+
+PATH = Path('/etc/dvswitch-mode-buttons/favorites.json')
+MODES = {'BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'}
+
+
+def favorite_sort_key(favorite):
+    return (favorite['name'].casefold(), favorite['target'].casefold())
+
+
+def fail(message):
+    print(f'ERROR: {message}', file=sys.stderr)
+    raise SystemExit(1)
+
+
+def save_favorites(mode, items, path=PATH):
+    if not isinstance(mode, str) or mode not in MODES or not isinstance(items, list) or len(items) > 100:
+        raise ValueError('invalid mode or favorites list')
+    clean = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError('invalid favorite entry')
+        name = item.get('name')
+        target = item.get('target')
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 32 or any(ord(c) < 32 for c in name):
+            raise ValueError('favorite names must contain 1 to 32 printable characters')
+        if not isinstance(target, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,32}', target):
+            raise ValueError('invalid talkgroup or reflector ID')
+        clean.append({'name': name.strip(), 'target': target})
+    clean.sort(key=favorite_sort_key)
+
+    data = {supported_mode: [] for supported_mode in sorted(MODES)}
+    try:
+        if path.is_file():
+            previous = json.loads(path.read_text(encoding='utf-8'))
+            if isinstance(previous, dict):
+                for supported_mode in data:
+                    if isinstance(previous.get(supported_mode), list):
+                        data[supported_mode] = sorted(
+                            previous[supported_mode],
+                            key=lambda favorite: (
+                                str(favorite.get('name', '')).casefold(),
+                                str(favorite.get('target', '')).casefold(),
+                            ) if isinstance(favorite, dict) else ('', ''),
+                        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError('existing favorites file is unreadable; it was left unchanged') from exc
+    data[mode] = clean
+    path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.favorites.', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=2)
+            stream.write('\n')
+        if os.geteuid() == 0:
+            os.chown(temporary, 0, 0)
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return len(clean)
+
+
+def main():
+    if os.geteuid() != 0:
+        fail('run through the dashboard sudo rule')
+    try:
+        request = json.load(sys.stdin)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        fail('invalid favorites data')
+    try:
+        mode = request.get('mode') if isinstance(request, dict) else None
+        items = request.get('favorites') if isinstance(request, dict) else None
+        count = save_favorites(mode, items)
+    except ValueError as exc:
+        fail(str(exc))
+    print(f'PASS: saved {count} {mode} favorite(s).')
+
+
+if __name__ == '__main__':
+    main()

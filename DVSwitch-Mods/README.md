@@ -1,0 +1,886 @@
+<!-- Version: 1.0.4 --><div align="center">
+:radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
+[https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
+
+
+:test_tube:This was tested on a fresh install of DVSwitch and a fresh configuration, then a reboot after DVSwitch was installed & configured.
+This has not been tested on an already modified installation of DVSwitch.  You could attempt an install and if any errors occur you could paste the error and the zip of this repository into AI/ChatGPT and it could help you fix any installation errors.  
+
+# 🛠️ DVSwitch-Mods
+
+### Tested repairs and optional dashboard improvements for DVSwitch
+
+![Platform](https://img.shields.io/badge/platform-DVSwitch-24527a)
+![Debian](https://img.shields.io/badge/tested-Debian%2012%20%7C%2013-a80030)
+![Architectures](https://img.shields.io/badge/MMDVM-ARM64%20%7C%20AMD64%20%7C%20i386-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+</div>
+
+> [!IMPORTANT]
+> These scripts repair or modify files already installed by DVSwitch. They do
+> not distribute DVSwitch executables, packages, PHP files, or firmware.
+
+**[Quick start](#-quick-start--install-everything) · [Repairs](#-repairs) ·
+[Modifications](#-optional-modifications) · [Removal](#️-status-backups-and-removal) ·
+[Safety](#️-safety-rules)**
+
+---
+
+## 📡 What this repository does
+
+DVSwitch-Mods provides two types of changes:
+
+- **Repairs** correct confirmed problems in DVSwitch, including malformed P25
+  and YSF commands, database downloads, P25 announcements, and dashboard link
+  detection.
+- **Modifications** add optional dashboard features such as friendly reflector
+  and talkgroup names, D-Star reflector details, FCC first names, and cleaner
+  activity targets. The separate STFU activity component reads STFU's own log
+  and adds its RX/TX events to the Gateway Activity, Local Activity, and TRX
+  views. STFU is displayed on its own status card rather than the DMR Master
+  card. Its target comes from the saved STFU mode target, then `[STFU] StartTG`
+  in `/opt/MMDVM_Bridge/DVSwitch.ini`, with the STFU log as a standalone fallback.
+  It does not use the shared Analog_Bridge `last_tune` value, which can change
+  with BM/TGIF tuning. STFU rows display `0%` Loss and `0.0%` BER as cosmetic placeholders,
+  not measured values, because STFU does not provide those measurements.
+
+Standard component installers check compatibility before changing anything,
+create protected backups, install atomically, validate the result, and roll
+back automatically if installation fails. The standalone Dark Mode and
+Widescreen Display Layout installers maintain protected and per-run backups
+and provide explicit restore commands.
+
+---
+
+## 🚀 Quick start — install everything
+
+### 1. Download the complete repository
+
+Run this from your home directory:
+
+```bash
+cd ~ && git clone https://github.com/ke2hni/DVSwitch-Mods.git && cd DVSwitch-Mods
+```
+
+Already downloaded it? Update it instead:
+
+```bash
+cd ~/DVSwitch-Mods && git pull --ff-only
+```
+
+You can also download one ZIP containing the entire repository from the
+green **Code** button on GitHub or use the
+**[direct ZIP download](https://github.com/ke2hni/DVSwitch-Mods/archive/refs/heads/main.zip)**.
+Do not download the scripts individually.
+
+### 2. Use the installer menu
+
+Run the manager without arguments:
+
+```bash
+sudo ./manage-dvswitch-mods.sh
+```
+
+The menu provides four installation choices and an uninstall choice:
+
+1. **Standard DVSwitch repairs and modifications** — runs the complete
+   dependency-ordered installation and records its reversible backups.
+2. **DVSwitch Mode Buttons** — launches the installer menu in the sibling
+   `DVSwitch-Mode-Buttons/` directory. The two project directories remain
+   separate so repeated filenames cannot overwrite each other.
+3. **Dark Mode** — launches the standalone dashboard theme installer. It adds
+   the Auto/Light/Dark selector and creates its own protected and per-run
+   backups.
+4. **Widescreen Display Layout** — launches the standalone responsive-layout
+   installer. It creates its own protected and per-run backups.
+5. **Uninstall all standard components** — restores every standard component
+   recorded by this manager in reverse installation order.
+
+The Dark Mode and Display Layout installers do not require the standard
+component chain. STFU status, STFU activity, and RX Monitor position are
+included at the end of the standard component installation and uninstall
+order. Option 0 exits without changing anything. The standalone Mode Buttons,
+Dark Mode, and Widescreen installers are managed separately and are not removed
+by option 5.
+
+The standalone installers can also be run directly:
+
+```bash
+sudo ./dvswitch-dark-mode.sh apply
+sudo ./dvswitch-display-layout.sh apply
+```
+
+### 3. Check the complete standard installation
+
+```bash
+sudo ./manage-dvswitch-mods.sh --check all
+```
+
+STFU activity can also be checked or installed by itself:
+
+```bash
+sudo ./manage-dvswitch-mods.sh --check dashboard-stfu-activity
+sudo ./manage-dvswitch-mods.sh --install dashboard-stfu-activity
+```
+
+The component can also be checked or installed directly, without the manager:
+
+```bash
+sudo ./mod-dashboard-stfu-activity.sh --check
+sudo ./mod-dashboard-stfu-activity.sh --install
+```
+
+On a fresh DVSwitch installation, the first check normally reports early
+components as ready and later components as blocked by prerequisites. It checks
+everything, changes nothing, and prints the correct installation order.
+The P25 audio-announcement check builds a temporary candidate and therefore
+needs `make` and a C++ compiler. If either is missing, `--check all` reports the
+P25 component as blocked and continues checking the remaining components; it
+does not install packages. If an install requires `make` or `c++` and either is
+missing, the manager stops before changing components and prints the explicit
+Debian command to install `build-essential`. Run that command yourself, then
+retry the install.
+
+### 4. Install or update every applicable standard repair and modification
+
+```bash
+sudo ./manage-dvswitch-mods.sh --install all
+```
+
+The manager installs components in the required order, selects the correct
+MMDVM repair for the installed architecture, skips components that do not
+apply, records every backup, and resumes safely if an installation is
+interrupted. It is upgrade-aware: manager records do not cause components to
+be skipped. Each component's current `--check` and `--install` logic decides
+whether it is current, needs a newer compatible repository update, or must be
+refused as unsupported or customized.
+
+When a newer compatible version is available, the manager creates a new
+protected backup and replaces that component's active manager record. When the
+installed version is current, the component remains idempotent and no new
+backup is created.
+
+### 5. Verify the completed standard installation
+
+```bash
+sudo ./manage-dvswitch-mods.sh --check all
+```
+
+A completed installation should end with no failed or blocked components.
+
+---
+
+## 🔧 Repairs
+
+Repairs may be installed individually. Always run `--check` first.
+
+### MMDVM P25 and YSF spacing repair
+
+**What it fixes:** Corrects malformed remote commands so MMDVM_Bridge sends
+`TalkGroup 10200` to P25Gateway and `LinkYSF 44444` to YSFGateway.
+
+**Prerequisite:** None. The manager detects the installed architecture and
+selects exactly one repair.
+
+```bash
+sudo ./manage-mmdvm-spacing.sh --check
+sudo ./manage-mmdvm-spacing.sh --install
+```
+
+Supported completed repairs:
+
+- ARM64: `repair-mmdvm-spacing.sh`
+- AMD64 or i386: `repair-mmdvm-spacing-x86.sh`
+
+The separate ARMHF testing release is documented near the bottom of this page.
+
+### DVSwitch database updater repair
+
+**What it fixes:** Validates TXT database downloads before atomically replacing
+working files, preventing empty or damaged downloads from being installed.
+
+**Prerequisite:** None. This repair must be installed before
+`mod-p25-nxdn-json.sh`.
+
+```bash
+sudo ./repair-dvswitch-txt-updater.sh --check
+sudo ./repair-dvswitch-txt-updater.sh --install
+```
+
+### P25 audio-announcement repair
+
+**What it fixes:** Makes P25 remote voice announcements begin immediately and
+adds an 800 ms silent lead-in so the start of the announcement is not clipped.
+
+**Prerequisite:** ARM64 or AMD64, Internet access during the pinned source
+build, and P25Gateway version `20201105`.
+
+```bash
+sudo ./repair-p25-audio-announcement.sh --check
+sudo ./repair-p25-audio-announcement.sh --install
+```
+
+### P25 dashboard repair
+
+**What it fixes:** Allows the dashboard to recognize P25Gateway remote-command
+and static-startup reflector messages.
+
+**Prerequisite:** None. Install it before the P25/NXDN friendly-name
+modification.
+
+```bash
+sudo ./repair-p25-dashboard.sh --check
+sudo ./repair-p25-dashboard.sh --install
+```
+
+### YSF dashboard null repair
+
+**What it fixes:** Uses case-insensitive YSF room matching and prevents the
+dashboard from displaying a literal `null` instead of the linked room name.
+
+**Prerequisite:** `mod-dmr-friendly-names.sh` and a valid `YSFHosts.txt`.
+
+```bash
+sudo ./repair-ysf-dashboard-null.sh --check
+sudo ./repair-ysf-dashboard-null.sh --install
+```
+
+---
+
+## ✨ Optional modifications
+
+These features are included by `--install all`, or they can be installed
+individually in the order shown below.
+
+### 1. P25 and NXDN JSON databases
+
+**What it adds:** Validated P25 and NXDN JSON downloads for dashboard-friendly
+reflector information.
+
+**Required first:** `repair-dvswitch-txt-updater.sh`.
+
+```bash
+sudo ./mod-p25-nxdn-json.sh --check
+sudo ./mod-p25-nxdn-json.sh --install
+```
+
+### 2. P25 and NXDN friendly names
+
+**What it adds:** P25 and NXDN reflector names with sponsor and numeric
+fallbacks on the dashboard.
+
+**Required first:** `repair-p25-dashboard.sh`, `mod-p25-nxdn-json.sh`, and valid
+P25/NXDN JSON files.
+
+The structural check recognizes the recoverable state where the friendly-name
+helper is already in `functions.php` but a whole-file rollback removed the two
+`status.php` wrappers. It restores only those wrappers and leaves the helper and
+other dashboard changes untouched. Other incomplete or ambiguous states are
+reported as errors and are not modified.
+
+```bash
+sudo ./mod-p25-nxdn-friendly-names.sh --check
+sudo ./mod-p25-nxdn-friendly-names.sh --install
+```
+
+### 3. D-Star Tx TG/Ref display
+
+**What it adds:** D-Star transmit talkgroup/reference information and the
+reflector module on the dashboard.
+
+**Required first:** `mod-p25-nxdn-friendly-names.sh`.
+
+```bash
+sudo ./mod-dstar-tx-ref.sh --check
+sudo ./mod-dstar-tx-ref.sh --install
+```
+
+### 4. DMR friendly names
+
+**What it adds:** DMR BM/TGIF Master headings and BrandMeister/TGIF talkgroup
+names with long-name wrapping. This is display-only; it does not add buttons,
+mode switching, network switching, presets, privileged helpers, or saved network
+state. Blank BrandMeister names
+and valid reflector entries are accepted because they are normal records in
+the published list; unnamed entries simply have no friendly name to display.
+
+**Required first:** `mod-dstar-tx-ref.sh` and valid BrandMeister and TGIF lists.
+
+```bash
+sudo ./mod-dmr-friendly-names.sh --check
+sudo ./mod-dmr-friendly-names.sh --install
+```
+
+After this modification, install the YSF dashboard null repair described in
+the Repairs section.
+
+### 5. Worldwide DMR/FCC names
+
+**What it adds:** A Name column to Gateway Activity, a clickable `---` entry
+prompt, and a legend popup that shows where manual names are stored. DVSwitch's
+worldwide `DMRIds.dat` supplies the complete meaningful name or description,
+including international operators and entries such as club names. Blank,
+placeholder, conflicting, or malformed DMR names fall back to the FCC first-name
+database; active FCC club or organization licenses without a personal first name
+use the FCC entity name as their fallback. `---` is shown only when neither source
+supplies usable data. The mod also
+installs a self-contained weekly FCC database updater and randomized systemd
+timer.
+
+If no usable FCC/DMR name is available, the dashboard checks the custom
+description file and then the operator-name file. Custom descriptions are
+stored at `/etc/dvswitch-mods/callsign-descriptions.tsv`; operator names are
+stored at `/etc/dvswitch-mods/callsign-lookup.tsv` and marked with `*`. Lookup
+order is FCC/DMR data, custom descriptions, manual operator names, then the
+CTY.DAT country fallback. FCC/DMR data and custom descriptions therefore
+supersede a manual operator name. The `---` marker is clickable; choose `1` to
+save an operator name or `2` to save a custom description. The prompt names the
+destination file, and entries are saved locally without querying QRZ, QRZCQ, or
+another service. The legend also says that `---` can be clicked. During
+installation, the installer downloads and
+validates CTY.DAT when no valid copy is present, so the first install is ready
+without a separate updater command. The weekly updater refreshes CTY.DAT and
+keeps the previous file if a later refresh fails. The country line is omitted
+only when no country matches.
+
+Lookup input is normalized only for the private database lookup: surrounding or
+internal spaces and trailing Unicode replacement characters are removed, and
+standard `/suffix` or `-suffix` forms are reduced to the base callsign. The
+original transmitted callsign remains unchanged on the dashboard. This handles
+values such as `WD1V ��` without converting international suffixes into FCC data.
+
+**Required first:** Independent of the P25/NXDN/DMR chain, but install it before
+the dashboard Target display modification. Internet access is required for the
+initial FCC database build and CTY.DAT download.
+On a stock DVSwitch install, Local Activity has no legend yet. The FCC installer
+creates the legend at the stock Local Activity ending. The later Target
+modification preserves it without adding a duplicate.
+
+```bash
+sudo ./mod-dashboard-fcc-first-names.sh --check
+sudo ./mod-dashboard-fcc-first-names.sh --install
+```
+
+The installer adds missing starter custom-description entries from
+`data/callsign-descriptions.tsv` to
+`/etc/dvswitch-mods/callsign-descriptions.tsv`. Edit the installed file to add
+exact identifiers in `CALLSIGN = DESCRIPTION` format, with spaces around `=`.
+One identifier goes on each line. Existing tab-separated entries remain
+supported. The installer preserves existing rows and values, including when a
+starter row uses the same identifier, and appends only identifiers not already
+present. `--check` reports how many starter descriptions are missing without
+changing the file; re-running installation does not add duplicates. Lookup
+order is FCC/DMR name, custom description, manual operator name, then CTY.DAT
+country fallback. Upgrades preserve the installed file and its edits; the file
+is also retained on uninstall. Custom identifiers may contain internal
+hyphens; for example, use `AL-LINK = Alabama Link` when the dashboard displays
+`AL-LINK`. The custom-description prompt keeps that exact identifier.
+
+Starter entries currently include `9998`, `9999`, `MMDVM`, and `N0CALL`
+(announcements), `H4MLNK` (YSF Link), `EC0LINK` (EchoLink), `XLX618`,
+`SRVPROBA`, `SRVPROBB`, and `AMERICALNK`.
+
+Manual operator names are stored in `/etc/dvswitch-mods/callsign-lookup.tsv` as
+`CALLSIGN = NAME`, one entry per line. The installer adds any missing entries
+from `data/callsign-lookup.tsv` without replacing the existing file or its
+contents. Existing callsign entries always keep their current value when a
+starter row has the same callsign. Re-running the installer adds no duplicates;
+`--check` reports how many starter entries are still missing without changing
+the file and whether existing rows are in alphabetical order. Installation
+sorts callsign rows alphabetically while keeping each name with its callsign;
+new manual entries are saved in the same order. Header comments and unrecognized
+lines are retained at the top of the file. Hover over or keyboard-focus **file location** in the dashboard
+legend to display the full path. Both user files are retained during upgrades
+and uninstall so their entries can be reviewed or reused.
+
+Manual FCC update:
+
+```bash
+sudo ./mod-dashboard-fcc-first-names.sh --update
+```
+
+### 6. Cleaner dashboard targets
+
+**What it adds:** Row-specific friendly talkgroup and reflector names, D-Star
+routes, and a compact legend with separation from the Local Activity grid.
+Talkgroup modes display friendly names followed by `(TG ###)`. Reflector or
+room modes display the friendly name followed by `(TG ###)`. YSF room
+references are resolved from the YSFGateway link history using each activity
+row's timestamp and then matched against `YSFHosts.txt`, so historical rows
+retain the room that was active when the reception occurred. YSF Group Call
+and GPS/Data activity therefore display the resolved room name instead of a
+generic activity label. D-Star `CQCQCQ via REF030 C` rows display as `REF030 C`
+without a redundant `(Ref 030)` suffix; a bare `CQCQCQ` remains `General Call`.
+If no friendly DMR talkgroup name is available, the target displays as `TG ###`
+without repeating the same number in parentheses. For D-Star rows with a bare
+`CQCQCQ` target, the reflector is resolved from ircDDBGateway link history at
+the activity event time, so older rows keep the reflector linked when they
+were received. Rows with no linked reflector remain `General Call`.
+The target checker also recognizes the separate STFU activity component's
+BrandMeister-name wrapper, so rerunning or upgrading `dashboard-targets` keeps
+both components working together.
+
+**Required first:** `mod-dashboard-fcc-first-names.sh`; valid P25/NXDN JSON and
+BrandMeister/TGIF lists provide the friendly names.
+
+```bash
+sudo ./mod-dashboard-targets.sh --check
+sudo ./mod-dashboard-targets.sh --install
+```
+
+### 7. Activity mode labels
+
+**What it adds:** Gateway Activity labels MMDVM_Bridge DMR rows as **BM** or
+**TGIF**, based on the bridge network active when each event was logged.
+Selecting STFU does not change that label: STFU is separate from the BM/TGIF
+DMR network setting. STFU activity continues to come from the STFU log and is
+shown as STFU. Earlier rows keep their labels after a network change. Local
+Activity and non-DMR protocols are unchanged. The component watches the
+MMDVM_Bridge network configuration. When DVSwitch-Mode-Buttons is installed,
+its mode-state file also triggers a bridge-network check; the selected mode is
+never used as the DMR network label. BM/TGIF tracking works without Mode Buttons.
+
+This is a standalone modification and is also included in the standard
+`manage-dvswitch-mods.sh` installation. Its entry point remains
+`mod-dashboard-activity-modes.sh`.
+
+```bash
+sudo ./mod-dashboard-activity-modes.sh --check
+sudo ./mod-dashboard-activity-modes.sh --install
+```
+
+### 8. Hostname-prefixed dashboard title
+
+**What it adds:** The detected system hostname before the existing dashboard
+heading and browser-tab title. For example, a host named `pi4test` displays
+`pi4test DVSwitch Dashboard` in both places. The hostname is generated by PHP
+when the page is rendered, so the same installed modification displays the
+current name on each node without being rerun after a hostname change.
+
+This is a surgical modification to the exact `<title>DVSwitch Dashboard</title>`
+and `<h2>DVSwitch Dashboard</h2>` blocks in `index.php`. It does not modify
+dashboard layout, CSS, themes, activity tables, or Local Activity logic.
+
+```bash
+sudo ./mod-dashboard-hostname-title.sh --check
+sudo ./mod-dashboard-hostname-title.sh --install
+```
+
+### 9. Dashboard Dark Mode
+
+**What it adds:** A dashboard theme selector with **Auto**, **Light**, and
+**Dark** modes. Auto follows the browser or operating-system color preference.
+The theme is applied to the dashboard without changing DVSwitch's live status
+colors.
+When DVSwitch-Mode-Buttons supplies the standalone DMR card, the dark theme
+also recolors its `Room` label for contrast. The stylesheet supports both the
+updated semantic label and the prior installed markup during upgrades.
+
+**Required first:** None. This is a standalone dashboard overlay and is also
+available as option 3 in the manager menu. It may be run after the standard
+installation and before the display-layout installer.
+
+```bash
+sudo ./dvswitch-dark-mode.sh apply
+```
+
+### 9. STFU status cards
+
+**What it adds:** STFU and STFU Net cells to the dashboard's existing green
+Modes and Networks status strip. Both cells show green while the STFU process
+is running and red while it is stopped. The update modifies only
+`/usr/share/dvswitch/include/system.php`, validates PHP syntax, creates a
+protected backup, and writes atomically. The manager installs it at the end of
+the standard component sequence and records its backup for ordered
+uninstallation.
+
+```bash
+sudo ./mod-dashboard-stfu-status.sh --check
+sudo ./mod-dashboard-stfu-status.sh --install
+```
+
+Restore a named backup created by the standalone installer:
+
+```bash
+sudo ./mod-dashboard-stfu-status.sh --uninstall install-YYYYMMDD-HHMMSS
+```
+
+### 10. RX Monitor position
+
+**What it changes:** Moves the existing RX Monitor button from the centered
+area below the mode buttons to the left status column above the Status panel.
+It preserves the existing `RXMONITOR` configuration check and audio-toggle
+behavior, leaving the former centered position available for another dashboard
+modification. Only `index.php` is changed. The installer checks PHP syntax,
+creates a protected backup, and writes atomically. The manager installs it at
+the end of the standard component sequence and tracks named backups for
+reverse-order uninstallation when installed through the manager.
+
+```bash
+sudo ./mod-dashboard-rx-monitor-left.sh --check
+sudo ./mod-dashboard-rx-monitor-left.sh --install
+```
+
+Restore a named backup created by the standalone installer:
+
+```bash
+sudo ./mod-dashboard-rx-monitor-left.sh --uninstall install-YYYYMMDD-HHMMSS
+```
+
+The generated web assets are installed as readable Apache files with
+`root:root` ownership and mode `0644`, including on a completely fresh
+installation.
+
+Restore the latest Dark Mode run backup:
+
+```bash
+sudo ./dvswitch-dark-mode.sh restore-latest
+```
+
+Restore the protected pre-theme dashboard files:
+
+```bash
+sudo ./dvswitch-dark-mode.sh restore-original
+```
+
+### 9. Widescreen Display Layout
+
+**What it adds:** Responsive dashboard width, readable table wrapping, wider
+Gateway and Local Activity panels, and centered Hardware Info on compatible
+screens.
+
+**Required first:** None. This is a standalone dashboard layout installer and
+is also available as option 3 in the manager menu. Run it after Dark Mode when
+both are being installed together.
+
+```bash
+sudo ./dvswitch-display-layout.sh apply
+```
+
+Restore the latest layout run backup:
+
+```bash
+sudo ./dvswitch-display-layout.sh restore-latest
+```
+
+Restore the protected pre-layout dashboard files:
+
+```bash
+sudo ./dvswitch-display-layout.sh restore-original
+```
+
+---
+
+## 🧭 Complete installation order
+
+The unified manager handles this order automatically:
+
+1. MMDVM spacing repair for the detected architecture
+2. DVSwitch database updater repair
+3. P25 audio announcement repair for ARM64 or AMD64
+4. P25 dashboard repair
+5. Dashboard duration type repair
+6. P25/NXDN JSON databases
+7. P25/NXDN friendly names
+8. D-Star Tx TG/Ref display
+9. DMR friendly names
+10. YSF dashboard null repair
+11. Worldwide DMR/FCC names
+12. Dashboard target display
+13. Dashboard cell spacing and Target wrapping
+14. Hostname-prefixed dashboard title
+
+The optional standalone dashboard installers are run separately from the
+manager's recorded standard-component order:
+
+15. Dark Mode overlay
+16. Widescreen Display Layout
+
+The combined DVSwitch-Fixes-Upgrades repository keeps the Mode Buttons project
+in its own `DVSwitch-Mode-Buttons/` directory. The manager menu launches its
+installer as option 2 and launches these standalone dashboard installers as
+options 3 and 4. Their installation and backup handling remain independent.
+
+> [!NOTE]
+> Re-running `--install all` after downloading a newer repository version is
+> supported. The manager rechecks every applicable component instead of
+> relying only on its previous installation record. Component installers still
+> refuse missing, ambiguous, customized, or unsupported targets.
+
+> [!NOTE]
+> The DVSwitch database updater cannot be run more than once per hour. The
+> manager enforces this limit and reports how long remains before another
+> attempt is permitted.
+
+---
+
+## ↩️ Status, backups, and removal
+
+Option 5 in the interactive menu, or the command line, uninstalls all standard
+components installed and recorded by the manager. Review the active records
+before removing anything:
+
+```bash
+sudo ./manage-dvswitch-mods.sh --status
+```
+
+To start the same reverse-order uninstall from the menu, run
+`sudo ./manage-dvswitch-mods.sh` and choose option 5.
+
+On a test node, remove all manager-recorded standard components with:
+
+```bash
+sudo ./manage-dvswitch-mods.sh --uninstall all
+sudo ./manage-dvswitch-mods.sh --status
+```
+
+The manager restores each component from its protected backup in strict reverse
+installation order. A successful run ends with
+`PASS: all manager-recorded installations were uninstalled in reverse order.`
+The follow-up `--status` should report that there are no active manager-recorded
+installations. If a restore fails or its backup is unavailable, the manager
+stops and retains that component's active record so the problem can be reviewed.
+Dashboard cell-padding preserves each file's existing line-ending style. The
+Target restore guard also accepts a verified file when only its LF/CRLF style
+differs; it still stops on any content difference.
+If an FCC upgrade backup does not contain `lh.php`, its uninstaller checks older
+FCC backups and uses one only when its pre-FCC snapshot reproduces the current
+file exactly after applying the FCC patch. If no matching baseline is available,
+it stops without changing FCC files or removing that active record.
+
+This removes only standard components recorded by the manager. It does not
+uninstall DVSwitch itself, the separate DVSwitch Mode Buttons repository, or
+the standalone Dark Mode and Widescreen Display Layout changes. Those two
+standalone installers have their own restore commands below.
+
+The status file records the currently active reversible backup for each
+component. An upgrade replaces that component's active record with the new
+backup; older backup directories are retained for manual recovery.
+
+To remove one component, first run `--status` and use the last (newest) active
+record shown there. For example, replace `COMPONENT` with that component's exact
+name:
+
+```bash
+sudo ./manage-dvswitch-mods.sh --uninstall COMPONENT
+```
+
+Because several components can edit the same dashboard files, an individual
+component can be removed only when it is the newest active record. If another
+component must be removed first, the manager reports which one; use
+`--uninstall all` to let it safely unwind the complete recorded stack.
+
+Protected backups are stored under:
+
+```text
+/var/backups/dvswitch-mods/
+```
+
+Individual scripts can restore their named `install-YYYYMMDD-HHMMSS` backup. Dashboard
+restore actions that use whole-file snapshots first verify that the current file
+contains only the mod's known edits; they stop if another mod changed the file:
+
+```bash
+sudo ./SCRIPT_NAME.sh --restore install-YYYYMMDD-HHMMSS
+```
+
+<details>
+<summary><strong>DVSwitch was uninstalled and reinstalled</strong></summary>
+
+Before changing anything, the manager confirms that every active record still
+has its protected backup. If old manager records remain after DVSwitch and its
+backups were removed, installation stops safely.
+
+After intentionally reinstalling DVSwitch, archive and clear only the stale
+active records with:
+
+```bash
+sudo ./manage-dvswitch-mods.sh --reset-after-reinstall
+```
+
+The command does not change DVSwitch or delete backups. It refuses to reset
+records while every recorded backup remains available.
+
+</details>
+
+<details>
+<summary><strong>FCC updater management</strong></summary>
+
+The weekly updater remains functional even if the repository is removed.
+
+Run it manually:
+
+```bash
+sudo /usr/local/sbin/dvswitch-fcc-first-names-update
+```
+
+Remove only the automatic updater while preserving the dashboard modification
+and database:
+
+```bash
+sudo ./mod-dashboard-fcc-first-names.sh --remove-updater
+```
+
+Completely remove the modification, database, and updater using the original
+installation backup:
+
+```bash
+sudo ./mod-dashboard-fcc-first-names.sh --uninstall install-YYYYMMDD-HHMMSS
+```
+
+Inspect the schedule and recent log:
+
+```bash
+systemctl list-timers dvswitch-fcc-first-names-update.timer
+sudo journalctl -u dvswitch-fcc-first-names-update.service -n 100 --no-pager
+```
+
+</details>
+
+---
+
+## 🧪 Supported systems and ARMHF testing
+
+Completed testing includes:
+
+- Raspberry Pi 4 with Debian 12 Bookworm ARM64
+- Raspberry Pi 5 with Debian 13 Trixie ARM64
+- Dell Wyse 3040 with Debian 13 Trixie AMD64
+- Exact i386 MMDVM build on a compatible x86 host
+
+`repair-mmdvm-spacing-armhf.sh` is a testing release for one exact 32-bit ARM
+hard-float MMDVM_Bridge build. Its offline candidate and safety tests passed,
+but it still requires live P25 and YSF testing on an ARMHF DVSwitch node.
+
+```bash
+sudo ./repair-mmdvm-spacing-armhf.sh --check
+sudo ./repair-mmdvm-spacing-armhf.sh --install
+```
+
+> [!CAUTION]
+> For the normal installation, do not run the individual MMDVM spacing repair
+> scripts yourself. Run:
+>
+> ```bash
+> sudo ./manage-mmdvm-spacing.sh --check
+> sudo ./manage-mmdvm-spacing.sh --install
+> ```
+>
+> The manager automatically selects the correct repair for your system. The
+> individual ARM64, AMD64/i386, and ARMHF scripts are provided only for
+> advanced testing or troubleshooting.
+
+---
+
+## 🛡️ Safety rules
+
+- Test on a non-production system first.
+- Always run `--check` before `--install`.
+- Never bypass an unsupported-version error. The FCC updater checks installed
+  scripts structurally and validates the resulting FCC database; it does not
+  require release-pinned SHA checksums. MMDVM binary repairs retain their
+  build-specific SHA-256 identification because they patch compiled executables.
+- Never copy a patched executable or complete upstream file between systems.
+- Keep the protected backup until the installation has been fully tested.
+- These scripts are not affiliated with or endorsed by the DVSwitch project.
+
+<details>
+<summary><strong>If an MMDVM repair rejects the installed binary</strong></summary>
+
+Do not force the existing patch. Start a new ChatGPT session, attach a current
+ZIP of this repository and a copy of the rejected, unmodified
+`/opt/MMDVM_Bridge/MMDVM_Bridge`, and ask:
+
+> My DVSwitch MMDVM_Bridge spacing repair rejected this exact binary. Analyze
+> the attached unmodified binary and repository without changing my live
+> system. Determine its architecture, SHA256, size, GNU Build ID, ELF load
+> segments, exact P25 and YSF format strings, every code or literal reference
+> to those strings, and verified unused mapped or extendable padding. The
+> required results are `TalkGroup 10200` and `LinkYSF 44444`; do not treat
+> disconnect value 0 as the defect. Create or update a separate hash-specific
+> repair only if every offset and reference can be proved. Preserve file size,
+> owner, group, mode, atomic installation, protected backup, automatic
+> rollback, named restore, `--check`, `--install`, and idempotency. Do not
+> modify completed repairs for other architectures. Mark a new build Testing
+> until live `strace` and gateway-log results prove both modes. Give me one
+> copy-and-paste command at a time, beginning with read-only checks.
+
+Also provide the complete output from:
+
+```bash
+cd ~/DVSwitch-Mods && printf '=== REVISION ===\n' && git status --short --branch && git log -1 --oneline --decorate && printf '\n=== SYSTEM ===\n' && uname -a && dpkg --print-architecture && printf '\n=== BINARY ===\n' && sudo sha256sum /opt/MMDVM_Bridge/MMDVM_Bridge && sudo stat -c 'SIZE=%s OWNER=%U:%G MODE=%a' /opt/MMDVM_Bridge/MMDVM_Bridge && sudo file /opt/MMDVM_Bridge/MMDVM_Bridge && sudo readelf -n /opt/MMDVM_Bridge/MMDVM_Bridge | grep -A1 'Build ID' && sudo readelf -lW /opt/MMDVM_Bridge/MMDVM_Bridge && printf '\n=== PACKAGE ===\n' && dpkg-query -W -f='${binary:Package} ${Version} ${Architecture}\n' mmdvm-bridge 2>&1 && apt-cache policy mmdvm-bridge && printf '\n=== REPAIR CHECK ===\n' && sudo ./REPAIR_SCRIPT_NAME.sh --check; printf '\n=== SERVICES ===\n'; systemctl is-active mmdvm_bridge.service ysfgateway.service p25gateway.service
+```
+
+Replace `REPAIR_SCRIPT_NAME.sh` with the repair that rejected the binary.
+After a test-node installation, capture the exact UDP sends with `strace` and
+the new P25Gateway and YSFGateway log entries before marking it completed.
+
+</details>
+
+---
+
+## 📁 Repository contents
+
+- Top-level `.sh` files are the public repair, modification, and manager tools.
+- `lib/` contains narrowly scoped patchers and transaction helpers.
+- `systemd/` contains the FCC updater service and timer.
+- `tests/` contains compatibility and safety tests.
+- `LICENSE` covers repository-authored code.
+- `THIRD_PARTY_NOTICES.md` describes upstream ownership and license boundaries.
+
+---
+
+## 📡 What this repository was tested on
+
+Tested on Debian 12 Bookworm and ASL 3 with a fresh install of DVSwitch via their Bookworm install.<br>
+Hardware Raspberry Pi 4.
+
+```bash
+wget dvswitch.org/bookworm && chmod +x bookworm && sudo ./bookworm && sudo apt update && sudo apt install dvswitch-server
+```
+
+Tested on Debian 13 Trixie and ASL 3 with a fresh install of DVSwitch via their Trixie install.<br>
+Hardware Raspberry Pi 5.
+
+```bash
+wget dvswitch.org/trixie && chmod +x trixie && sudo ./trixie && sudo apt update && sudo apt install dvswitch-server
+```
+
+Tested on Debian 13 Trixie and ASL 3 with a fresh install of DVSwitch via their Trixie install.<br>
+Hardware x86-64 (amd64 / 64-bit x86) computer architecture (Dell Wyse 3040).
+
+```bash
+wget dvswitch.org/trixie && chmod +x trixie && sudo ./trixie && sudo apt update && sudo apt install dvswitch-server
+```
+
+To get the configuration menu for dvswitch:
+
+cd /usr/local/dvs
+
+./dvs
+
+---
+
+## 📜 License
+
+Repository-authored code is licensed under the MIT License. See `LICENSE` and
+`THIRD_PARTY_NOTICES.md`.
+
+---
+
+<div align="center">
+
+### DVSwitch default looking Dashboard after being freshly installed
+
+<img width="1600" height="900" alt="Screenshot 2026-09-10 203809" src="https://github.com/user-attachments/assets/615d83c7-a08d-43db-9f36-a443e6f1dc83" />
+
+### DVSwitch Dashboard with the optional modifications installed
+
+<img width="1600" height="900" alt="Screenshot 2026-09-10 220525" src="https://github.com/user-attachments/assets/162d7b7a-5127-4459-87c3-86a8c4ce88cc" />
+
+<img width="1600" height="900" alt="Screenshot 2026-09-10 220512" src="https://github.com/user-attachments/assets/cb79a14d-e21f-4c3c-aed8-e4cef28ae65b" />
+
+<img width="1200" alt="DVSwitch Dashboard" src="https://github.com/user-attachments/assets/1b9a319b-c6e2-49b7-a001-5e3519560408" />
+
+</div>

@@ -1,0 +1,312 @@
+{
+  "BM": [
+    {
+      "name": "NORTH-AMERICA",
+      "target": "93"
+    },
+    {
+      "name": "WORLD-WIDE",
+      "target": "91"
+    }
+  ],
+  "DSTAR": [
+    {
+      "name": "REF014 A",
+      "target": "REF014AL"
+    },
+    {
+      "name": "REF024 C",
+      "target": "REF024CL"
+    },
+    {
+      "name": "REF030 C",
+      "target": "REF030CL"
+    },
+    {
+      "name": "REF090 C",
+      "target": "REF090CL"
+    },
+    {
+      "name": "XLX618 B",
+      "target": "XLX618BL"
+    }
+  ],
+  "NXDN": [
+    {
+      "name": "Alabama Link",
+      "target": "31010"
+    },
+    {
+      "name": "ChatterBOX 2350",
+      "target": "2350"
+    },
+    {
+      "name": "CQ-UK WORLDWIDE",
+      "target": "10922"
+    },
+    {
+      "name": "Disconnect",
+      "target": "9999"
+    },
+    {
+      "name": "KCWide NXDN",
+      "target": "31313"
+    },
+    {
+      "name": "MultiMode",
+      "target": "24706"
+    },
+    {
+      "name": "NET TALK NXDN",
+      "target": "33581"
+    },
+    {
+      "name": "Netoholics Network",
+      "target": "6749"
+    },
+    {
+      "name": "North America Tach",
+      "target": "10201"
+    },
+    {
+      "name": "NXDN North America",
+      "target": "10200"
+    },
+    {
+      "name": "NXDN TECH LINK",
+      "target": "58734"
+    },
+    {
+      "name": "Pacific NXDN 10400",
+      "target": "10400"
+    },
+    {
+      "name": "Pi-Star Multi-Mode Reflector",
+      "target": "31672"
+    },
+    {
+      "name": "SW Florida NXDN Reflector",
+      "target": "239"
+    },
+    {
+      "name": "TEXAS-MRN NXDN",
+      "target": "65123"
+    },
+    {
+      "name": "WMRA MULTIMODE NETWORK",
+      "target": "7941"
+    },
+    {
+      "name": "World Wide",
+      "target": "65000"
+    },
+    {
+      "name": "World Wide",
+      "target": "91"
+    },
+    {
+      "name": "World Wide Chat",
+      "target": "31226"
+    },
+    {
+      "name": "WPSD Chat",
+      "target": "493"
+    },
+    {
+      "name": "Wyre Forest NXDN Link",
+      "target": "56429"
+    }
+  ],
+  "P25": [
+    {
+      "name": "America's Kansas City Wide Digital Network",
+      "target": "31313"
+    },
+    {
+      "name": "P25 North America",
+      "target": "10200"
+    }
+  ],
+  "STFU": [
+    {
+      "name": "Disconnect",
+      "target": "4000"
+    },
+    {
+      "name": "NORTH-AMERICA",
+      "target": "93"
+    },
+    {
+      "name": "NorthEast MS",
+      "target": "31285"
+    },
+    {
+      "name": "USA-BRIDGE",
+      "target": "3100"
+    },
+    {
+      "name": "W2NJR",
+      "target": "313333"
+    },
+    {
+      "name": "WORLD-WIDE",
+      "target": "91"
+    }
+  ],
+  "TGIF": [
+    {
+      "name": "America Link",
+      "target": "31656"
+    },
+    {
+      "name": "Dmr fir Dummies",
+      "target": "47503"
+    },
+    {
+      "name": "Drink Beer Get Drunk Talk DMR",
+      "target": "125"
+    },
+    {
+      "name": "Freedom",
+      "target": "51598"
+    },
+    {
+      "name": "MUDDUCKS",
+      "target": "314255"
+    },
+    {
+      "name": "TGIF The Mothership",
+      "target": "31665"
+    }
+  ],
+  "YSF": [
+    {
+      "name": "AR-RadioHUB",
+      "target": "00128"
+    },
+    {
+      "name": "AU-M17 Project",
+      "target": "09517"
+    },
+    {
+      "name": "ES-HAMRADIODX",
+      "target": "21466"
+    },
+    {
+      "name": "GB-CQ-UK",
+      "target": "00009"
+    },
+    {
+      "name": "GB-CQ-WORLD",
+      "target": "00013"
+    },
+    {
+      "name": "GB-FreeDMR 907",
+      "target": "00907"
+    },
+    {
+      "name": "GB-FreeDMR 91",
+      "target": "00091"
+    },
+    {
+      "name": "GB-Sussex Chat",
+      "target": "00555"
+    },
+    {
+      "name": "GB-YorkshireUK",
+      "target": "00026"
+    },
+    {
+      "name": "JP-JAPANLINK",
+      "target": "00021"
+    },
+    {
+      "name": "NL-NLCENTRAL",
+      "target": "00020"
+    },
+    {
+      "name": "US-America Link",
+      "target": "32592"
+    },
+    {
+      "name": "US-Arkansas NW",
+      "target": "00479"
+    },
+    {
+      "name": "US-BayArea-YSF",
+      "target": "00043"
+    },
+    {
+      "name": "US-DigitalAmeric",
+      "target": "10176"
+    },
+    {
+      "name": "US-ECR",
+      "target": "44444"
+    },
+    {
+      "name": "US-Freedom Link",
+      "target": "00871"
+    },
+    {
+      "name": "US-Hang Out",
+      "target": "10001"
+    },
+    {
+      "name": "US-Kansas-City",
+      "target": "12479"
+    },
+    {
+      "name": "US-KCWide",
+      "target": "32453"
+    },
+    {
+      "name": "US-LiveFreeOrDie",
+      "target": "17771"
+    },
+    {
+      "name": "US-MIAMI-QB",
+      "target": "00529"
+    },
+    {
+      "name": "US-Netoholics",
+      "target": "67498"
+    },
+    {
+      "name": "US-NYC-LINK",
+      "target": "00212"
+    },
+    {
+      "name": "US-SouthCarolina",
+      "target": "03145"
+    },
+    {
+      "name": "US-US Alabama",
+      "target": "11198"
+    },
+    {
+      "name": "US-USAF Cop Shop",
+      "target": "10000"
+    },
+    {
+      "name": "XX-Alabama Link",
+      "target": "02034"
+    },
+    {
+      "name": "XX-EUROPELINK",
+      "target": "00007"
+    },
+    {
+      "name": "XX-HUBNet",
+      "target": "00019"
+    },
+    {
+      "name": "XX-World Wide Ch",
+      "target": "13908"
+    },
+    {
+      "name": "XX-WORLDLINK",
+      "target": "00008"
+    }
+  ]
+}

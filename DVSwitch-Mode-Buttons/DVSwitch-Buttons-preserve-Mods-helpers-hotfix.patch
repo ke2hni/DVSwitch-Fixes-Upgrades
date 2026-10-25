@@ -1,0 +1,49 @@
+--- a/dvswitch-mode-buttons.sh
++++ b/dvswitch-mode-buttons.sh
+@@ -158,8 +158,8 @@
+     )
+     stripped_helpers, removed = function_pattern.subn("", helper_region)
+     stripped_helpers = STATUS_MARKER.sub("", stripped_helpers, count=1)
+-    if removed < len(required_helpers) or stripped_helpers.strip():
+-        raise UnsafeStructure("status.php Buttons helper area contains unrecognized code; left unchanged")
++    if removed < len(required_helpers) or re.search(r"\bdvsButtonsDmr[A-Za-z0-9_]*\s*\(", stripped_helpers):
++        raise UnsafeStructure("status.php contains incomplete or unrecognized Buttons helper code; left unchanged")
+ 
+     mods_helpers = (
+         text.count("function dvsModsDmrMasterHeading(") == 1
+@@ -172,10 +172,9 @@
+ 
+     result = text.replace(BUTTONS_HEADING, heading_replacement, 1)
+     result = result.replace(BUTTONS_OUTPUT, output_replacement, 1)
+-    # The installer inserts helper code between the third include and PHP close
+-    # tag. Retain one blank separator after removing it, matching the stock
+-    # dashboard prelude without restoring a whole-file snapshot.
+-    result = result[:marker.start()] + "\n" + result[close_tag:]
++    # Remove only the Buttons marker and helper functions. Keep adjacent
++    # helpers owned by DVSwitch-Mods or local dashboard customizations intact.
++    result = result[:marker.start()] + stripped_helpers + result[close_tag:]
+     return result, result != text
+ 
+ 
+--- a/test-uninstall-shared-edits.py
++++ b/test-uninstall-shared-edits.py
+@@ -44,9 +44,9 @@
+         + PATCH.STATUS_MARKER.pattern.replace("^", "").replace("$", "").replace("[1-5]", "5")
+         + "\n"
+         + helper
+-        + "?>\n"
+         + "// DVSwitch-Mods: P25/NXDN friendly names remain present\n"
+         + mods
++        + "?>\n"
+         + PATCH.BUTTONS_HEADING
+         + "\n"
+         + PATCH.BUTTONS_OUTPUT
+@@ -73,6 +73,8 @@
+         self.assertNotIn("standalone DMR Master display v5", cleaned)
+         self.assertNotIn("dvsButtonsDmrMasterHeading(", cleaned)
+         self.assertIn("DVSwitch-Mods: P25/NXDN friendly names remain present", cleaned)
++        self.assertIn("function dvsModsDmrMasterHeading(", cleaned)
++        self.assertIn("function dvsModsDmrMasterDisplay(", cleaned)
+         self.assertIn(PATCH.MODS_HEADING, cleaned)
+         self.assertIn(PATCH.MODS_OUTPUT, cleaned)
+         self.assertEqual(PATCH.patch_status(cleaned), (cleaned, False))

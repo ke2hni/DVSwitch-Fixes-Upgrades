@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+
+"""Track and undo only responsive layout edits made by Mode Buttons."""
+
+from __future__ import annotations
+
+import json
+import os
+import stat
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path('/usr/share/dvswitch')
+PAIRS = {
+    ROOT / 'index.php': [
+        ('<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">',
+         '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">'),
+    ],
+    ROOT / 'css/css.php': [
+        ('width: 900px;', 'width: min(96vw, 1200px);'),
+        ('white-space: nowrap;', 'white-space: normal;'),
+    ],
+    ROOT / 'include/lh.php': [('width:640px;', 'width:min(95%,1400px);')],
+    ROOT / 'include/localtx.php': [('width:640px;', 'width:min(95%,1400px);')],
+    ROOT / 'include/system.php': [
+        ('width:855px', 'width:min(95%,1400px)'),
+        ('margin-left:6px;margin-right:0px', 'margin-left:auto;margin-right:auto'),
+    ],
+}
+
+
+def atomic_write(path: Path, data: bytes, original: os.stat_result) -> None:
+    fd, temporary = tempfile.mkstemp(prefix='.' + path.name + '.layout-state.', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+        os.chown(temporary, original.st_uid, original.st_gid)
+        os.chmod(temporary, stat.S_IMODE(original.st_mode))
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def capture(state_path: Path) -> None:
+    if state_path.exists():
+        if state_path.is_symlink() or not state_path.is_file():
+            raise ValueError(f'unsafe state file: {state_path}')
+        return
+    operations = []
+    for path, replacements in PAIRS.items():
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f'unsafe or missing dashboard file: {path}')
+        data = path.read_bytes()
+        for old, new in replacements:
+            count = data.count(old.encode())
+            if count:
+                operations.append({'path': str(path), 'old': old, 'new': new, 'count': count})
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    content = (json.dumps({'format': 1, 'operations': operations}, indent=2) + '\n').encode()
+    atomic_write(state_path, content, os.stat(state_path.parent))
+    os.chmod(state_path, 0o600)
+
+
+def restore(state_path: Path) -> None:
+    if not state_path.exists():
+        print('PASS: no Buttons-owned display-layout changes were recorded.')
+        return
+    if state_path.is_symlink() or not state_path.is_file():
+        raise ValueError(f'unsafe state file: {state_path}')
+    state = json.loads(state_path.read_text(encoding='utf-8'))
+    if state.get('format') != 1 or not isinstance(state.get('operations'), list):
+        raise ValueError('unsupported layout-state format')
+    allowed = {str(path) for path in PAIRS}
+    contents: dict[Path, bytes] = {}
+    stats: dict[Path, os.stat_result] = {}
+    for operation in state['operations']:
+        path = Path(operation['path'])
+        old, new, count = operation['old'].encode(), operation['new'].encode(), operation['count']
+        if str(path) not in allowed or not isinstance(count, int) or count < 1:
+            raise ValueError('invalid layout-state operation')
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f'unsafe or missing dashboard file: {path}')
+        if path not in contents:
+            contents[path] = path.read_bytes()
+            stats[path] = path.stat()
+        if contents[path].count(new) < count:
+            raise ValueError(f'owned layout text changed or is missing in {path}')
+    for operation in state['operations']:
+        path = Path(operation['path'])
+        contents[path] = contents[path].replace(
+            operation['new'].encode(), operation['old'].encode(), operation['count']
+        )
+    staged: dict[Path, str] = {}
+    try:
+        for path, data in contents.items():
+            fd, temporary = tempfile.mkstemp(prefix='.' + path.name + '.layout-restore.', dir=path.parent)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(data)
+            os.chown(temporary, stats[path].st_uid, stats[path].st_gid)
+            os.chmod(temporary, stat.S_IMODE(stats[path].st_mode))
+            staged[path] = temporary
+        for path, temporary in staged.items():
+            os.replace(temporary, path)
+    finally:
+        for temporary in staged.values():
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+    state_path.unlink()
+    print('PASS: reverted only the display-layout substitutions owned by DVSwitch Mode Buttons.')
+
+
+def check_restore(state_path: Path) -> None:
+    if not state_path.exists():
+        print('PASS: no Buttons-owned display-layout changes need rollback.')
+        return
+    if state_path.is_symlink() or not state_path.is_file():
+        raise ValueError(f'unsafe state file: {state_path}')
+    state = json.loads(state_path.read_text(encoding='utf-8'))
+    if state.get('format') != 1 or not isinstance(state.get('operations'), list):
+        raise ValueError('unsupported layout-state format')
+    allowed = {str(path) for path in PAIRS}
+    contents: dict[Path, bytes] = {}
+    for operation in state['operations']:
+        path = Path(operation['path'])
+        count = operation['count']
+        new = operation['new'].encode()
+        if str(path) not in allowed or not isinstance(count, int) or count < 1:
+            raise ValueError('invalid layout-state operation')
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f'unsafe or missing dashboard file: {path}')
+        if path not in contents:
+            contents[path] = path.read_bytes()
+        if contents[path].count(new) < count:
+            raise ValueError(f'owned layout text changed or is missing in {path}')
+    print('PASS: recorded display-layout changes are safe to roll back.')
+
+
+def main() -> None:
+    if os.geteuid() != 0:
+        raise SystemExit('ERROR: run with sudo.')
+    if len(sys.argv) != 3 or sys.argv[1] not in ('capture', 'check-restore', 'restore'):
+        raise SystemExit(f'Usage: {sys.argv[0]} {{capture|check-restore|restore}} STATE-FILE')
+    state_path = Path(sys.argv[2])
+    {'capture': capture, 'check-restore': check_restore, 'restore': restore}[sys.argv[1]](state_path)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise SystemExit(f'ERROR: {error}')

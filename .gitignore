@@ -1,0 +1,28 @@
+# DVSwitch executables, packages, credentials, and runtime data
+MMDVM_Bridge*
+Analog_Bridge*
+P25Gateway*
+NXDNGateway*
+YSFGateway*
+*.deb
+*.rpm
+*.ini
+*.conf
+.env
+.env.*
+credentials*
+secrets*
+__pycache__/
+*.pyc
+*.log
+*.bak
+*.backup
+*.orig
+*.rej
+*~
+
+# Temporary test fixtures
+.fcc-*-test-*
+.fcc-uninstall-*
+.dvsm-*-test-*
+.dvsm-manager-check-*

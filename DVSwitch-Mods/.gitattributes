@@ -1,0 +1,5 @@
+# Version: 1.0.0
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf

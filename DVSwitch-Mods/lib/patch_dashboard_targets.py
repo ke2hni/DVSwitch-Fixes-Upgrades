@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+# Version: 1.0.0
+# SPDX-License-Identifier: MIT
+
+"""Surgically add the cleaned Target display to DVSwitch activity tables."""
+
+from __future__ import annotations
+
+import argparse
+import re
+from pathlib import Path
+
+LEGACY_MARKER = "// DVSwitch-Mods: cleaned activity Target display v2"
+OLDER_LEGACY_MARKER = "// DVSwitch-Mods: cleaned activity Target display v1"
+MARKER = "// DVSwitch-Mods: cleaned activity Target display v3"
+INCLUDE = "include_once dirname(dirname(__FILE__)).'/include/dvswitch_mods_target_display.php';"
+LEGEND = '''<div style="margin:3px 0 0 14px;font-size:10px;line-height:1.3;text-align:left;white-space:normal;overflow-wrap:anywhere;">
+  <b>Legend:</b><br>
+  <b>---</b> = No name found in the local DMR ID or FCC data; country shown when available. Click --- to add an entry.
+</div>
+'''
+LEGACY_LEGENDS = (
+    '''<div style="margin:3px auto 0 auto;font-size:10px;line-height:1.3;text-align:left;white-space:normal;overflow-wrap:anywhere;">
+  <b>Legend:</b><br>
+  <b>---</b> = No name found in the local DMR ID or FCC data; country shown when available. Click --- to add an entry.
+</div>
+''',
+    '''<div style="margin:3px auto 0 auto;font-size:10px;line-height:1.3;text-align:left;white-space:normal;overflow-wrap:anywhere;">
+  <b>Legend:</b> <b>---</b> = no usable worldwide DMR or FCC name data available
+</div>
+''',
+    '''<div style="margin:3px auto 0 auto;font-size:10px;line-height:1.3;text-align:left;white-space:normal;overflow-wrap:anywhere;">
+  <b>Legend:</b> <b>---</b> = no usable worldwide DMR or FCC name data available<br>
+  <b>Talkgroups:</b> <b>Name (TG #)</b> = destination and talkgroup number<br>
+  <b>YSF:</b> <b>Group Call</b> = call to ALL (room not recorded); <b>GPS/Data</b> = data transmission<br>
+  <b>D-Star:</b> <b>General Call</b> = CQCQCQ (reflector not recorded)
+</div>
+''',
+    '''<div style="width:640px;margin:3px auto 0 auto;font-size:10px;line-height:1.3;text-align:left;white-space:normal;overflow-wrap:anywhere;">
+  <b>Legend:</b> <b>---</b> = no usable worldwide DMR or FCC name data available<br>
+  <b>Talkgroups:</b> <b>Name (TG #)</b> = destination and talkgroup number<br>
+  <b>YSF:</b> <b>Group Call</b> = call to ALL (room not recorded); <b>GPS/Data</b> = data transmission<br>
+  <b>D-Star:</b> <b>General Call</b> = CQCQCQ (reflector not recorded)
+</div>
+''',
+)
+CUSTOM_LEGEND_BLOCK = re.compile(
+    r'<div\b[^>]*>(?:(?!</div>).)*?<b>\s*Legend:\s*</b>'
+    r'(?:(?!</div>).)*?<b>\s*---\s*</b>(?:(?!</div>).)*?</div>',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+class PatchError(RuntimeError):
+    pass
+
+
+def block(name: str) -> tuple[str, str]:
+    if name == "lh.php":
+        old = r'''\t\tif (strlen($listElem[4]) == 1) { $listElem[4] = str_pad($listElem[4], 8, " ", STR_PAD_LEFT); }
+\t\tif ( substr($listElem[4], 0, 6) === 'CQCQCQ' ) {
+\t\t\techo "<td align=\"left\">&nbsp;<span style=\"color:#b5651d;font-weight:bold;\">$listElem[4]</span></td>";
+\t\t} else {
+\t\t\techo "<td align=\"left\">&nbsp;<span style=\"color:#b5651d;font-weight:bold;\">".str_replace(" ","&nbsp;", $listElem[4])."</span></td>";
+\t\t}
+'''.replace("\\t", "\t")
+        new = '''\t\t$dvsModsTarget = dvsModsTargetDisplay($listElem[1], $listElem[4], $listElem[6], $listElem[0]);
+\t\techo '<td align="left">&nbsp;<span style="color:#b5651d;font-weight:bold;white-space:normal;">'.htmlspecialchars($dvsModsTarget, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8").'</span></td>';
+'''
+    elif name == "localtx.php":
+        old = r'''\t\t\tif (strlen($listElem[4]) == 1) { $listElem[4] = str_pad($listElem[4], 8, " ", STR_PAD_LEFT); }
+\t\t\techo"<td align=\"left\">&nbsp;<span style=\"color:#b5651d;font-weight:bold;\">".str_replace(" ","&nbsp;", $listElem[4])."</span></td>";
+'''.replace("\\t", "\t")
+        new = '''\t\t\t$dvsModsTarget = dvsModsTargetDisplay($listElem[1], $listElem[4], $listElem[6], $listElem[0]);
+\t\t\techo '<td align="left">&nbsp;<span style="color:#b5651d;font-weight:bold;white-space:normal;">'.htmlspecialchars($dvsModsTarget, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8").'</span></td>';
+'''
+    else:
+        raise PatchError(f"unsupported dashboard file: {name}")
+    return old, new
+
+
+def cell_padding_block(name: str) -> str:
+    """Return the equivalent Target block after the later cell-padding mod."""
+    if name == "lh.php":
+        return '''\t\t$dvsModsTarget = dvsModsTargetDisplay($listElem[1], $listElem[4], $listElem[6], $listElem[0]);
+\t\techo '<td align="left"><span style="display:block;color:#b5651d;font-weight:bold;white-space:normal;">'.htmlspecialchars($dvsModsTarget, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8").'</span></td>';
+'''
+    if name == "localtx.php":
+        return '''\t\t\t$dvsModsTarget = dvsModsTargetDisplay($listElem[1], $listElem[4], $listElem[6], $listElem[0]);
+\t\t\techo '<td align="left"><span style="display:block;color:#b5651d;font-weight:bold;white-space:normal;">'.htmlspecialchars($dvsModsTarget, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8").'</span></td>';
+'''
+    raise PatchError(f"unsupported dashboard file: {name}")
+
+
+def stfu_target_block(target_block: str) -> str:
+    """Return the STFU activity wrapper around a supported Target cell."""
+    pattern = re.compile(
+        r"(?m)^([\t ]*)\$dvsModsTarget = dvsModsTargetDisplay\(([^;]+)\);$"
+    )
+    matches = list(pattern.finditer(target_block))
+    if len(matches) != 1:
+        raise PatchError("supported Target block has no unique helper assignment")
+    match = matches[0]
+    assignment = (
+        f"{match.group(1)}$dvsModsTarget = ($listElem[1] === 'STFU') ? "
+        f"dvsModsStfuTargetDisplay($listElem[4]) : "
+        f"dvsModsTargetDisplay({match.group(2)});"
+    )
+    return target_block[:match.start()] + assignment + target_block[match.end():]
+
+
+def once(text: str, old: str, new: str, description: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise PatchError(f"unsupported or ambiguous {description}: {count} matches")
+    return text.replace(old, new, 1)
+
+
+def patch_text(text: str, name: str) -> str:
+    old, new = block(name)
+    post_cell_padding = cell_padding_block(name)
+    marker_count = text.count(MARKER) + text.count(LEGACY_MARKER) + text.count(OLDER_LEGACY_MARKER)
+    if marker_count > 1:
+        raise PatchError(f"duplicate Target markers in {name}")
+    if marker_count == 1:
+        old_new = new.replace(", $listElem[0]", "")
+        old_post = post_cell_padding.replace(", $listElem[0]", "")
+        variants = (new, post_cell_padding, old_new, old_post)
+        stfu_variants = tuple(stfu_target_block(candidate) for candidate in variants)
+        found = [candidate for candidate in variants + stfu_variants if text.count(candidate) == 1]
+        if text.count(INCLUDE) != 1 or len(found) != 1:
+            raise PatchError(f"incomplete Target modification in {name}")
+        if text.count(old_new) == 1: text = text.replace(old_new, new, 1)
+        if text.count(old_post) == 1: text = text.replace(old_post, post_cell_padding, 1)
+        for older, current in ((stfu_variants[2], stfu_variants[0]), (stfu_variants[3], stfu_variants[1])):
+            if text.count(older) == 1:
+                text = text.replace(older, current, 1)
+        if name == "localtx.php":
+            legend_count = text.count(LEGEND)
+            if legend_count > 1:
+                raise PatchError("duplicate Local Activity Target legends")
+            if legend_count == 1:
+                spaced_legend = "<br>\n" + LEGEND
+                if text.count(spaced_legend) == 0:
+                    text = once(text, LEGEND, spaced_legend, "existing Local Activity Target legend spacing")
+                elif text.count(spaced_legend) != 1:
+                    raise PatchError("ambiguous Local Activity Target legend spacing")
+            else:
+                legacy_matches = [legacy for legacy in LEGACY_LEGENDS if text.count(legacy) == 1]
+                if len(legacy_matches) > 1:
+                    raise PatchError("duplicate legacy Local Activity Target legends")
+                if len(legacy_matches) == 1:
+                    text = text.replace(legacy_matches[0], LEGEND, 1)
+                else:
+                    custom_legends = list(CUSTOM_LEGEND_BLOCK.finditer(text))
+                    if len(custom_legends) > 1:
+                        raise PatchError("ambiguous custom Local Activity Target legends")
+                    if not custom_legends:
+                        text = once(text, "</div>\n<br>", "</div>\n<br>\n" + LEGEND + "<br>", "older Local Activity Target legend anchor")
+        return text.replace(LEGACY_MARKER, MARKER, 1).replace(OLDER_LEGACY_MARKER, MARKER, 1)
+    if MARKER in text or LEGACY_MARKER in text or INCLUDE in text or "dvsModsTargetDisplay(" in text:
+        raise PatchError(f"partial Target modification in {name}")
+    if text.count(old) != 1:
+        raise PatchError(f"unsupported or ambiguous Target block in {name}: {text.count(old)} matches")
+    if not text.startswith("<?php\n"):
+        raise PatchError(f"unsupported PHP anchor in {name}")
+    anchors = [
+        "include_once dirname(dirname(__FILE__)).'/include/functions.php';    \n",
+        "include_once dirname(dirname(__FILE__)).'/include/dvswitch_mods_fcc_first_names.php';\n",
+    ]
+    anchor = next((candidate for candidate in anchors if text.count(candidate) == 1), None)
+    if anchor is None:
+        raise PatchError(f"unsupported include anchor in {name}")
+    text = text.replace("<?php\n", "<?php\n" + MARKER + "\n", 1)
+    text = text.replace(anchor, anchor + INCLUDE + "\n", 1)
+    text = text.replace(old, new, 1)
+    if name == "localtx.php":
+        manual_markers = re.findall(
+            r"<!-- DVSwitch-Mods: manual callsign names legend v[1-4] -->", text
+        )
+        if len(manual_markers) > 1:
+            raise PatchError("duplicate FCC manual-name legends in Local Activity")
+        if manual_markers:
+            custom_legends = list(CUSTOM_LEGEND_BLOCK.finditer(text))
+            if len(custom_legends) != 1 or manual_markers[0] not in custom_legends[0].group():
+                raise PatchError("FCC manual-name legend is incomplete or ambiguous")
+        else:
+            text = once(text, "</div>\n<br>", "</div>\n<br>\n" + LEGEND + "<br>", "Local Activity legend anchor")
+    return text
+
+
+def patch_file(path: Path) -> None:
+    raw = path.read_bytes()
+    if b"\r" in raw.replace(b"\r\n", b""):
+        raise PatchError(f"unsupported mixed line endings in {path}")
+    newline = "\r\n" if b"\r\n" in raw else "\n"
+    result = patch_text(raw.decode("utf-8").replace("\r\n", "\n"), path.name)
+    path.write_bytes(result.replace("\n", newline).encode("utf-8"))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lh", type=Path, required=True)
+    parser.add_argument("--localtx", type=Path, required=True)
+    args = parser.parse_args()
+    patch_file(args.lh)
+    patch_file(args.localtx)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except PatchError as exc:
+        raise SystemExit(f"ERROR: {exc}")

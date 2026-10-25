@@ -1,0 +1,11 @@
+# Version: 1.0.0
+[Unit]
+Description=Record current BM/TGIF bridge network for Gateway Activity
+After=local-fs.target mmdvm_bridge.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/dvswitch-mods-record-dmr-network --current
+User=root
+Group=root
+UMask=0022

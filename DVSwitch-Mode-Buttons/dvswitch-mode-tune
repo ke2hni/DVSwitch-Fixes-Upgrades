@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+set -Eeuo pipefail
+MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
+STATE_FILE=/var/lib/dvswitch-mode-buttons/current-mode
+[[ $EUID -eq 0 ]] || { echo 'ERROR: run through the dashboard sudo rule' >&2; exit 1; }
+[[ $# -eq 0 ]] || { echo 'ERROR: this helper accepts target input only on standard input' >&2; exit 1; }
+IFS= read -r target || { echo 'ERROR: target input is missing' >&2; exit 1; }
+[[ $target =~ ^[A-Za-z0-9_-]{1,32}$ ]] || { echo 'ERROR: invalid talkgroup or reflector ID' >&2; exit 1; }
+[[ -x $MODE_CMD ]] || { echo "ERROR: missing executable $MODE_CMD" >&2; exit 1; }
+mode=''
+[[ -r $STATE_FILE ]] && mode=$(tr -d '[:space:]' < "$STATE_FILE")
+case "$mode" in BM|TGIF|STFU|YSF|P25|NXDN|DSTAR) ;; *) echo 'ERROR: current mode is unavailable' >&2; exit 1 ;; esac
+"$MODE_CMD" tune "$target"

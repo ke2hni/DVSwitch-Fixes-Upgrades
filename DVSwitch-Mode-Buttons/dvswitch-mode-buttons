@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+set -u
+MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
+STATE_DIR=/var/lib/dvswitch-mode-buttons
+STATE_FILE=$STATE_DIR/current-mode
+DMR_NETWORK_FILE=$STATE_DIR/last-dmr-network
+DMR_CARD_MODE_FILE=$STATE_DIR/last-dmr-card-mode
+TARGET_HELPER=/usr/local/sbin/dvswitch-mode-targets
+PRESET_DIR=/etc/dvswitch-mode-buttons/dmr-presets
+INI=/opt/MMDVM_Bridge/MMDVM_Bridge.ini
+ANALOG_INI=/opt/Analog_Bridge/Analog_Bridge.ini
+DMR_HISTORY_WRITER=/usr/local/sbin/dvswitch-mods-record-dmr-network
+
+die(){ echo "ERROR: $*" >&2; exit 1; }
+
+switch_dmr_network(){
+  local network=$1 preset analog_preset owner group perms tmp analog_owner analog_group analog_perms analog_tmp address
+  preset="$PRESET_DIR/MMDVM_Bridge.$network.ini"
+  analog_preset="$PRESET_DIR/Analog_Bridge.$network.ini"
+  [[ -f "$INI" ]] || die "missing $INI"
+  [[ -f "$preset" ]] || die "$network preset is not installed"
+  [[ -f "$ANALOG_INI" ]] || die "missing $ANALOG_INI"
+  [[ -f "$analog_preset" ]] || die "$network Analog_Bridge preset is not installed"
+  [[ -x "$MODE_CMD" ]] || die "missing executable $MODE_CMD"
+
+  address=$(awk '
+    /^\[DMR Network\]/{insec=1;next} /^\[/{insec=0}
+    insec && /^[[:space:]]*Address[[:space:]]*=/{sub(/^[^=]*=/,""); gsub(/[[:space:]]/,""); print; exit}
+  ' "$INI")
+  case "$network:$address" in
+    BM:*brandmeister*|BM:*repeater.net|BM:*3102*|BM:*3104*|TGIF:*tgif*) ;;
+    *) address='';;
+  esac
+  if [[ -n "$address" ]] && cmp -s "$INI" "$preset" && cmp -s "$ANALOG_INI" "$analog_preset"; then
+    "$MODE_CMD" mode DMR >/tmp/dvswitch-mode-buttons-dmr.out 2>&1 || { cat /tmp/dvswitch-mode-buttons-dmr.out; die 'DVSwitch DMR mode command failed'; }
+    systemctl is-active --quiet analog_bridge mmdvm_bridge || die 'DVSwitch service verification failed'
+    echo "PASS: DMR network is already $network ($address); skipped preset copies and service restart."
+    return 0
+  fi
+
+  owner=$(stat -c '%u' "$INI"); group=$(stat -c '%g' "$INI"); perms=$(stat -c '%a' "$INI")
+  tmp=$(mktemp "${INI}.tmp.XXXXXX") || die 'could not create temporary MMDVM_Bridge INI'
+  trap 'rm -f "${tmp:-}" "${analog_tmp:-}"' EXIT
+  cp "$preset" "$tmp" || die "could not copy $network preset"
+  chown "$owner:$group" "$tmp" || die 'could not preserve MMDVM_Bridge ownership'
+  chmod "$perms" "$tmp" || die 'could not preserve MMDVM_Bridge permissions'
+  mv -f "$tmp" "$INI" || die 'could not replace live MMDVM_Bridge.ini'
+  tmp=''
+
+  analog_owner=$(stat -c '%u' "$ANALOG_INI"); analog_group=$(stat -c '%g' "$ANALOG_INI"); analog_perms=$(stat -c '%a' "$ANALOG_INI")
+  analog_tmp=$(mktemp "${ANALOG_INI}.tmp.XXXXXX") || die 'could not create temporary Analog_Bridge INI'
+  cp "$analog_preset" "$analog_tmp" || die "could not copy $network Analog_Bridge preset"
+  chown "$analog_owner:$analog_group" "$analog_tmp" || die 'could not preserve Analog_Bridge ownership'
+  chmod "$analog_perms" "$analog_tmp" || die 'could not preserve Analog_Bridge permissions'
+  mv -f "$analog_tmp" "$ANALOG_INI" || die 'could not replace live Analog_Bridge.ini'
+  analog_tmp=''
+
+  # Record as soon as the selected network configuration is in place, before
+  # restarting the bridge can produce new RX activity. The separate Mods
+  # repository is optional; its absence does not affect this switch.
+  if [[ -x "$DMR_HISTORY_WRITER" ]]; then
+    "$DMR_HISTORY_WRITER" --record "$network" "$(date +%s%3N)" || echo 'NOTICE: optional DVSwitch-Mods DMR history recorder failed.' >&2
+  fi
+
+  systemctl restart analog_bridge mmdvm_bridge || die 'DVSwitch services failed to restart'
+  "$MODE_CMD" mode DMR >/tmp/dvswitch-mode-buttons-dmr.out 2>&1 || { cat /tmp/dvswitch-mode-buttons-dmr.out; die 'DVSwitch DMR mode command failed'; }
+  address=$(awk '
+    /^\[DMR Network\]/{insec=1;next} /^\[/{insec=0}
+    insec && /^[[:space:]]*Address[[:space:]]*=/{sub(/^[^=]*=/,""); gsub(/[[:space:]]/,""); print; exit}
+  ' "$INI")
+  case "$network" in
+    BM) [[ "$address" == *brandmeister* || "$address" == *repeater.net || "$address" == *3102* || "$address" == *3104* ]] || die "verification failed: live address is $address" ;;
+    TGIF) [[ "$address" == *tgif* ]] || die "verification failed: live address is $address" ;;
+  esac
+  systemctl is-active --quiet analog_bridge mmdvm_bridge || die 'DVSwitch service verification failed'
+  trap - EXIT
+  echo "PASS: DMR network switched to $network ($address)."
+}
+[[ $EUID -eq 0 ]] || die 'run with sudo'
+[[ $# -eq 1 ]] || die 'usage: BM|TGIF|STFU|YSF|P25|NXDN|DSTAR'
+mode="${1^^}"
+install -d -m 755 -o root -g root "$STATE_DIR"
+
+target=''
+if [[ ( "$mode" == BM || "$mode" == TGIF ) && -x "$TARGET_HELPER" ]]; then
+  target=$($TARGET_HELPER get "$mode" 2>/dev/null || true)
+  if [[ -z "$target" ]]; then
+    preset="$PRESET_DIR/Analog_Bridge.$mode.ini"
+    target=$(awk '
+      /^\[AMBE_AUDIO\]/{insec=1;next} /^\[/{insec=0}
+      insec && /^[[:space:]]*txTg[[:space:]]*=/{sub(/^[^=]*=/,""); gsub(/[[:space:]]/,""); sub(/[;#].*/,""); print; exit}
+    ' "$preset")
+    if [[ "$target" =~ ^[0-9]+$ ]]; then
+      "$TARGET_HELPER" save "$mode" "$target" >/dev/null || true
+    else
+      target=''
+    fi
+  fi
+  # Publish the intended target before mode DMR can make ABInfo look like DMR
+  # while current-mode still contains the previous mode (for example P25).
+  if [[ "$target" =~ ^[0-9]+$ ]]; then
+    pending_tmp=$(mktemp "$STATE_DIR/.dmr-tune-pending.XXXXXX") || die 'could not create pending DMR target state'
+    printf '%s %s %s\n' "$mode" "$target" "$(date +%s)" > "$pending_tmp"
+    chown root:www-data "$pending_tmp"; chmod 644 "$pending_tmp"
+    mv -f "$pending_tmp" "$STATE_DIR/dmr-tune-pending"
+  fi
+else
+  # A newly selected non-DMR mode must not inherit a still-live DMR marker.
+  rm -f "$STATE_DIR/dmr-tune-pending"
+fi
+case "$mode" in
+  BM|TGIF) switch_dmr_network "$mode" ;;
+  DSTAR|STFU|YSF|P25|NXDN) [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode "$mode" || exit 1 ;;
+  *) die "unsupported mode: $1" ;;
+esac
+printf '%s\n' "$mode" > "$STATE_FILE"
+chown root:root "$STATE_FILE"; chmod 644 "$STATE_FILE"
+if [[ "$mode" == BM || "$mode" == TGIF ]]; then
+  printf '%s\n' "$mode" > "$DMR_NETWORK_FILE"
+  chown root:root "$DMR_NETWORK_FILE"; chmod 644 "$DMR_NETWORK_FILE"
+  printf '%s\n' "$mode" > "$DMR_CARD_MODE_FILE"
+  chown root:root "$DMR_CARD_MODE_FILE"; chmod 644 "$DMR_CARD_MODE_FILE"
+fi
+if [[ -x "$TARGET_HELPER" ]]; then
+  if [[ "$mode" != BM && "$mode" != TGIF ]]; then
+    target=$($TARGET_HELPER get "$mode" 2>/dev/null || true)
+  fi
+  [[ -z "$target" ]] || "$MODE_CMD" tune "$target" || true
+fi
+echo "PASS: DVSwitch mode selected: $mode"
