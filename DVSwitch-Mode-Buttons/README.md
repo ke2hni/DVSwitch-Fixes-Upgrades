@@ -238,3 +238,5 @@ Version 1.0.0-test49 adds optional ASL mode support when the ASL 3 support helpe
 Version 1.0.0-test50 fixes the generated ASL mode button markup and upgrades existing test49 dashboard controls in place. This removes the leaked installer expression from the mode row.
 
 Version 1.0.0-test51 updates the installed mode dispatcher during the optional ASL dashboard refresh, fixing ASL selection on existing Mode Buttons installations. Existing test50 controls upgrade in place.
+
+Version 1.0.0-test52 connects ASL link actions to the existing Tune button, makes the ASL action controls more compact, and fixes routing for action requests and saved ASL targets. Existing test50 and test51 dashboard controls upgrade in place.

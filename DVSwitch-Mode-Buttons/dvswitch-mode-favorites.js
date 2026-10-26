@@ -248,8 +248,13 @@
     tuner.addEventListener('submit', async function (event) {
       event.preventDefault();
       const target = input.value.trim();
+      const selectedAslAction = activeMode === 'ASL'
+        ? document.querySelector('#dvs-asl-links input[name="aslAction"]:checked')
+        : null;
+      const aslAction = selectedAslAction ? selectedAslAction.value : 'CONNECT';
+      const disconnectAll = activeMode === 'ASL' && aslAction === 'DISCONNECT_ALL';
       tuneStatus.textContent = '';
-      if (!validTarget(activeMode, target)) {
+      if (!disconnectAll && !validTarget(activeMode, target)) {
         tuneStatus.textContent = activeMode === 'ASL' ? 'Enter a numeric AllStar node number.' : 'Enter a valid ID.';
         return;
       }
@@ -258,17 +263,22 @@
       try {
         const response = await fetch('/dvswitch/dvswitch-mode-buttons.php', {
           method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ target: target })
+          body: activeMode === 'ASL'
+            ? new URLSearchParams({ aslAction: aslAction, target: disconnectAll ? '' : target })
+            : new URLSearchParams({ target: target })
         });
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || 'Tune failed.');
-        tuneStatus.textContent = 'Tuned ' + target + ' (' + result.mode + ')';
+        tuneStatus.textContent = activeMode === 'ASL'
+          ? (result.message || 'ASL ' + aslAction.toLowerCase().replace('_', ' ') + ' request sent.')
+          : 'Tuned ' + target + ' (' + result.mode + ')';
+        if (selectedAslAction) selectedAslAction.checked = false;
       } catch (error) {
         tuneStatus.textContent = error.message;
       } finally {
         tuneButton.disabled = false;
-        input.disabled = false;
-        input.focus();
+        input.disabled = Boolean(selectedAslAction && selectedAslAction.checked && selectedAslAction.value === 'DISCONNECT_ALL');
+        if (!input.disabled) input.focus();
       }
     });
     let attempts = 0;

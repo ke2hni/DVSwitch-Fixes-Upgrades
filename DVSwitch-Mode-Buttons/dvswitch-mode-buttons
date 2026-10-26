@@ -130,7 +130,7 @@ if [[ -x "$TARGET_HELPER" ]]; then
   fi
   if [[ -n "$target" ]]; then
     if [[ "$mode" == ASL && -x "$ASL_NODE_HELPER" ]]; then
-      printf '%s\n' "$target" | "$ASL_NODE_HELPER" || die 'ASL node connect command failed'
+      printf 'CONNECT\t%s\n' "$target" | "$ASL_NODE_HELPER" || die 'ASL node connect command failed'
     elif [[ "$mode" != ASL ]]; then
       "$MODE_CMD" tune "$target" || true
     fi

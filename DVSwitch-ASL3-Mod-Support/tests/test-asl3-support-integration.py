@@ -14,6 +14,8 @@ RPT_CONF_TOOL = (ROOT / "lib" / "asl3_rpt_conf.py").read_text(encoding="utf-8")
 MANAGER = (ROOT.parent / "DVSwitch-Mods" / "manage-dvswitch-mods.sh").read_text(encoding="utf-8")
 BUTTON_INSTALLER = (ROOT.parent / "DVSwitch-Mode-Buttons" / "dvswitch-mode-buttons.sh").read_text(encoding="utf-8")
 BUTTON_HELPER = (ROOT.parent / "DVSwitch-Mode-Buttons" / "dvswitch-mode-buttons").read_text(encoding="utf-8")
+BUTTON_JS = (ROOT.parent / "DVSwitch-Mode-Buttons" / "dvswitch-mode-favorites.js").read_text(encoding="utf-8")
+ASL_DASHBOARD_JS = (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8")
 
 
 def require(value: bool, message: str) -> None:
@@ -50,8 +52,16 @@ require("$target" in LINK and "dvswitch-mode-targets save ASL" in LINK,
 for action, code in (("CONNECT", "3"), ("DISCONNECT", "1"), ("MONITOR", "2"), ("LOCAL_MONITOR", "8"), ("DISCONNECT_ALL", "6")):
     require(action in LINK and f"{action}) ilink={code}" in LINK,
             f"ASL link action {action} must map to documented ilink {code}")
-require("aslAction" in BUTTON_INSTALLER and "dvs-asl-links" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
+require("aslAction" in BUTTON_INSTALLER and "dvs-asl-links" in ASL_DASHBOARD_JS,
         "ASL checkbox link controls are not connected to the dashboard endpoint")
+require("Run ASL Link Action" not in ASL_DASHBOARD_JS and "dvs-asl-link-form" not in ASL_DASHBOARD_JS and
+        "selectedAslAction" in BUTTON_JS and "aslAction: aslAction" in BUTTON_JS and ": 'CONNECT'" in BUTTON_JS,
+        "ASL link actions must use the existing Tune button with Connect as the default action")
+require("isset($_POST['target']) && !isset($_POST['aslAction'])" in BUTTON_INSTALLER and
+        "fwrite($pipes[0], $mode === 'ASL' ? \"CONNECT\\t\" . $target . \"\\n\" : $target . \"\\n\")" in BUTTON_INSTALLER and
+        "printf 'CONNECT\\t%s\\n'" in BUTTON_HELPER and
+        "max-width:760px;border:1px solid #aaa" in ASL_DASHBOARD_JS and "padding:0 8px 3px" in ASL_DASHBOARD_JS,
+        "ASL action requests and saved targets must reach the node-link helper with an action")
 require("connpgm = {helper} CONNECTED" in RPT_CONF_TOOL and "discpgm = {helper} DISCONNECTED" in RPT_CONF_TOOL,
         "ASL activity hooks are not configured for the selected local node")
 require('"$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET"' in SUPPORT and

@@ -51,63 +51,35 @@
     root = document.createElement('fieldset');
     root.id = 'dvs-asl-links';
     root.hidden = true;
-    root.style.cssText = 'margin:8px auto;padding:8px;max-width:760px;border:1px solid #aaa;text-align:center';
+    root.style.cssText = 'margin:2px auto 4px;padding:0 8px 3px;max-width:760px;border:1px solid #aaa;text-align:center';
     var legend = document.createElement('legend');
     legend.textContent = 'ASL Node Link';
+    legend.style.cssText = 'padding:0 5px;font-size:12px;line-height:1';
     root.appendChild(legend);
-    var form = document.createElement('form');
-    form.id = 'dvs-asl-link-form';
-    var actions = [
+    var actionContainer = document.createElement('div');
+    actionContainer.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2px 14px';
+    var actionOptions = [
       ['CONNECT', 'Connect'], ['DISCONNECT', 'Disconnect'], ['MONITOR', 'Monitor'],
       ['LOCAL_MONITOR', 'Local Monitor'], ['DISCONNECT_ALL', 'Disconnect All']
     ];
-    actions.forEach(function (entry) {
+    actionOptions.forEach(function (entry) {
       var label = document.createElement('label');
-      label.style.cssText = 'display:inline-block;margin:4px 8px;white-space:nowrap';
+      label.style.cssText = 'display:inline-flex;align-items:center;margin:0;white-space:nowrap;font-size:12px';
       var checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.name = 'aslAction';
       checkbox.value = entry[0];
       checkbox.addEventListener('change', function () {
-        form.querySelectorAll('input[name="aslAction"]').forEach(function (other) { if (other !== checkbox) other.checked = false; });
+        actionContainer.querySelectorAll('input[name="aslAction"]').forEach(function (other) { if (other !== checkbox) other.checked = false; });
         var target = document.getElementById('dvs-target-input');
         if (target) target.disabled = entry[0] === 'DISCONNECT_ALL' && checkbox.checked;
       });
       label.append(checkbox, document.createTextNode(' ' + entry[1]));
-      form.appendChild(label);
+      actionContainer.appendChild(label);
     });
-    var submit = document.createElement('button');
-    submit.type = 'submit';
-    submit.className = 'button link';
-    submit.textContent = 'Run ASL Link Action';
-    form.appendChild(submit);
-    var message = document.createElement('span');
-    message.id = 'dvs-asl-link-message';
-    message.setAttribute('role', 'status');
-    message.style.cssText = 'display:block;min-height:1.4em;margin-top:6px';
-    root.append(form, message);
+    root.appendChild(actionContainer);
     var buttons = document.getElementById('dvs-mode-buttons');
     buttons.insertAdjacentElement('afterend', root);
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
-      var selected = form.querySelector('input[name="aslAction"]:checked');
-      var target = document.getElementById('dvs-target-input');
-      if (!selected) { message.textContent = 'Select one ASL link action.'; return; }
-      if (selected.value !== 'DISCONNECT_ALL' && (!target || !/^[0-9]{1,8}$/.test(target.value.trim()) || /^0+$/.test(target.value.trim()))) {
-        message.textContent = 'Enter a non-zero numeric AllStar node number in the Tune field.';
-        if (target) target.focus();
-        return;
-      }
-      submit.disabled = true;
-      message.textContent = 'Sending ASL link command…';
-      fetch('/dvswitch/dvswitch-mode-buttons.php', {
-        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ aslAction: selected.value, target: selected.value === 'DISCONNECT_ALL' ? '' : target.value.trim() })
-      }).then(function (response) { return response.json().then(function (result) { if (!response.ok || !result.ok) throw new Error(result.error || result.message || 'ASL action failed.'); return result; }); })
-        .then(function (result) { message.textContent = result.message || 'ASL link action sent.'; selected.checked = false; })
-        .catch(function (error) { message.textContent = error.message; })
-        .finally(function () { submit.disabled = false; if (target) target.disabled = false; });
-    });
   }
 
   function addAslActivity() {
