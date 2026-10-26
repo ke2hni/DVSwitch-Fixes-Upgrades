@@ -35,6 +35,12 @@ require("--check" in SUPPORT and "--install" in SUPPORT and "BACKUP_ROOT=\"/var/
         "support installer check/install flow or protected backup location is missing")
 require("--refresh-asl" in SUPPORT and "--refresh-asl) mode=\"refresh_asl\"" in BUTTON_INSTALLER,
         "existing Mode Buttons must refresh without starting the interactive DMR preset setup")
+require('for target in "$TARGET" "$ENDPOINT" "$FAVORITES_JS" "$SUDOERS" "$TUNE_HELPER" "$FAVORITES_HELPER" "$MODE_HELPER"; do backup "$target"; done' in BUTTON_INSTALLER and
+        'install -o root -g root -m 755 ./dvswitch-mode-buttons "$MODE_HELPER"' in BUTTON_INSTALLER and
+        '"$MODE_CMD" mode ASL' in BUTTON_HELPER,
+        "ASL refresh must back up and update the dispatcher so its button runs dvswitch.sh mode ASL")
+require('"$BUTTONS_HELPER" "$BUTTONS_ENDPOINT"' in SUPPORT and '"$BUTTONS_HELPER" "$BUTTONS_ENDPOINT"' in SUPPORT.split('rollback_install()', 1)[1],
+        "ASL installer must snapshot and restore the shared mode dispatcher on failure")
 require("dvswitch-asl3-node-link" in BUTTON_INSTALLER and "is_executable('/usr/local/sbin/dvswitch-asl3-node-link')" in BUTTON_INSTALLER,
         "ASL button and tuning endpoint are not gated by the installed helper")
 require('"$ASTERISK" -rx "rpt cmd $local_node ilink $ilink $target"' in LINK and "rxchannel" in RPT_CONF_TOOL and "USRP" in RPT_CONF_TOOL,

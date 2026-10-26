@@ -236,3 +236,5 @@ Version 1.0.0-test47 makes the Favorites editor's **Cancel or Esc** instruction 
 Version 1.0.0-test49 adds optional ASL mode support when the ASL 3 support helper is installed. ASL uses numeric node targets, mode-scoped favorites, and AllStar node names from the local ASL node database. Existing test48 controls upgrade in place.
 
 Version 1.0.0-test50 fixes the generated ASL mode button markup and upgrades existing test49 dashboard controls in place. This removes the leaked installer expression from the mode row.
+
+Version 1.0.0-test51 updates the installed mode dispatcher during the optional ASL dashboard refresh, fixing ASL selection on existing Mode Buttons installations. Existing test50 controls upgrade in place.

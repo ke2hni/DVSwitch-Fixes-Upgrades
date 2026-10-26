@@ -116,7 +116,7 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
         systemctl restart apache2 >/dev/null 2>&1 || true
     fi
@@ -203,7 +203,7 @@ run_install() {
     local collision=0
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
 
     install -d -o root -g root -m 0755 /usr/local/sbin "$(dirname "$RPT_CONF_TOOL_TARGET")" "$(dirname "$DASHBOARD_JS_TARGET")"
