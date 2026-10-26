@@ -57,6 +57,7 @@ readonly -a COMPONENTS=(
 readonly DARK_MODE_SCRIPT="$SCRIPT_DIR/dvswitch-dark-mode.sh"
 readonly DISPLAY_LAYOUT_SCRIPT="$SCRIPT_DIR/dvswitch-display-layout.sh"
 readonly MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"
+readonly ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-asl3-mod-support.sh"
 
 COMPONENT=""
 CHILD_SCRIPT=""
@@ -106,6 +107,14 @@ run_mode_buttons_installer() {
     )
 }
 
+run_asl3_support_installer() {
+    require_root
+    require_executable_script "$ASL3_SUPPORT_SCRIPT"
+    printf '\n=== INSTALL ASL 3 SUPPORT ===\n'
+    "$ASL3_SUPPORT_SCRIPT" --check
+    "$ASL3_SUPPORT_SCRIPT" --install
+}
+
 show_menu() {
     local choice
     require_root
@@ -117,9 +126,10 @@ show_menu() {
         "3) Install/launch the Dark Mode dashboard installer" \
         "4) Install/launch the Widescreen Display Layout installer" \
         "5) Uninstall all manager-recorded standard components" \
+        "6) Install ASL 3 Support" \
         "0) Exit" \
         ""
-    printf 'Choose an option [0/1/2/3/4/5]: '
+    printf 'Choose an option [0/1/2/3/4/5/6]: '
     read -r choice
     case "$choice" in
         1) initialize_state; install_requested all ;;
@@ -127,6 +137,7 @@ show_menu() {
         3) run_optional_mod_installer "DARK MODE" "$DARK_MODE_SCRIPT" ;;
         4) run_optional_mod_installer "DISPLAY LAYOUT" "$DISPLAY_LAYOUT_SCRIPT" ;;
         5) initialize_state; uninstall_requested all ;;
+        6) run_asl3_support_installer ;;
         0) exit 0 ;;
         *) die "Invalid choice" ;;
     esac
@@ -144,7 +155,7 @@ usage() {
         "       sudo $(basename "$0") --reset-after-reinstall" \
         "" \
         "With no arguments, choose the standard install, Mode Buttons, Dark Mode," \
-        "or Widescreen Display Layout from the interactive menu." \
+        "Widescreen Display Layout, or ASL 3 Support from the interactive menu." \
         "Only standard installations performed and recorded by this manager can be" \
         "uninstalled through it. Uninstall operations run in strict reverse" \
         "installation order so overlapping DVSwitch files remain consistent."

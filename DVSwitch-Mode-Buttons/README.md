@@ -58,7 +58,7 @@ Choose **1** to install the buttons or upgrade an existing installation to the c
 
 - BM/TGIF MMDVM Bridge and Analog Bridge preset switching through the unified mode helper.
 - Per-mode target persistence.
-- A single-line dashboard control for tuning the active mode to a talkgroup or reflector ID. The field uses the existing `dvswitch.sh tune` command through a dedicated root helper; it does not use or install the separate DVS Mode Switcher application.
+- A single-line dashboard control for tuning the active mode to a talkgroup, reflector ID, or (when ASL 3 support is installed) an AllStar node number. ASL support is optional and appears only when its ASL helper is installed.
 - Mode-specific dashboard Favorites. Only the active mode's entries appear beside Tune; **Edit** opens a scrollable popup with a mode selector and instructions. Add a row for a new favorite, edit its name and TG/reflector ID, or select **Delete** to remove a row. Select **Save** to keep the changes for that mode; **Cancel / Close** or Esc closes the editor and discards unsaved changes. Up to 100 favorites can be saved per mode. Selecting a favorite sends its TG/ref through the same Tune control. **+ Favorite** opens the active mode's editor with the current target prefilled. It also looks up the matching friendly name from the source used by that mode's dashboard card. STFU targets use the BrandMeister talkgroup list, matching the STFU card behavior in DVSwitch-Mods, even if the separate DMR Master card currently shows TGIF. Favorites are stored in `/etc/dvswitch-mode-buttons/favorites.json` and remain available after uninstall/reinstall.
 - Standalone DMR Master card rendering for BM and TGIF; while STFU, YSF, P25, NXDN, or D-Star is active, it retains the last BM/TGIF talkgroup instead of displaying another mode’s tune ID.
 - Friendly-name wrapping inside the DMR card.
@@ -233,4 +233,4 @@ Version 1.0.0-test46 saves each mode's favorites alphabetically by name while ke
 
 Version 1.0.0-test47 makes the Favorites editor's **Cancel or Esc** instruction bold, labels the button **Cancel / Close**, and states that closing discards unsaved changes. The installer upgrades existing test45 and test46 dashboard controls in place.
 
-Version 1.0.0-test48 raises the per-mode favorites limit from 30 to 100 in both the editor and save handler. The installer upgrades existing test47 dashboard controls in place.
+Version 1.0.0-test49 adds optional ASL mode support when the ASL 3 support helper is installed. ASL uses numeric node targets, mode-scoped favorites, and AllStar node names from the local ASL node database. Existing test48 controls upgrade in place.

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Jeff Milne, KE2HNI
+
+set -Eeuo pipefail
+umask 077
+[[ $# -eq 3 ]] || exit 2
+event=$1
+local_node=$2
+remote_node=$3
+[[ "$local_node" =~ ^[0-9]{1,8}$ && "$remote_node" =~ ^[0-9]{1,8}$ ]] || exit 2
+case "$event" in
+    CONNECTED) label=Connected ;;
+    DISCONNECTED) label=Disconnected ;;
+    *) exit 2 ;;
+esac
+install -d -o root -g www-data -m 0750 /var/lib/dvswitch-mods
+stamp=$(date +%s)
+printf '%s\t%s\t%s\t%s\n' "$stamp" "$remote_node" "$local_node" "$label" >> /var/lib/dvswitch-mods/asl3-link-activity.tsv
+chown root:www-data /var/lib/dvswitch-mods/asl3-link-activity.tsv
+chmod 0640 /var/lib/dvswitch-mods/asl3-link-activity.tsv
+tail -n 500 /var/lib/dvswitch-mods/asl3-link-activity.tsv > /var/lib/dvswitch-mods/.asl3-link-activity.tsv
+chown root:www-data /var/lib/dvswitch-mods/.asl3-link-activity.tsv
+chmod 0640 /var/lib/dvswitch-mods/.asl3-link-activity.tsv
+mv -f /var/lib/dvswitch-mods/.asl3-link-activity.tsv /var/lib/dvswitch-mods/asl3-link-activity.tsv

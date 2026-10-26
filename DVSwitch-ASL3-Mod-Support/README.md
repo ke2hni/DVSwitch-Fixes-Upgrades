@@ -1,0 +1,33 @@
+# DVSwitch ASL 3 Mod Support
+
+Repository: <https://github.com/ke2hni/DVSwitch-Fixes-Upgrades>
+
+This optional component adds ASL 3 support to the combined DVSwitch repository. Manager menu option 6 installs it. ASL 3 must be installed, and the DVSwitch dashboard files must be present. If Mode Buttons is already installed, this installer refreshes its dashboard controls without entering the DMR preset setup. Otherwise, install Mode Buttons later with manager option 2.
+
+It conditionally adds the ASL mode button when Mode Buttons is installed, uses numeric node numbers for Tune and Favorites, changes the Analog_Bridge target label to `Node` while ASL is selected, and adds an ASL Net status cell immediately after D-Star Network. When ASL is selected, five checkbox link actions appear: Connect, Disconnect, Monitor, Local Monitor, and Disconnect All. The node's friendly name is read from ASL's `astdb.txt`. Gateway Activity receives ASL connection and disconnection events from the selected ASL node's `connpgm` and `discpgm` hooks; the installer refuses to overwrite existing hooks and restores `rpt.conf` if installation fails. It repairs ASL-to-digital mode changes in `dvswitch.sh` versions
+1.6.2 and 1.6.3. The patch routes Analog_Bridge remote-control commands to a
+live TLV UDP listener, which avoids using stale listener-port information.
+
+If ASL 3 is not installed, the support installer reports `SKIP` without making
+changes, so the DVSwitch tools continue to work without ASL. Run the check
+first, then install:
+
+```bash
+cd ~/DVSwitch-Fixes-Upgrades/DVSwitch-ASL3-Mod-Support
+sudo ./dvswitch-asl3-mod-support.sh --check
+sudo ./dvswitch-asl3-mod-support.sh --install
+```
+
+`--check` makes no changes and reports a clean skip when ASL 3 is absent.
+`--install` creates a protected timestamped backup before updating the
+dashboard and the installed `dvswitch.sh`. It validates the patch and rolls
+dashboard files back automatically if an installation step fails. Apache is restarted to load the dashboard changes. Asterisk is not restarted by the installer; ASL link activity hooks are added to `rpt.conf` for its normal configuration reload cycle. Dashboard backups are stored under
+`/var/backups/dvswitch-mods/asl3-support/`. The standalone mode-switch repair
+keeps its own backups under `/var/backups/dvswitch-mods/asl-mode-switch/` and
+supports `--restore BACKUP-NAME`.
+
+The patchers reject unsupported versions and dashboard structures without
+changing installed files. From the combined repository root, run
+`python3 DVSwitch-ASL3-Mod-Support/tests/test-dvswitch-asl-mode-switch-patcher.py`
+and `python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py` to
+check the mode-switch repair and dashboard layout patch.

@@ -1,0 +1,43 @@
+ASL dashboard integration test procedure
+
+These checks are for an ASL 3 test node. They do not install anything on a node.
+
+Run the patcher tests from the combined repository root:
+
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-dvswitch-asl-mode-switch-patcher.py
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-support-integration.py
+
+On a test node, check compatibility without changing installed files:
+
+sudo ./dvswitch-asl3-mod-support.sh --check
+
+If the check passes, install or upgrade the Mode Buttons integration on pi4test
+first:
+
+sudo ./dvswitch-asl3-mod-support.sh --install
+
+Then verify in the dashboard:
+
+1. Select ASL. Confirm the button remains selected after status refresh.
+2. Confirm the Analog_Bridge field label changes from `Tx TG/Ref` to `Node`.
+3. Confirm the ASL Net cell appears after D-Star Network and reflects selected mode.
+4. Enter a numeric AllStar node in Tune; verify the connection and saved ASL Favorite.
+5. Verify each checkbox action: Connect (ilink 3), Disconnect (ilink 1), Monitor
+   (ilink 2), Local Monitor (ilink 8), and Disconnect All (ilink 6).
+6. Connect and disconnect a node. Confirm ASL Gateway Activity shows its node
+   number, ASTDB name when available, event, and UTC time.
+7. Confirm non-ASL mode buttons, Tune/Favorites, RX Monitor, and services still
+   behave as before.
+
+The standalone repair was already validated on pi4test for ASL-to-P25, NXDN,
+DMR, D-Star, YSF, and STFU switching, and the user confirmed ASL RX Monitor
+audio works. Do not repeat those checks without a code change or a specific
+failure reason.
+
+After pi4test passes, proceed to pi5test, then test3040. Do not install on
+production nodes without explicit authorization.
+
+The ASL support installer backs up dashboard files and rpt.conf under
+/var/backups/dvswitch-mods/asl3-support. The standalone dvswitch.sh repair keeps
+its own backup under /var/backups/dvswitch-mods/asl-mode-switch.

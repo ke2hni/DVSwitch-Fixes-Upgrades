@@ -21,7 +21,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('editing.length >= 100', SCRIPT)
         self.assertIn('rows.children.length < 100', SCRIPT)
         self.assertIn("selector.innerHTML", SCRIPT)
-        for mode in ('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'):
+        for mode in ('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'ASL'):
             self.assertIn("value=\"%s\"" % mode, SCRIPT)
         self.assertIn("favoriteSelect.appendChild(option)", SCRIPT)
         self.assertIn("input.value = favoriteSelect.value", SCRIPT)
@@ -51,6 +51,17 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn("'application/json') === 0", INSTALLER)
         self.assertIn("/usr/local/sbin/dvswitch-mode-favorites", INSTALLER)
         self.assertIn("www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-favorites", INSTALLER)
+
+    def test_asl_mode_is_optional_and_uses_numeric_nodes(self):
+        self.assertIn("$aslEnabled = is_executable('/usr/local/sbin/dvswitch-asl3-node-link')", ENDPOINT)
+        self.assertIn("$file = is_readable('/var/lib/asterisk/astdb.txt')", ENDPOINT)
+        self.assertIn("dvswitch-asl3-node-link", ENDPOINT)
+        self.assertIn("data-mode=\"ASL\"", INSTALLER)
+        self.assertIn("validTarget(activeMode, target)", SCRIPT)
+        self.assertIn("!/^0+$/.test(target)", SCRIPT)
+        self.assertIn("ASL favorites must be numeric node numbers", HELPER)
+        self.assertIn("Enter a non-zero numeric AllStar node number", (ROOT.parent / 'DVSwitch-ASL3-Mod-Support' / 'dvswitch-asl3-node-link').read_text())
+        self.assertIn("--refresh-asl", INSTALLER)
         self.assertIn("re.fullmatch(r'[A-Za-z0-9_-]{1,32}', target)", HELPER)
         self.assertIn('os.replace(temporary, path)', HELPER)
         self.assertIn('len(items) > 100', HELPER)
@@ -63,14 +74,14 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('Select <strong>Save</strong> to keep your changes.', INSTALLER)
 
     def test_test23_upgrade_and_uninstall_cover_the_favorites_script(self):
-        self.assertIn('VERSION="1.0.0-test48"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test49"', INSTALLER)
         self.assertIn('|17|18|19|20|21|22|23', INSTALLER)
         self.assertIn('dvswitch-mode-favorites.js', INSTALLER)
         self.assertIn('./dvswitch-mode-favorites "$FAVORITES_HELPER"', INSTALLER)
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('<dialog class="dvs-favorites-editor"', INSTALLER)
-        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test48 -->'", INSTALLER)
+        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test49 -->'", INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
         self.assertIn('dvs-favorites-editor', INSTALLER)
         self.assertIn('class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div>', INSTALLER)

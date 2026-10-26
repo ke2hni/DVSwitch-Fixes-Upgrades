@@ -82,7 +82,7 @@ Run the manager without arguments:
 sudo ./manage-dvswitch-mods.sh
 ```
 
-The menu provides four installation choices and an uninstall choice:
+The combined repository menu provides five installation choices and one uninstall choice:
 
 1. **Standard DVSwitch repairs and modifications** — runs the complete
    dependency-ordered installation and records its reversible backups.
@@ -96,13 +96,18 @@ The menu provides four installation choices and an uninstall choice:
    installer. It creates its own protected and per-run backups.
 5. **Uninstall all standard components** — restores every standard component
    recorded by this manager in reverse installation order.
+6. **ASL 3 Support** — checks for ASL 3 before changing anything, then installs
+   the optional ASL mode-switch repair and dashboard support. ASL support is
+   stored in the sibling `DVSwitch-ASL3-Mod-Support/` directory; install Mode
+   Buttons with option 2 to display the ASL mode button and tuner.
 
 The Dark Mode and Display Layout installers do not require the standard
 component chain. STFU status, STFU activity, RX Monitor position, and the STFU
 logrotate restart repair are included at the end of the standard component
 installation and uninstall order. Option 0 exits without changing anything.
 The standalone Mode Buttons, Dark Mode, and Widescreen installers are managed
-separately and are not removed by option 5.
+separately and are not removed by option 5. ASL 3 Support also keeps its own
+backups and is not part of the standard component uninstall.
 
 The standalone installers can also be run directly:
 

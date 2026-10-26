@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Jeff Milne, KE2HNI
+
+set -Eeuo pipefail
+umask 077
+
+readonly RPT_CONF="/etc/asterisk/rpt.conf"
+readonly ASTERISK="/usr/sbin/asterisk"
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+[[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run through the dashboard sudo rule.'
+[[ $# -eq 0 ]] || die 'This command reads the action and optional target from standard input.'
+[[ -f "$RPT_CONF" && ! -L "$RPT_CONF" ]] || die "ASL configuration is unavailable: $RPT_CONF"
+[[ -x "$ASTERISK" ]] || die "Asterisk command is unavailable: $ASTERISK"
+
+request="$(cat)"
+IFS=$'\t' read -r action target extra <<< "$request"
+[[ -z "${extra:-}" ]] || die 'Invalid ASL link request.'
+case "$action" in
+    CONNECT) ilink=3 ;;
+    DISCONNECT) ilink=1 ;;
+    MONITOR) ilink=2 ;;
+    LOCAL_MONITOR) ilink=8 ;;
+    DISCONNECT_ALL) ilink=6 ;;
+    *) die 'Unsupported ASL link action.' ;;
+esac
+if [[ "$action" == DISCONNECT_ALL ]]; then
+    [[ -z "${target:-}" ]] || die 'Disconnect All does not take a node number.'
+else
+    [[ "${target:-}" =~ ^[0-9]{1,8}$ ]] && ((10#$target > 0)) || die 'Enter a non-zero numeric AllStar node number.'
+fi
+
+local_node=$(python3 - "$RPT_CONF" <<'PY_ASL_LOCAL_NODE'
+import re
+import sys
+
+path = sys.argv[1]
+section = None
+matches = []
+with open(path, encoding="utf-8", errors="replace") as source:
+    for raw in source:
+        line = raw.split(";", 1)[0].split("#", 1)[0].strip()
+        match = re.fullmatch(r"\[\s*(\d{1,8})\s*\]", line)
+        if match:
+            section = match.group(1)
+            continue
+        if section and re.match(r"rxchannel\s*=\s*usrp(?:/|\s|$)", line, re.I):
+            matches.append(section)
+if len(set(matches)) == 1:
+    print(matches[0])
+elif not matches:
+    raise SystemExit("ERROR: no ASL node with an rxchannel=usrp setting was found in rpt.conf")
+else:
+    raise SystemExit("ERROR: multiple ASL nodes use rxchannel=usrp; node selection needs an explicit setting")
+PY_ASL_LOCAL_NODE
+) || die 'Could not identify the local ASL node that connects to Analog_Bridge.'
+
+if [[ "$action" == DISCONNECT_ALL ]]; then
+    result=$("$ASTERISK" -rx "rpt cmd $local_node ilink $ilink" 2>&1) || die "Asterisk rejected the link command: $result"
+else
+    result=$("$ASTERISK" -rx "rpt cmd $local_node ilink $ilink $target" 2>&1) || die "Asterisk rejected the link command: $result"
+fi
+printf '%s\n' "$result"
+if [[ "$action" == CONNECT && -x /usr/local/sbin/dvswitch-mode-targets ]]; then /usr/local/sbin/dvswitch-mode-targets save ASL "$target" >/dev/null; fi
+if [[ "$action" == DISCONNECT_ALL ]]; then printf 'PASS: requested disconnect all on ASL node %s.\n' "$local_node"; else printf 'PASS: requested %s on ASL node %s for node %s.\n' "$action" "$local_node" "$target"; fi

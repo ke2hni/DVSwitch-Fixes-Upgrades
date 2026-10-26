@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 PATH = Path('/etc/dvswitch-mode-buttons/favorites.json')
-MODES = {'BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'}
+MODES = {'BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'ASL'}
 
 
 def favorite_sort_key(favorite):
@@ -35,6 +35,8 @@ def save_favorites(mode, items, path=PATH):
             raise ValueError('favorite names must contain 1 to 32 printable characters')
         if not isinstance(target, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,32}', target):
             raise ValueError('invalid talkgroup or reflector ID')
+        if mode == 'ASL' and (not re.fullmatch(r'[0-9]{1,8}', target) or not target.strip('0')):
+            raise ValueError('ASL favorites must be numeric node numbers')
         clean.append({'name': name.strip(), 'target': target})
     clean.sort(key=favorite_sort_key)
 
