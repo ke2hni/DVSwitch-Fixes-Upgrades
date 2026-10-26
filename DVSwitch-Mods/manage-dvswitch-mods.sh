@@ -9,7 +9,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.10"
+readonly SCRIPT_VERSION="1.2.11"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -51,6 +51,7 @@ readonly -a COMPONENTS=(
     dashboard-stfu-status
     dashboard-stfu-activity
     dashboard-rx-monitor-left
+    stfu-logrotate-restart
 )
 
 readonly DARK_MODE_SCRIPT="$SCRIPT_DIR/dvswitch-dark-mode.sh"
@@ -194,6 +195,7 @@ select_component() {
         dashboard-stfu-status) CHILD_SCRIPT="$SCRIPT_DIR/mod-dashboard-stfu-status.sh"; BACKUP_ROOT="/var/backups/dvswitch-mods/dashboard-stfu-status"; UNINSTALL_ACTION="--uninstall" ;;
         dashboard-stfu-activity) CHILD_SCRIPT="$SCRIPT_DIR/mod-dashboard-stfu-activity.sh"; BACKUP_ROOT="/var/backups/dvswitch-mods/dashboard-stfu-activity"; UNINSTALL_ACTION="--uninstall" ;;
         dashboard-rx-monitor-left) CHILD_SCRIPT="$SCRIPT_DIR/mod-dashboard-rx-monitor-left.sh"; BACKUP_ROOT="/var/backups/dvswitch-mods/dashboard-rx-monitor-left"; UNINSTALL_ACTION="--uninstall" ;;
+        stfu-logrotate-restart) CHILD_SCRIPT="$SCRIPT_DIR/mod-stfu-logrotate-restart.sh"; BACKUP_ROOT="/var/backups/dvswitch-mods/stfu-logrotate-restart"; UNINSTALL_ACTION="--uninstall" ;;
         *) die "Unknown component: $COMPONENT" ;;
     esac
     require_regular "$CHILD_SCRIPT"

@@ -1,5 +1,24 @@
-Version: 1.0.0
+Version: 1.0.1
 DVSwitch-Mods dashboard-targets 1.2.0 event-time test package
+
+STFU logrotate restart repair (run on pi4test first):
+
+cd ~/DVSwitch-Fixes-Upgrades/DVSwitch-Mods && PYTHONDONTWRITEBYTECODE=1 python3 tests/test-stfu-logrotate-restart.py && PYTHONDONTWRITEBYTECODE=1 python3 tests/test-manager-structure.py
+
+Then check and install the component:
+
+sudo ./manage-dvswitch-mods.sh --check stfu-logrotate-restart
+sudo ./manage-dvswitch-mods.sh --install stfu-logrotate-restart
+sudo ./manage-dvswitch-mods.sh --check stfu-logrotate-restart
+
+Installing changes the next logrotate action and does not start STFU. To test
+the postrotate action on a test node, force a rotation and confirm STFU returns
+to active state. This rotates the log and briefly restarts the service:
+
+sudo logrotate -f /etc/logrotate.d/STFU && sudo systemctl status stfu --no-pager --full
+
+Repeat on pi5test and test3040 only after pi4test passes. Do not force this
+test on production node68425.
 
 This package restores the D-Star event-time reflector lookup from the
 previously tested helper. It is an update to the existing dashboard-targets

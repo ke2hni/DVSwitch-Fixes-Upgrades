@@ -1,4 +1,4 @@
-<!-- Version: 1.0.4 --><div align="center">
+<!-- Version: 1.0.5 --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -98,11 +98,11 @@ The menu provides four installation choices and an uninstall choice:
    recorded by this manager in reverse installation order.
 
 The Dark Mode and Display Layout installers do not require the standard
-component chain. STFU status, STFU activity, and RX Monitor position are
-included at the end of the standard component installation and uninstall
-order. Option 0 exits without changing anything. The standalone Mode Buttons,
-Dark Mode, and Widescreen installers are managed separately and are not removed
-by option 5.
+component chain. STFU status, STFU activity, RX Monitor position, and the STFU
+logrotate restart repair are included at the end of the standard component
+installation and uninstall order. Option 0 exits without changing anything.
+The standalone Mode Buttons, Dark Mode, and Widescreen installers are managed
+separately and are not removed by option 5.
 
 The standalone installers can also be run directly:
 
@@ -527,6 +527,30 @@ Restore a named backup created by the standalone installer:
 ```bash
 sudo ./mod-dashboard-rx-monitor-left.sh --uninstall install-YYYYMMDD-HHMMSS
 ```
+
+### STFU log rotation restart repair
+
+The stock `/etc/logrotate.d/STFU` rule runs `systemctl reload stfu` after
+rotation. STFU handles that reload signal by exiting successfully, so the
+service's `Restart=on-failure` policy leaves it stopped. This component changes
+only that postrotate command to `systemctl restart stfu`. It does not change
+the STFU service unit, timeout behavior, or log rotation criteria. The current
+rule's `size 100k` setting overrides `daily`, so rotation occurs above 100 KB.
+
+The standard manager installs this repair at the end of its normal component
+sequence. It creates a protected timestamped backup, validates the logrotate
+configuration, and does not restart STFU during installation. The restart
+happens at the next log rotation. Check and install it by itself with:
+
+```bash
+sudo ./manage-dvswitch-mods.sh --check stfu-logrotate-restart
+sudo ./manage-dvswitch-mods.sh --install stfu-logrotate-restart
+```
+
+To remove it through the manager, use `sudo ./manage-dvswitch-mods.sh
+--uninstall stfu-logrotate-restart` when it is the most recently installed
+manager component. The installer restores only the postrotate command and
+preserves unrelated current file edits.
 
 The generated web assets are installed as readable Apache files with
 `root:root` ownership and mode `0644`, including on a completely fresh

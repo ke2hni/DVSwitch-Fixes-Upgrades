@@ -22,6 +22,9 @@ def require(condition: bool, message: str) -> None:
 def main() -> None:
     master = MASTER.read_text()
     mmdvm = MMDVM.read_text()
+    component_array = master.split("readonly -a COMPONENTS=(", 1)[1].split(")", 1)[0]
+    require(component_array.strip().splitlines()[-1].strip() == "stfu-logrotate-restart",
+            "STFU logrotate repair must be included last in Install All")
     require('"1) Install/Upgrade all standard DVSwitch repairs and modifications"' in master,
             "menu option 1 must state that it installs or upgrades standard modifications")
 
@@ -40,6 +43,7 @@ def main() -> None:
         "mod-dashboard-targets.sh",
         "mod-dashboard-cell-padding.sh",
         "mod-dashboard-activity-modes.sh",
+        "mod-stfu-logrotate-restart.sh",
     )
     for name in children:
         path = ROOT / name
@@ -59,6 +63,8 @@ def main() -> None:
             "MMDVM/FCC complete-uninstall action is unavailable")
     require('dashboard-cell-padding) CHILD_SCRIPT="$SCRIPT_DIR/mod-dashboard-cell-padding.sh"; BACKUP_ROOT="/var/backups/dvswitch-mods/dashboard-cell-padding"; UNINSTALL_ACTION="--restore"' in master,
             "cell-padding does not use its supported backup restore action")
+    require('stfu-logrotate-restart) CHILD_SCRIPT="$SCRIPT_DIR/mod-stfu-logrotate-restart.sh"; BACKUP_ROOT="/var/backups/dvswitch-mods/stfu-logrotate-restart"; UNINSTALL_ACTION="--uninstall"' in master,
+            "STFU logrotate component is not registered with its protected uninstall action")
     require('dashboard-hostname-title) CHILD_SCRIPT="$SCRIPT_DIR/mod-dashboard-hostname-title.sh"; BACKUP_ROOT="/var/backups/dvswitch-mods/dashboard-hostname-title"; UNINSTALL_ACTION="--restore"' in master,
             "hostname-title does not use its supported backup restore action")
     require("strict reverse" in master,

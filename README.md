@@ -25,7 +25,8 @@ sudo ./DVSwitch-Mods/manage-dvswitch-mods.sh
 
 The menu offers:
 
-1. Install or upgrade all standard DVSwitch repairs and modifications.
+1. Install or upgrade all standard DVSwitch repairs and modifications,
+   including the STFU logrotate restart repair.
 2. Launch the DVSwitch Mode Buttons installer menu.
 3. Launch the Dark Mode dashboard installer.
 4. Launch the Widescreen Display Layout installer.
