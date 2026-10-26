@@ -240,3 +240,5 @@ Version 1.0.0-test50 fixes the generated ASL mode button markup and upgrades exi
 Version 1.0.0-test51 updates the installed mode dispatcher during the optional ASL dashboard refresh, fixing ASL selection on existing Mode Buttons installations. Existing test50 controls upgrade in place.
 
 Version 1.0.0-test52 connects ASL link actions to the existing Tune button, makes the ASL action controls more compact, and fixes routing for action requests and saved ASL targets. Existing test50 and test51 dashboard controls upgrade in place.
+
+Version 1.0.0-test53 refreshes the shared target-state helper during the optional ASL dashboard update, so ASL node targets save correctly. Existing test50 through test52 dashboard controls upgrade in place.

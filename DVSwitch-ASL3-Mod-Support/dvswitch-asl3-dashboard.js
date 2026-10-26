@@ -1,4 +1,4 @@
-/* ASL3 network status cell and Analog_Bridge target label. */
+/* ASL link controls and Analog_Bridge target label. */
 (function () {
   'use strict';
 
@@ -34,15 +34,6 @@
     if (!activity) return;
     repairGatewaySourceHeading();
     new MutationObserver(repairGatewaySourceHeading).observe(activity, { childList: true, subtree: true });
-  }
-
-  function setAslNetworkState(mode) {
-    var cell = document.getElementById('dvswitch-asl3-net-status');
-    if (!cell) return;
-    var active = mode === 'ASL';
-    cell.style.backgroundColor = active ? '#12AD2A' : '#b00';
-    cell.style.color = active ? '#030' : '#f9f9f9';
-    cell.setAttribute('aria-label', active ? 'ASL mode selected' : 'ASL mode not selected');
   }
 
   function addLinkControls() {
@@ -125,7 +116,6 @@
 
   function setMode(mode) {
     setTargetLabel(mode);
-    setAslNetworkState(mode);
     var links = document.getElementById('dvs-asl-links');
     if (links) links.hidden = mode !== 'ASL';
     var activity = document.getElementById('dvs-asl-activity');

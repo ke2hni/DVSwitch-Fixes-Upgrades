@@ -41,5 +41,5 @@ else
     result=$("$ASTERISK" -rx "rpt cmd $local_node ilink $ilink $target" 2>&1) || die "Asterisk rejected the link command: $result"
 fi
 printf '%s\n' "$result"
-if [[ "$action" == CONNECT && -x /usr/local/sbin/dvswitch-mode-targets ]]; then /usr/local/sbin/dvswitch-mode-targets save ASL "$target" >/dev/null; fi
+if [[ "$action" == CONNECT && -x /usr/local/sbin/dvswitch-mode-targets ]]; then /usr/local/sbin/dvswitch-mode-targets save ASL "$target" >/dev/null || true; fi
 if [[ "$action" == DISCONNECT_ALL ]]; then printf 'PASS: requested disconnect all on ASL node %s.\n' "$local_node"; else printf 'PASS: requested %s on ASL node %s for node %s.\n' "$action" "$local_node" "$target"; fi

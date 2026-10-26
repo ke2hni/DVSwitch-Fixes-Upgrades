@@ -2,67 +2,69 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
-"""Safely add the ASL Net status cell after the dashboard's D-Star Network cell."""
+"""Add the ASL Net card to the dashboard's left status column."""
 
 from __future__ import annotations
 
 import argparse
 import os
+import re
 import stat
 import tempfile
 from pathlib import Path
 
-MARKER = b"// DVSwitch-ASL3-Mod-Support: ASL Net status cell v1"
-ANCHOR = b'<?php showMode("D-Star Network", $mmdvmconfigs);?>'
-FUNCTION_ANCHOR = b"$rawuptime = shell_exec('cat /proc/uptime');"
-
-
-def function_block(newline: bytes) -> bytes:
-    lines = [
-        MARKER,
-        b"if (!function_exists('dvswitchASL3ShowNetStatus')) {",
-        b"    function dvswitchASL3ShowNetStatus() {",
-        b'        echo "<td id=\\"dvswitch-asl3-net-status\\" style=\\"background:#b00;color:#f9f9f9;width:8%;\\">&nbsp;ASL Net&nbsp;</td>\\n";',
-        b"    }",
-        b"}",
-    ]
-    return newline.join(lines)
-
-
-def cell_block() -> bytes:
-    return b"<?php dvswitchASL3ShowNetStatus();?>"
+MARKER = b"// DVSwitch-ASL3-Mod-Support: ASL Net card v1"
+CARD_CALL = b"include_once dirname(__FILE__).'/dvswitch-asl3-net-card.php'; dvswitchASL3ShowNetCard();"
+LEGACY_MARKER = b"// DVSwitch-ASL3-Mod-Support: ASL Net status cell v1"
+LEGACY_CELL = b'<?php dvswitchASL3ShowNetStatus();?>'
 
 
 def patch_text(data: bytes) -> bytes:
-    cell = cell_block()
-    newline = b"\r\n" if b"\r\n" in data else b"\n"
-    function = function_block(newline)
-    if data.count(MARKER) == 1 and data.count(cell) == 1 and data.count(function) == 1:
+    if data.count(MARKER) == 1 and data.count(CARD_CALL) == 1:
         return data
-    if MARKER in data or cell in data:
-        raise ValueError("partial or ambiguous ASL dashboard layout patch found")
-    if data.count(FUNCTION_ANCHOR) != 1 or data.count(ANCHOR) != 1:
-        raise ValueError("expected exactly one system uptime anchor and one D-Star Network cell")
-    candidate = data.replace(FUNCTION_ANCHOR, function + newline + FUNCTION_ANCHOR, 1)
-    candidate = candidate.replace(ANCHOR, ANCHOR + cell, 1)
-    if candidate.count(MARKER) != 1 or candidate.count(cell) != 1:
-        raise ValueError("ASL dashboard layout verification failed")
-    return candidate
+    if MARKER in data or CARD_CALL in data:
+        raise ValueError("partial or ambiguous ASL Net card patch found")
+    if data.count(b'echo "<tr><th colspan=\\"2\\">D-Star Net</th></tr>\\n";') != 1:
+        raise ValueError("expected the dashboard status-card section ending after D-Star Net")
+    newline = b"\r\n" if b"\r\n" in data else b"\n"
+    anchor = b"?>" + newline + b"</fieldset>"
+    marker = MARKER + newline
+    call = CARD_CALL + newline
+    if data.count(anchor) != 1:
+        raise ValueError("expected one dashboard status-card section ending")
+    result = data.replace(anchor, marker + call + anchor, 1)
+    if result.count(MARKER) != 1 or result.count(CARD_CALL) != 1:
+        raise ValueError("ASL Net card patch verification failed")
+    return result
 
 
 def unpatch_text(data: bytes) -> bytes:
     newline = b"\r\n" if b"\r\n" in data else b"\n"
-    function = function_block(newline)
-    cell = cell_block()
-    if data.count(MARKER) == 0 and data.count(cell) == 0:
+    block = MARKER + newline + CARD_CALL + newline
+    if data.count(MARKER) == 0 and data.count(CARD_CALL) == 0:
         return data
-    if data.count(MARKER) != 1 or data.count(cell) != 1:
-        raise ValueError("partial or ambiguous ASL dashboard layout patch found")
-    if data.count(function) != 1 or data.count(ANCHOR + cell) != 1:
-        raise ValueError("ASL dashboard layout changed after installation; refusing removal")
-    candidate = data.replace(ANCHOR + cell, ANCHOR, 1)
-    candidate = candidate.replace(function + newline, b"", 1)
-    return candidate
+    if data.count(block) != 1:
+        raise ValueError("partial or ambiguous ASL Net card patch found")
+    return data.replace(block, b"", 1)
+
+
+def remove_legacy_cell(data: bytes) -> bytes:
+    if LEGACY_MARKER not in data and LEGACY_CELL not in data:
+        return data
+    if data.count(LEGACY_MARKER) != 1 or data.count(LEGACY_CELL) != 1:
+        raise ValueError("partial or ambiguous legacy ASL Net status cell found")
+    pattern = re.compile(
+        rb"// DVSwitch-ASL3-Mod-Support: ASL Net status cell v1\r?\n"
+        rb"if \(!function_exists\('dvswitchASL3ShowNetStatus'\)\) \{\r?\n"
+        rb"    function dvswitchASL3ShowNetStatus\(\) \{\r?\n"
+        rb"        echo \"<td id=\\\"dvswitch-asl3-net-status\\\" style=\\\"background:#b00;color:#f9f9f9;width:8%;\\\">&nbsp;ASL Net&nbsp;</td>\\n\";\r?\n"
+        rb"    \}\r?\n\}\r?\n"
+    )
+    result, count = pattern.subn(b"", data)
+    if count != 1:
+        raise ValueError("legacy ASL Net function changed; refusing to remove it")
+    result = result.replace(LEGACY_CELL, b"", 1)
+    return result
 
 
 def atomic_write(path: Path, data: bytes) -> None:
@@ -84,23 +86,32 @@ def atomic_write(path: Path, data: bytes) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=("check", "install", "uninstall"))
-    parser.add_argument("target", type=Path)
+    parser.add_argument("target", type=Path, help="dashboard include/status.php")
     args = parser.parse_args()
     if args.target.is_symlink() or not args.target.is_file():
         raise SystemExit(f"ERROR: dashboard target is not a regular file: {args.target}")
-    original = args.target.read_bytes()
+    system_file = args.target.with_name("system.php")
+    if system_file.is_symlink() or not system_file.is_file():
+        raise SystemExit(f"ERROR: dashboard system include is not a regular file: {system_file}")
+    status_before = args.target.read_bytes()
+    system_before = system_file.read_bytes()
     try:
-        candidate = unpatch_text(original) if args.action == "uninstall" else patch_text(original)
+        status_after = unpatch_text(status_before) if args.action == "uninstall" else patch_text(status_before)
+        system_after = remove_legacy_cell(system_before)
     except ValueError as error:
         raise SystemExit(f"ERROR: {error}") from error
     if args.action == "check":
-        print("ALREADY INSTALLED" if candidate == original and MARKER in original else "READY")
-        print("PASS: ASL Net layout structure is supported; no files changed.")
-    elif candidate != original:
-        atomic_write(args.target, candidate)
-        print("PASS: ASL Net status cell installed after D-Star Network.")
+        print("ALREADY INSTALLED" if status_after == status_before and MARKER in status_before and system_after == system_before else "READY")
+        print("PASS: ASL Net card layout is supported; no files changed.")
     else:
-        print("PASS: ASL Net dashboard layout is already in the requested state.")
+        if status_after != status_before:
+            atomic_write(args.target, status_after)
+        if system_after != system_before:
+            atomic_write(system_file, system_after)
+        if args.action == "install":
+            print("PASS: ASL Net card installed in the left dashboard status column.")
+        else:
+            print("PASS: ASL Net card removed and legacy status cell cleaned up.")
     return 0
 
 
