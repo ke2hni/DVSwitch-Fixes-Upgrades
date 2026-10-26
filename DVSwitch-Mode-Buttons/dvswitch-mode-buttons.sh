@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="1.0.0-test53"
+VERSION="1.0.0-test54"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
 VAR="/var/lib/dvswitch/dvs/var.txt"
@@ -214,8 +214,8 @@ BRIDGE_ORIGINAL = '''    if [ $# -eq 0 ]; then
     else
         remoteControlCommand "txTg=$1"
     fi'''
-INDEX_MARKER = '<!-- DVSwitch-Mode-Buttons 1.0.0-test53 -->'
-INDEX_MARKERS = re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52) -->')
+INDEX_MARKER = '<!-- DVSwitch-Mode-Buttons 1.0.0-test54 -->'
+INDEX_MARKERS = re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53) -->')
 
 
 class UnsafeStructure(RuntimeError):
@@ -636,8 +636,8 @@ SUDO
   python3 - "$TARGET" <<'PY'
 import os, re, shutil, sys, tempfile
 path=sys.argv[1]; text=open(path, encoding='utf-8').read()
-marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test53 -->'
-owned_marker=re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52) -->')
+marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test54 -->'
+owned_marker=re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53) -->')
 owned_matches=list(owned_marker.finditer(text))
 if len(owned_matches) > 1: raise SystemExit('ERROR: duplicate owned mode-button markers found')
 if owned_matches:
@@ -648,7 +648,7 @@ if owned_matches:
     text=text[:start]+text[end:]
 if marker not in text:
     asl_button_html = '<button type="button" class="button link" data-mode="ASL">ASL</button>' if os.path.isfile('/usr/local/sbin/dvswitch-asl3-node-link') and os.access('/usr/local/sbin/dvswitch-asl3-node-link', os.X_OK) else ''
-    block='''<!-- DVSwitch-Mode-Buttons 1.0.0-test53 -->
+    block='''<!-- DVSwitch-Mode-Buttons 1.0.0-test54 -->
 <div id="dvs-mode-buttons" aria-label="Select Mode"><div class="dvs-mode-buttons-title">Select Mode</div>
 <button type="button" class="button link" data-mode="BM">BM</button><button type="button" class="button link" data-mode="TGIF">TGIF</button><button type="button" class="button link" data-mode="STFU">STFU</button><button type="button" class="button link" data-mode="YSF">YSF</button><button type="button" class="button link" data-mode="P25">P25</button><button type="button" class="button link" data-mode="NXDN">NXDN</button><button type="button" class="button link" data-mode="DSTAR">D-Star</button>__ASL_BUTTON__</div>
 <section id="dvs-favorites" hidden aria-label="Mode favorites"><div class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div><label class="dvs-favorites-select-label" for="dvs-favorites-select" hidden>Favorite</label><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="Active mode favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-edit">Edit</button>
@@ -677,7 +677,7 @@ if marker not in text:
     with os.fdopen(fd,'w',encoding='utf-8',newline='') as f: f.write(text)
     os.chown(tmp,st.st_uid,st.st_gid); os.chmod(tmp,st.st_mode & 0o7777); os.replace(tmp,path)
 PY
-  grep -qF '<!-- DVSwitch-Mode-Buttons 1.0.0-test53 -->' "$TARGET" || die 'dashboard controls block was not installed'
+  grep -qF '<!-- DVSwitch-Mode-Buttons 1.0.0-test54 -->' "$TARGET" || die 'dashboard controls block was not installed'
 }
 
 if [[ $mode == refresh_asl ]]; then
@@ -729,7 +729,7 @@ import re, sys
 from pathlib import Path
 path = Path(sys.argv[1])
 text = path.read_text(encoding='utf-8')
-button_markers = list(re.finditer(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52) -->', text))
+button_markers = list(re.finditer(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53) -->', text))
 if len(button_markers) > 1:
     raise SystemExit('ERROR: duplicate Mode Buttons blocks found')
 if button_markers:
@@ -792,7 +792,7 @@ PY_DMR_CARD_CHECK
   exit 0
 fi
 
-if [[ -e "$MODE_HELPER" || -e "$TARGET_HELPER" || -e "$FAVORITES_HELPER" || -e "$ENDPOINT" || -e "$SUDOERS" ]] || grep -Eq '<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52) -->' "$TARGET"; then
+if [[ -e "$MODE_HELPER" || -e "$TARGET_HELPER" || -e "$FAVORITES_HELPER" || -e "$ENDPOINT" || -e "$SUDOERS" ]] || grep -Eq '<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53) -->' "$TARGET"; then
   echo "Existing installation detected; applying the current upgrade."
 else
   echo "No existing installation detected; starting installation."

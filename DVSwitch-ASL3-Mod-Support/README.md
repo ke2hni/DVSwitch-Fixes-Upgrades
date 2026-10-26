@@ -4,7 +4,7 @@ Repository: <https://github.com/ke2hni/DVSwitch-Fixes-Upgrades>
 
 This optional component adds ASL 3 support to the combined DVSwitch repository. Manager menu option 6 installs it. ASL 3 must be installed, and the DVSwitch dashboard files must be present. If Mode Buttons is already installed, this installer refreshes its dashboard controls without entering the DMR preset setup. Otherwise, install Mode Buttons later with manager option 2.
 
-It conditionally adds the ASL mode button when Mode Buttons is installed, uses numeric node numbers for Tune and Favorites, changes the Analog_Bridge target label to `Node` while ASL is selected, and adds an **ASL Net** card to the dashboard's left status column alongside the other network cards. The card shows active connected node numbers and friendly names from `/var/lib/asterisk/astdb.txt` (falling back to `/var/lib/asterisk/astdb`). When no remote node is connected, it shows `Listening`. When ASL is selected, five checkbox link actions appear: Connect, Disconnect, Monitor, Local Monitor, and Disconnect All. Gateway Activity receives ASL connection and disconnection events from the selected ASL node's `connpgm` and `discpgm` hooks; the installer refuses to overwrite existing hooks and restores `rpt.conf` if installation fails. It repairs ASL-to-digital mode changes in `dvswitch.sh` versions
+It conditionally adds the ASL mode button when Mode Buttons is installed, uses numeric node numbers for Tune and Favorites, changes the Analog_Bridge target label to `Node` while ASL is selected, and adds an **ASL Net** card to the dashboard's left status column alongside the other network cards. The card shows active connected node numbers and friendly names from `/var/lib/asterisk/astdb.txt` (falling back to `/var/lib/asterisk/astdb`). When no remote node is connected, it shows `Listening`. ASL link commands and activity hooks use the discovered local public node; the private USRP bridge node remains connected to it. Disconnect All and leaving ASL disconnect external peers individually while preserving that bridge. Node IDs come from each unit's `rpt.conf` and live `rpt lstats` output, never fixed values. When ASL is selected, five checkbox link actions appear: Connect, Disconnect, Monitor, Local Monitor, and Disconnect All. Gateway Activity receives ASL connection and disconnection events from the local public node's `connpgm` and `discpgm` hooks; the installer refuses ambiguous node layouts or existing custom hooks and restores `rpt.conf` if installation fails. It repairs ASL-to-digital mode changes in `dvswitch.sh` versions
 1.6.2 and 1.6.3. The patch routes Analog_Bridge remote-control commands to a
 live TLV UDP listener, which avoids using stale listener-port information.
 
@@ -27,7 +27,8 @@ keeps its own backups under `/var/backups/dvswitch-mods/asl-mode-switch/` and
 supports `--restore BACKUP-NAME`.
 
 The patchers reject unsupported versions and dashboard structures without
-changing installed files. From the combined repository root, run
+changing installed files. The ASL node check requires one USRP private node and
+one other configured node; it refuses ambiguous layouts. From the combined repository root, run
 `python3 DVSwitch-ASL3-Mod-Support/tests/test-dvswitch-asl-mode-switch-patcher.py`
 and `python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py` to
 check the mode-switch repair and dashboard layout patch.

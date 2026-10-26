@@ -10,6 +10,10 @@ event=$1
 local_node=$2
 remote_node=$3
 [[ "$local_node" =~ ^[0-9]{1,8}$ && "$remote_node" =~ ^[0-9]{1,8}$ ]] || exit 2
+if [[ -f /usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py ]]; then
+    private_node=$(python3 /usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py node /etc/asterisk/rpt.conf 2>/dev/null || true)
+    [[ -z "$private_node" || "$remote_node" != "$private_node" ]] || exit 0
+fi
 case "$event" in
     CONNECTED) label=Connected ;;
     DISCONNECTED) label=Disconnected ;;

@@ -110,6 +110,9 @@ else
   rm -f "$STATE_DIR/dmr-tune-pending"
 fi
 if [[ "$mode" != BM && "$mode" != TGIF ]]; then rm -f "$STATE_DIR/dmr-tune-pending"; fi
+if [[ "$mode" =~ ^(BM|TGIF|DSTAR|STFU|YSF|P25|NXDN)$ && -x "$ASL_NODE_HELPER" && -f "$STATE_FILE" ]] && [[ "$(<"$STATE_FILE")" == ASL ]]; then
+  printf 'DISCONNECT_ALL\n' | "$ASL_NODE_HELPER" || die 'could not disconnect external ASL nodes before changing mode'
+fi
 case "$mode" in
   BM|TGIF) switch_dmr_network "$mode" ;;
   ASL) [[ -x "$ASL_NODE_HELPER" ]] || die 'ASL 3 support is not installed'; [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode ASL || exit 1 ;;

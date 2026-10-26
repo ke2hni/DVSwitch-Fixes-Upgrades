@@ -30,12 +30,21 @@ Then verify in the dashboard:
    network cards. With an ASL link active, confirm it shows the node number and
    friendly name from `astdb.txt`; after disconnecting, confirm it returns to
    `Listening`. Confirm Gateway Activity keeps its `Src` header after refresh.
-4. Enter a numeric AllStar node in Tune; verify the connection and saved ASL Favorite.
+4. Enter a numeric AllStar node in Tune; verify the connection is made through
+   the discovered local public node and the target is saved as an ASL Favorite.
 5. Verify each checkbox action: Connect (ilink 3), Disconnect (ilink 1), Monitor
-   (ilink 2), Local Monitor (ilink 8), and Disconnect All (ilink 6).
-6. Connect and disconnect a node. Confirm ASL Gateway Activity shows its node
+   (ilink 2), and Local Monitor (ilink 8).
+6. With the private-to-public bridge and at least one external node connected,
+   record `sudo asterisk -rx "rpt lstats <local-public-node>"`. Select Disconnect
+   All. Confirm each external peer is disconnected individually and the private
+   bridge peer remains established. Do not use `ilink 6` for this check.
+7. Connect an external node again, then select a different DVSwitch mode.
+   Confirm the external ASL peer is disconnected before the mode changes and
+   the private-to-public bridge remains established. Confirm the selected mode
+   works after the switch.
+8. Connect and disconnect a node. Confirm ASL Gateway Activity shows its node
    number, ASTDB name when available, event, and UTC time.
-7. Confirm non-ASL mode buttons, Tune/Favorites, RX Monitor, and services still
+9. Confirm non-ASL mode buttons, Tune/Favorites, RX Monitor, and services still
    behave as before.
 
 The standalone repair was already validated on pi4test for ASL-to-P25, NXDN,

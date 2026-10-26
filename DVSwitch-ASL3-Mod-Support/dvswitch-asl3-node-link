@@ -23,7 +23,7 @@ case "$action" in
     DISCONNECT) ilink=1 ;;
     MONITOR) ilink=2 ;;
     LOCAL_MONITOR) ilink=8 ;;
-    DISCONNECT_ALL) ilink=6 ;;
+    DISCONNECT_ALL) ilink='' ;;
     *) die 'Unsupported ASL link action.' ;;
 esac
 if [[ "$action" == DISCONNECT_ALL ]]; then
@@ -33,13 +33,32 @@ else
 fi
 
 [[ -f "$RPT_CONF_TOOL" && ! -L "$RPT_CONF_TOOL" ]] || die 'ASL rpt.conf helper is not installed.'
-local_node=$(python3 "$RPT_CONF_TOOL" node "$RPT_CONF") || die 'Could not identify the local ASL node that connects to Analog_Bridge.'
+private_node=$(python3 "$RPT_CONF_TOOL" node "$RPT_CONF") || die 'Could not identify the local ASL node that connects to Analog_Bridge.'
+nodes=$(python3 "$RPT_CONF_TOOL" nodes "$RPT_CONF") || die 'Could not read configured ASL node numbers.'
+public_node=''
+while IFS= read -r candidate; do
+    [[ -n "$candidate" && "$candidate" != "$private_node" ]] || continue
+    links=$("$ASTERISK" -rx "rpt lstats $candidate" 2>/dev/null) || continue
+    if awk -v node="$private_node" '$1 == node { found=1 } END { exit !found }' <<< "$links"; then
+        [[ -z "$public_node" ]] || die 'More than one local ASL node links to the private DVSwitch bridge; refusing an ambiguous command.'
+        public_node=$candidate
+    fi
+done <<< "$nodes"
+[[ -n "$public_node" ]] || die 'Could not identify the local public ASL node linked to the private DVSwitch bridge.'
 
 if [[ "$action" == DISCONNECT_ALL ]]; then
-    result=$("$ASTERISK" -rx "rpt cmd $local_node ilink $ilink" 2>&1) || die "Asterisk rejected the link command: $result"
+    links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not list links on local public ASL node $public_node: $links"
+    disconnected=0
+    while IFS= read -r peer; do
+        [[ -n "$peer" && "$peer" != "$private_node" ]] || continue
+        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 1 $peer" 2>&1) || die "Could not disconnect external ASL node $peer: $result"
+        printf '%s\n' "$result"
+        disconnected=$((disconnected + 1))
+    done < <(awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { print $1 }' <<< "$links")
+    printf 'PASS: disconnected %s external ASL link(s) on node %s; preserved private bridge node %s.\n' "$disconnected" "$public_node" "$private_node"
 else
-    result=$("$ASTERISK" -rx "rpt cmd $local_node ilink $ilink $target" 2>&1) || die "Asterisk rejected the link command: $result"
+    result=$("$ASTERISK" -rx "rpt cmd $public_node ilink $ilink $target" 2>&1) || die "Asterisk rejected the link command: $result"
+    printf '%s\n' "$result"
+    if [[ "$action" == CONNECT && -x /usr/local/sbin/dvswitch-mode-targets ]]; then /usr/local/sbin/dvswitch-mode-targets save ASL "$target" >/dev/null || true; fi
+    printf 'PASS: requested %s on local public ASL node %s for node %s.\n' "$action" "$public_node" "$target"
 fi
-printf '%s\n' "$result"
-if [[ "$action" == CONNECT && -x /usr/local/sbin/dvswitch-mode-targets ]]; then /usr/local/sbin/dvswitch-mode-targets save ASL "$target" >/dev/null || true; fi
-if [[ "$action" == DISCONNECT_ALL ]]; then printf 'PASS: requested disconnect all on ASL node %s.\n' "$local_node"; else printf 'PASS: requested %s on ASL node %s for node %s.\n' "$action" "$local_node" "$target"; fi

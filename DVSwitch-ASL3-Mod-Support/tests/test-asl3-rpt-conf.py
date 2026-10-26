@@ -31,35 +31,53 @@ rxchannel = USRP/127.0.0.1:34001:32001
 
 def main() -> None:
     assert TOOL.find_local_node(SAMPLE) == "1970"
+    assert TOOL.find_public_node(SAMPLE) == "446901"
+    assert TOOL.configured_nodes(SAMPLE) == ["446901", "1970"]
+    old_private_hooks = SAMPLE.replace(
+        b"[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n",
+        b"[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n" + TOOL.MARKER + b"\nconnpgm = /usr/local/sbin/dvswitch-asl3-link-event CONNECTED\ndiscpgm = /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED\n",
+        1,
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "rpt.conf"
+        path.write_bytes(old_private_hooks)
+        assert TOOL.install_hooks(path, "/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event") == "446901"
+        migrated = path.read_bytes()
+        private_block = next(item[3] for item in TOOL.numeric_sections(migrated) if item[0] == "1970")
+        public_block = next(item[3] for item in TOOL.numeric_sections(migrated) if item[0] == "446901")
+        assert TOOL.MARKER not in private_block
+        assert TOOL.MARKER in public_block
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "rpt.conf"
         path.write_bytes(SAMPLE)
         node = TOOL.install_hooks(path, "/usr/local/sbin/dvswitch-asl3-link-event")
         installed = path.read_bytes()
-        assert node == "1970"
+        assert node == "446901"
         assert installed.count(TOOL.MARKER) == 1
         assert b"connpgm = /usr/local/sbin/dvswitch-asl3-link-event CONNECTED" in installed
         assert b"discpgm = /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED" in installed
         assert b"[node-main](!)\nrxchannel = Local/pseudo\nconnpgm = template-hook" in installed
-        assert TOOL.install_hooks(path, "/usr/local/sbin/dvswitch-asl3-link-event") == "1970"
+        private_block = next(item[3] for item in TOOL.numeric_sections(installed) if item[0] == "1970")
+        assert b"connpgm =" not in private_block and b"discpgm =" not in private_block and TOOL.MARKER not in private_block
+        assert TOOL.install_hooks(path, "/usr/local/sbin/dvswitch-asl3-link-event") == "446901"
         assert path.read_bytes() == installed
-        # Upgrade the direct hook lines already installed on pi4test.
-        assert TOOL.install_hooks(path, "/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event") == "1970"
+        # Upgrade the hook command format in place without changing node IDs.
+        assert TOOL.install_hooks(path, "/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event") == "446901"
         migrated = path.read_bytes()
         assert b"connpgm = /usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event CONNECTED" in migrated
         assert b"discpgm = /usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED" in migrated
-        assert TOOL.install_hooks(path, "/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event") == "1970"
+        assert TOOL.install_hooks(path, "/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event") == "446901"
         assert path.read_bytes() == migrated
-        custom = SAMPLE.replace(b"rxchannel = USRP/127.0.0.1:34001:32001\n", b"rxchannel = USRP/127.0.0.1:34001:32001\nconnpgm = custom-hook\n", 1)
+        custom = SAMPLE.replace(b"[446901](node-main)\nrxchannel = Local/pseudo\n", b"[446901](node-main)\nrxchannel = Local/pseudo\nconnpgm = custom-hook\n", 1)
         path.write_bytes(custom)
         try:
             TOOL.install_hooks(path, "/usr/local/sbin/dvswitch-asl3-link-event")
         except ValueError as error:
-            assert "refusing to overwrite" in str(error)
+            assert "refusing to overwrite" in str(error) or "custom activity hooks" in str(error)
         else:
             raise AssertionError("existing node hooks were overwritten")
         assert path.read_bytes() == custom
-    print("PASS: inherited numeric node headers resolve correctly and hooks stay inside the USRP node stanza")
+    print("PASS: node IDs are discovered from rpt.conf and activity hooks are placed on the local public node")
 
 
 if __name__ == "__main__":

@@ -67,7 +67,7 @@ class RxMonitorAnchorTests(unittest.TestCase):
             result = run_patcher(target)
             self.assertEqual(result.returncode, 0, result.stderr)
             installed = target.read_text()
-        self.assertIn("<!-- DVSwitch-Mode-Buttons 1.0.0-test53 -->", installed)
+        self.assertIn("<!-- DVSwitch-Mode-Buttons 1.0.0-test54 -->", installed)
         self.assertIn('id="dvs-target-tuner"', installed)
         self.assertIn('id="dvs-favorites"', installed)
         self.assertLess(installed.index("dvs-mode-buttons"), installed.index('<div style="margin-top:8px;">'))
@@ -148,7 +148,7 @@ class RxMonitorAnchorTests(unittest.TestCase):
             second = run_patcher(target)
             self.assertEqual(second.returncode, 0, second.stderr)
             installed = target.read_text()
-        self.assertEqual(installed.count("<!-- DVSwitch-Mode-Buttons 1.0.0-test53 -->"), 1)
+        self.assertEqual(installed.count("<!-- DVSwitch-Mode-Buttons 1.0.0-test54 -->"), 1)
         self.assertEqual(installed.count("// DVSwitch-Mods: RX Monitor left of status v1"), 1)
         self.assertLess(installed.index("dvs-mode-buttons"), installed.index("</center>"))
         self.assertIn("playAudioToggle(8080, this)", installed)
@@ -182,10 +182,10 @@ class RxMonitorAnchorTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             installed = target.read_text()
         self.assertNotIn("1.0.0-test8", installed)
-        self.assertEqual(installed.count("1.0.0-test53"), 1)
+        self.assertEqual(installed.count("1.0.0-test54"), 1)
         self.assertNotIn("old-buttons", installed)
 
-    def test_test43_dashboard_marker_upgrades_to_test53(self) -> None:
+    def test_test43_dashboard_marker_upgrades_to_test54(self) -> None:
         source = (
             '<div class="content"><center>\n'
             '<!-- DVSwitch-Mode-Buttons 1.0.0-test43 -->\n'
@@ -201,10 +201,10 @@ class RxMonitorAnchorTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             installed = target.read_text()
         self.assertNotIn("1.0.0-test43", installed)
-        self.assertEqual(installed.count("1.0.0-test53"), 1)
+        self.assertEqual(installed.count("1.0.0-test54"), 1)
         self.assertEqual(installed.count('id="dvs-target-tuner"'), 1)
 
-    def test_test44_dashboard_marker_upgrades_to_test53(self) -> None:
+    def test_test44_dashboard_marker_upgrades_to_test54(self) -> None:
         source = (
             '<div class="content"><center>\n'
             '<!-- DVSwitch-Mode-Buttons 1.0.0-test44 -->\n'
@@ -220,10 +220,10 @@ class RxMonitorAnchorTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             installed = target.read_text()
         self.assertNotIn("1.0.0-test44", installed)
-        self.assertEqual(installed.count("1.0.0-test53"), 1)
+        self.assertEqual(installed.count("1.0.0-test54"), 1)
         self.assertIn('<dialog class="dvs-favorites-editor"', installed)
 
-    def test_broken_test49_asl_markup_is_replaced_by_test53(self) -> None:
+    def test_broken_test49_asl_markup_is_replaced_by_test54(self) -> None:
         source = (
             '<div class="content"><center>\n'
             '<!-- DVSwitch-Mode-Buttons 1.0.0-test49 -->\n'
@@ -242,11 +242,11 @@ class RxMonitorAnchorTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("if os.path.isfile('/usr/local/sbin/dvswitch-asl3-node-link')", installed)
         self.assertNotIn("__ASL_BUTTON__", installed)
-        self.assertEqual(installed.count("<!-- DVSwitch-Mode-Buttons 1.0.0-test53 -->"), 1)
+        self.assertEqual(installed.count("<!-- DVSwitch-Mode-Buttons 1.0.0-test54 -->"), 1)
         self.assertIn('data-mode="ASL">ASL</button>', installed)
 
-    def test_test45_through_test52_markers_upgrade_in_place_to_test53(self) -> None:
-        for old_version in (45, 46, 47, 48, 49, 50, 51, 52):
+    def test_test45_through_test53_markers_upgrade_in_place_to_test54(self) -> None:
+        for old_version in (45, 46, 47, 48, 49, 50, 51, 52, 53):
             source = (
                 '<div class="content"><center>\n'
                 f'<!-- DVSwitch-Mode-Buttons 1.0.0-test{old_version} -->\n'
@@ -262,7 +262,7 @@ class RxMonitorAnchorTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 installed = target.read_text()
             self.assertNotIn(f"1.0.0-test{old_version}", installed)
-            self.assertEqual(installed.count("1.0.0-test53"), 1)
+            self.assertEqual(installed.count("1.0.0-test54"), 1)
             self.assertIn('<strong>Cancel or Esc</strong>', installed)
             self.assertIn('Cancel / Close</button>', installed)
 
