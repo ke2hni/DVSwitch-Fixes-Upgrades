@@ -21,7 +21,7 @@ sudo ./dvswitch-asl3-mod-support.sh --install
 `--check` makes no changes and reports a clean skip when ASL 3 is absent.
 `--install` creates a protected timestamped backup before updating the
 dashboard and the installed `dvswitch.sh`. It validates the patch and rolls
-dashboard files back automatically if an installation step fails. Apache is restarted to load the dashboard changes. Asterisk is not restarted by the installer; ASL link activity hooks are added to `rpt.conf` for its normal configuration reload cycle. Dashboard backups are stored under
+dashboard files back automatically if an installation step fails. Apache is restarted to load the dashboard changes. The installer does not reload Asterisk. After installing, run `sudo asterisk -rx "module reload app_rpt.so"` to activate the ASL link activity hooks from `rpt.conf`. Dashboard backups are stored under
 `/var/backups/dvswitch-mods/asl3-support/`. The standalone mode-switch repair
 keeps its own backups under `/var/backups/dvswitch-mods/asl-mode-switch/` and
 supports `--restore BACKUP-NAME`.

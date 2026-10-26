@@ -31,6 +31,7 @@ readonly BUTTONS_SUDOERS="/etc/sudoers.d/dvswitch-mode-buttons"
 readonly BUTTONS_TUNE_HELPER="/usr/local/sbin/dvswitch-mode-tune"
 readonly BUTTONS_FAVORITES_HELPER="/usr/local/sbin/dvswitch-mode-favorites"
 readonly SUDOERS="/etc/sudoers.d/dvswitch-asl3-support"
+readonly ACTIVITY_SUDOERS="/etc/sudoers.d/dvswitch-asl3-activity"
 readonly BACKUP_ROOT="/var/backups/dvswitch-mods/asl3-support"
 
 BACKUP_DIR=""
@@ -49,7 +50,8 @@ require_file() { [[ -f "$1" && ! -L "$1" ]] || die "Required regular file is una
 
 preflight() {
     [[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run this command with sudo.'
-    for command in bash cat chmod chown cp date grep install mktemp mv node php python3 rm sed systemctl visudo; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
+    for command in bash cat chmod chown cp date grep getent id install mktemp mv node php python3 rm sed sudo systemctl visudo; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
+    getent passwd asterisk >/dev/null || die 'The ASL Asterisk service account was not found.'
     require_file "$ASL_REPAIR"
     require_file "$LAYOUT_PATCHER"
     require_file "$RPT_CONF_TOOL"
@@ -114,7 +116,7 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
         systemctl restart apache2 >/dev/null 2>&1 || true
     fi
@@ -157,6 +159,17 @@ install_sudoers() {
     mv -fT "$temporary" "$SUDOERS"
 }
 
+install_activity_sudoers() {
+    local temporary
+    install -d -o root -g root -m 0755 /etc/sudoers.d
+    temporary=$(mktemp /etc/sudoers.d/.dvswitch-asl3-activity.XXXXXX)
+    printf '%s\n' 'asterisk ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-asl3-link-event CONNECTED *, /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED *' > "$temporary"
+    chown root:root "$temporary"
+    chmod 0440 "$temporary"
+    visudo -cf "$temporary" >/dev/null || { rm -f "$temporary"; die 'ASL activity sudo rule validation failed.'; }
+    mv -fT "$temporary" "$ACTIVITY_SUDOERS"
+}
+
 run_check() {
     if ! detect_asl3; then
         printf 'SKIP: ASL 3 is not installed. No files changed; DVSwitch remains usable without ASL.\n'
@@ -190,7 +203,7 @@ run_install() {
     local collision=0
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
 
     install -d -o root -g root -m 0755 /usr/local/sbin "$(dirname "$RPT_CONF_TOOL_TARGET")" "$(dirname "$DASHBOARD_JS_TARGET")"
@@ -199,7 +212,8 @@ run_install() {
     install -o root -g root -m 0644 "$RPT_CONF_TOOL" "$RPT_CONF_TOOL_TARGET"
     install -o root -g root -m 0644 "$DASHBOARD_JS" "$DASHBOARD_JS_TARGET"
     install -o root -g root -m 0644 "$ACTIVITY_ENDPOINT" "$ACTIVITY_ENDPOINT_TARGET"
-    python3 "$RPT_CONF_TOOL" install "$RPT_CONF" "$EVENT_HELPER_TARGET"
+    install_activity_sudoers
+    python3 "$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET"
     install -d -o root -g www-data -m 0750 /var/lib/dvswitch-mods
     python3 "$LAYOUT_PATCHER" install "$DASHBOARD_SYSTEM"
     install_index_script
@@ -215,9 +229,11 @@ run_install() {
     php -l "$DASHBOARD_INDEX" >/dev/null
     php -l "$ACTIVITY_ENDPOINT_TARGET" >/dev/null
     visudo -cf "$SUDOERS" >/dev/null
+    visudo -cf "$ACTIVITY_SUDOERS" >/dev/null
     systemctl restart apache2
     INSTALL_ACTIVE=0
     printf 'PASS: ASL 3 dashboard support installed. Backup: %s\n' "$BACKUP_DIR"
+    printf 'NOTICE: To activate the new ASL link activity hooks, reload app_rpt with: sudo asterisk -rx "module reload app_rpt.so"\n'
 }
 
 case "${1:-}" in

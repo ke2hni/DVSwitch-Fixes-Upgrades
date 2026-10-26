@@ -48,6 +48,9 @@ require("aslAction" in BUTTON_INSTALLER and "dvs-asl-links" in (ROOT / "dvswitch
         "ASL checkbox link controls are not connected to the dashboard endpoint")
 require("connpgm = {helper} CONNECTED" in RPT_CONF_TOOL and "discpgm = {helper} DISCONNECTED" in RPT_CONF_TOOL,
         "ASL activity hooks are not configured for the selected local node")
+require('"$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET"' in SUPPORT and
+        "asterisk ALL=(root) NOPASSWD:" in SUPPORT and "[[ ${EUID:-$(id -u)} -eq 0 ]]" in ACTIVITY_HOOK,
+        "ASL activity events must use the root-owned logger through a constrained Asterisk sudo rule")
 require("(?:\\([^)]*\\))?" in RPT_CONF_TOOL and '"$RPT_CONF_TOOL" check "$RPT_CONF"' in SUPPORT,
         "inherited numeric rpt.conf node stanzas are not handled during preflight")
 require("$remote_node" in ACTIVITY_HOOK and "CONNECTED)" in ACTIVITY_HOOK and "DISCONNECTED)" in ACTIVITY_HOOK and "asl3-link-activity.tsv" in ACTIVITY_HOOK,

@@ -18,6 +18,10 @@ first:
 
 sudo ./dvswitch-asl3-mod-support.sh --install
 
+After install, activate the new ASL activity hooks on the test node:
+
+sudo asterisk -rx "module reload app_rpt.so"
+
 Then verify in the dashboard:
 
 1. Select ASL. Confirm the button remains selected after status refresh.

@@ -4,6 +4,7 @@
 
 set -Eeuo pipefail
 umask 077
+[[ ${EUID:-$(id -u)} -eq 0 ]] || exit 2
 [[ $# -eq 3 ]] || exit 2
 event=$1
 local_node=$2

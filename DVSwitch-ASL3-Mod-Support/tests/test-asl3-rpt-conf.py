@@ -43,6 +43,13 @@ def main() -> None:
         assert b"[node-main](!)\nrxchannel = Local/pseudo\nconnpgm = template-hook" in installed
         assert TOOL.install_hooks(path, "/usr/local/sbin/dvswitch-asl3-link-event") == "1970"
         assert path.read_bytes() == installed
+        # Upgrade the direct hook lines already installed on pi4test.
+        assert TOOL.install_hooks(path, "/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event") == "1970"
+        migrated = path.read_bytes()
+        assert b"connpgm = /usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event CONNECTED" in migrated
+        assert b"discpgm = /usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED" in migrated
+        assert TOOL.install_hooks(path, "/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-link-event") == "1970"
+        assert path.read_bytes() == migrated
         custom = SAMPLE.replace(b"rxchannel = USRP/127.0.0.1:34001:32001\n", b"rxchannel = USRP/127.0.0.1:34001:32001\nconnpgm = custom-hook\n", 1)
         path.write_bytes(custom)
         try:

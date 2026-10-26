@@ -64,8 +64,35 @@ def install_hooks(path: Path, helper: str) -> str:
     conn = f"connpgm = {helper} CONNECTED".encode()
     disc = f"discpgm = {helper} DISCONNECTED".encode()
     if MARKER in block:
-        if block.count(MARKER) != 1 or block.count(conn) != 1 or block.count(disc) != 1:
+        if block.count(MARKER) != 1:
             raise ValueError("partial or duplicate ASL activity hooks")
+        if block.count(conn) == 1 and block.count(disc) == 1:
+            return node
+        old_conn = b"connpgm = /usr/local/sbin/dvswitch-asl3-link-event CONNECTED"
+        old_disc = b"discpgm = /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED"
+        if block.count(old_conn) != 1 or block.count(old_disc) != 1:
+            raise ValueError("partial or customized ASL activity hooks; refusing to replace them")
+        lines = original.splitlines(keepends=True)
+        for index in range(first, last):
+            content = clean_line(lines[index])
+            if content == old_conn:
+                lines[index] = lines[index].replace(old_conn, conn, 1)
+            elif content == old_disc:
+                lines[index] = lines[index].replace(old_disc, disc, 1)
+        updated = b"".join(lines)
+        info = path.stat()
+        fd, temporary = tempfile.mkstemp(prefix=".rpt.conf.asl3-", dir=path.parent)
+        try:
+            with os.fdopen(fd, "wb") as output:
+                output.write(updated)
+                output.flush()
+                os.fsync(output.fileno())
+            os.chown(temporary, info.st_uid, info.st_gid)
+            os.chmod(temporary, stat.S_IMODE(info.st_mode))
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
         return node
     active = [line for line in block.splitlines() if re.match(rb"^\s*(?:connpgm|discpgm)\s*=", clean_line(line), re.I)]
     if active:
