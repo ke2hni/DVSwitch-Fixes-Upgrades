@@ -70,7 +70,10 @@ def main() -> None:
             '2) run_mode_buttons_installer ;;' in master and
             '5) initialize_state; uninstall_requested all ;;' in master and
             'Choose an option [0/1/2/3/4/5]:' in master and
-            'MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"' in master,
+            'MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"' in master and
+            'script_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")' in master and
+            'cd -- "$script_dir"' in master and
+            './dvswitch-mode-buttons.sh' in master,
             "combined-repository menu does not launch Mode Buttons or preserve the shifted options")
     require("last_state_line" in master and "remove_last_state_line" in master,
             "recorded LIFO uninstall implementation is missing")

@@ -9,7 +9,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.9"
+readonly SCRIPT_VERSION="1.2.10"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -94,10 +94,15 @@ run_optional_mod_installer() {
 }
 
 run_mode_buttons_installer() {
+    local script_dir
     require_root
     require_executable_script "$MODE_BUTTONS_SCRIPT"
     printf '\n=== DVSWITCH MODE BUTTONS ===\n'
-    "$MODE_BUTTONS_SCRIPT"
+    script_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")
+    (
+        cd -- "$script_dir"
+        ./dvswitch-mode-buttons.sh
+    )
 }
 
 show_menu() {
