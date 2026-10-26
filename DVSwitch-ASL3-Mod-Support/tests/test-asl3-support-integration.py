@@ -10,6 +10,7 @@ SUPPORT = (ROOT / "dvswitch-asl3-mod-support.sh").read_text(encoding="utf-8")
 LINK = (ROOT / "dvswitch-asl3-node-link").read_text(encoding="utf-8")
 ACTIVITY_HOOK = (ROOT / "dvswitch-asl3-link-event").read_text(encoding="utf-8")
 ACTIVITY_ENDPOINT = (ROOT / "dvswitch-asl3-activity.php").read_text(encoding="utf-8")
+RPT_CONF_TOOL = (ROOT / "lib" / "asl3_rpt_conf.py").read_text(encoding="utf-8")
 MANAGER = (ROOT.parent / "DVSwitch-Mods" / "manage-dvswitch-mods.sh").read_text(encoding="utf-8")
 BUTTON_INSTALLER = (ROOT.parent / "DVSwitch-Mode-Buttons" / "dvswitch-mode-buttons.sh").read_text(encoding="utf-8")
 BUTTON_HELPER = (ROOT.parent / "DVSwitch-Mode-Buttons" / "dvswitch-mode-buttons").read_text(encoding="utf-8")
@@ -36,7 +37,7 @@ require("--refresh-asl" in SUPPORT and "--refresh-asl) mode=\"refresh_asl\"" in 
         "existing Mode Buttons must refresh without starting the interactive DMR preset setup")
 require("dvswitch-asl3-node-link" in BUTTON_INSTALLER and "is_executable('/usr/local/sbin/dvswitch-asl3-node-link')" in BUTTON_INSTALLER,
         "ASL button and tuning endpoint are not gated by the installed helper")
-require('"$ASTERISK" -rx "rpt cmd $local_node ilink $ilink $target"' in LINK and "rxchannel\\s*=\\s*usrp" in LINK,
+require('"$ASTERISK" -rx "rpt cmd $local_node ilink $ilink $target"' in LINK and "rxchannel" in RPT_CONF_TOOL and "USRP" in RPT_CONF_TOOL,
         "node linking must use the detected local USRP bridge and ASL link command")
 require("$target" in LINK and "dvswitch-mode-targets save ASL" in LINK,
         "successful ASL links must persist their node for Favorites and mode switching")
@@ -45,8 +46,10 @@ for action, code in (("CONNECT", "3"), ("DISCONNECT", "1"), ("MONITOR", "2"), ("
             f"ASL link action {action} must map to documented ilink {code}")
 require("aslAction" in BUTTON_INSTALLER and "dvs-asl-links" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
         "ASL checkbox link controls are not connected to the dashboard endpoint")
-require("connpgm = /usr/local/sbin/dvswitch-asl3-link-event CONNECTED" in SUPPORT and "discpgm = /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED" in SUPPORT,
+require("connpgm = {helper} CONNECTED" in RPT_CONF_TOOL and "discpgm = {helper} DISCONNECTED" in RPT_CONF_TOOL,
         "ASL activity hooks are not configured for the selected local node")
+require("(?:\\([^)]*\\))?" in RPT_CONF_TOOL and '"$RPT_CONF_TOOL" check "$RPT_CONF"' in SUPPORT,
+        "inherited numeric rpt.conf node stanzas are not handled during preflight")
 require("$remote_node" in ACTIVITY_HOOK and "CONNECTED)" in ACTIVITY_HOOK and "DISCONNECTED)" in ACTIVITY_HOOK and "asl3-link-activity.tsv" in ACTIVITY_HOOK,
         "ASL connection event hook must record bounded local link events")
 require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and "astdb.txt" in ACTIVITY_ENDPOINT,

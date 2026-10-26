@@ -8,6 +8,7 @@ umask 077
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly ASL_REPAIR="$SCRIPT_DIR/repair-dvswitch-asl-mode-switch.sh"
 readonly LAYOUT_PATCHER="$SCRIPT_DIR/lib/patch_asl3_dashboard_layout.py"
+readonly RPT_CONF_TOOL="$SCRIPT_DIR/lib/asl3_rpt_conf.py"
 readonly RPT_CONF="/etc/asterisk/rpt.conf"
 readonly ASTERISK="/usr/sbin/asterisk"
 readonly BUTTONS_DIR="$SCRIPT_DIR/../DVSwitch-Mode-Buttons"
@@ -21,6 +22,7 @@ readonly HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-link"
 readonly DASHBOARD_JS_TARGET="/usr/share/dvswitch/dvswitch-asl3-dashboard.js"
 readonly ACTIVITY_ENDPOINT_TARGET="/usr/share/dvswitch/dvswitch-asl3-activity.php"
 readonly EVENT_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-link-event"
+readonly RPT_CONF_TOOL_TARGET="/usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py"
 readonly DASHBOARD_SYSTEM="/usr/share/dvswitch/include/system.php"
 readonly DASHBOARD_INDEX="/usr/share/dvswitch/index.php"
 readonly BUTTONS_ENDPOINT="/usr/share/dvswitch/dvswitch-mode-buttons.php"
@@ -50,6 +52,7 @@ preflight() {
     for command in bash cat chmod chown cp date grep install mktemp mv node php python3 rm sed systemctl visudo; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
     require_file "$ASL_REPAIR"
     require_file "$LAYOUT_PATCHER"
+    require_file "$RPT_CONF_TOOL"
     require_file "$NODE_HELPER"
     require_file "$EVENT_HELPER"
     require_file "$ACTIVITY_ENDPOINT"
@@ -60,6 +63,7 @@ preflight() {
     bash -n "$ASL_REPAIR" "$NODE_HELPER" "$EVENT_HELPER" || die 'ASL support shell syntax validation failed.'
     python3 "$SCRIPT_DIR/lib/patch_dvswitch_asl_mode_switch.py" --help >/dev/null || die 'ASL mode-switch patcher validation failed.'
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$LAYOUT_PATCHER" || die 'ASL dashboard layout patcher syntax validation failed.'
+    python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$RPT_CONF_TOOL" || die 'ASL rpt.conf helper syntax validation failed.'
     node --check "$DASHBOARD_JS" >/dev/null || die 'ASL dashboard script syntax validation failed.'
     php -l "$DASHBOARD_SYSTEM" >/dev/null || die 'system.php syntax validation failed.'
     php -l "$DASHBOARD_INDEX" >/dev/null || die 'index.php syntax validation failed.'
@@ -77,21 +81,7 @@ tag = '<script src="/dvswitch/dvswitch-asl3-dashboard.js"></script>'
 if text.count(tag) > 1:
     raise SystemExit('ERROR: duplicate ASL dashboard script references found')
 PY_ASL_INDEX_CHECK
-    python3 - "$RPT_CONF" <<'PY_ASL_CHECK'
-import re, sys
-section = None
-matches = []
-for raw in open(sys.argv[1], encoding='utf-8', errors='replace'):
-    line = raw.split(';', 1)[0].split('#', 1)[0].strip()
-    found = re.fullmatch(r'\[\s*(\d{1,8})\s*\]', line)
-    if found:
-        section = found.group(1)
-    elif section and re.match(r'rxchannel\s*=\s*usrp(?:/|\s|$)', line, re.I):
-        matches.append(section)
-if len(set(matches)) != 1:
-    raise SystemExit('ERROR: expected one ASL node with rxchannel=usrp in rpt.conf; found %d' % len(set(matches)))
-print('ASL local DVSwitch bridge node: ' + matches[0])
-PY_ASL_CHECK
+    python3 "$RPT_CONF_TOOL" check "$RPT_CONF"
 }
 
 snapshot_file() {
@@ -124,7 +114,7 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
         systemctl restart apache2 >/dev/null 2>&1 || true
     fi
@@ -200,51 +190,16 @@ run_install() {
     local collision=0
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
 
-    install -d -o root -g root -m 0755 /usr/local/sbin "$(dirname "$DASHBOARD_JS_TARGET")"
+    install -d -o root -g root -m 0755 /usr/local/sbin "$(dirname "$RPT_CONF_TOOL_TARGET")" "$(dirname "$DASHBOARD_JS_TARGET")"
     install -o root -g root -m 0755 "$NODE_HELPER" "$HELPER_TARGET"
     install -o root -g root -m 0755 "$EVENT_HELPER" "$EVENT_HELPER_TARGET"
+    install -o root -g root -m 0644 "$RPT_CONF_TOOL" "$RPT_CONF_TOOL_TARGET"
     install -o root -g root -m 0644 "$DASHBOARD_JS" "$DASHBOARD_JS_TARGET"
     install -o root -g root -m 0644 "$ACTIVITY_ENDPOINT" "$ACTIVITY_ENDPOINT_TARGET"
-    python3 - "$RPT_CONF" <<'PY_ASL_HOOKS'
-from pathlib import Path
-import os, stat, sys, tempfile
-path=Path(sys.argv[1])
-raw=path.read_bytes()
-if b"DVSwitch-ASL3-Mod-Support: activity hooks v1" in raw:
-    if raw.count(b"DVSwitch-ASL3-Mod-Support: activity hooks v1") != 1 or raw.count(b"connpgm = /usr/local/sbin/dvswitch-asl3-link-event CONNECTED") != 1 or raw.count(b"discpgm = /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED") != 1: raise SystemExit("ERROR: partial or duplicate ASL activity hooks")
-else:
-    newline=b"\r\n" if b"\r\n" in raw else b"\n"
-    lines=raw.splitlines(keepends=True); node=None; matches=[]; start=None
-    import re
-    for i,line in enumerate(lines):
-        body=line.split(b";",1)[0].split(b"#",1)[0].strip()
-        found=re.fullmatch(rb"\[\s*(\d{1,8})\s*\]",body)
-        if found:
-            if node and start is not None: matches.append((node,start,i))
-            node=found.group(1).decode(); start=i; continue
-        if re.fullmatch(rb"\[.*\]",body):
-            if node and start is not None: matches.append((node,start,i))
-            node=None; start=i; continue
-    if node and start is not None: matches.append((node,start,len(lines)))
-    valid=[]
-    for item in matches:
-        block=b"".join(lines[item[1]:item[2]])
-        if re.search(rb"(?im)^\s*rxchannel\s*=\s*usrp(?:/|\s|$)",block): valid.append(item)
-    if len(valid)!=1: raise SystemExit("ERROR: could not identify one USRP-backed ASL node stanza")
-    local=valid[0]
-    block=b"".join(lines[local[1]:local[2]])
-    if re.search(rb"(?im)^\s*(?:connpgm|discpgm)\s*=",block): raise SystemExit("ERROR: ASL node already defines connpgm/discpgm; refusing to overwrite activity hooks")
-    marker=b"; DVSwitch-ASL3-Mod-Support: activity hooks v1"+newline+b"connpgm = /usr/local/sbin/dvswitch-asl3-link-event CONNECTED"+newline+b"discpgm = /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED"+newline
-    insertion=local[2]
-    lines[insertion:insertion]=[marker]
-    updated=b"".join(lines)
-    info=path.stat(); fd,tmp=tempfile.mkstemp(prefix=".rpt.conf.asl3-",dir=str(path.parent))
-    with os.fdopen(fd,"wb") as out: out.write(updated); out.flush(); os.fsync(out.fileno())
-    os.chown(tmp,info.st_uid,info.st_gid); os.chmod(tmp,stat.S_IMODE(info.st_mode)); os.replace(tmp,path)
-PY_ASL_HOOKS
+    python3 "$RPT_CONF_TOOL" install "$RPT_CONF" "$EVENT_HELPER_TARGET"
     install -d -o root -g www-data -m 0750 /var/lib/dvswitch-mods
     python3 "$LAYOUT_PATCHER" install "$DASHBOARD_SYSTEM"
     install_index_script

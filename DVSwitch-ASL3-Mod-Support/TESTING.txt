@@ -7,6 +7,7 @@ Run the patcher tests from the combined repository root:
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-dvswitch-asl-mode-switch-patcher.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-support-integration.py
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-rpt-conf.py
 
 On a test node, check compatibility without changing installed files:
 
