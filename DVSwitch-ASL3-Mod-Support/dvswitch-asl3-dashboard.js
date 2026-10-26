@@ -2,13 +2,38 @@
 (function () {
   'use strict';
 
+  function normalizeHeader(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
   function setTargetLabel(mode) {
     var label = mode === 'ASL' ? 'Node' : 'Tx TG/Ref';
-    document.querySelectorAll('th').forEach(function (cell) {
-      if (clean(cell.textContent) === 'Tx TG/Ref' || clean(cell.textContent) === 'Node') {
+    var info = document.getElementById('modeInfo');
+    if (!info) return;
+    info.querySelectorAll('th').forEach(function (cell) {
+      var heading = normalizeHeader(cell.textContent);
+      if (heading === 'Tx TG/Ref' || heading === 'Node') {
         cell.textContent = label;
       }
     });
+  }
+
+  function repairGatewaySourceHeading() {
+    var table = document.querySelector('#lastHerd fieldset table');
+    if (!table) return;
+    var heading = table.querySelector('tr');
+    var cells = heading ? heading.querySelectorAll('th') : [];
+    if (cells.length === 9 && normalizeHeader(cells[4].textContent) === 'Target' &&
+        normalizeHeader(cells[5].textContent) === '' && normalizeHeader(cells[6].textContent) === 'Dur(s)') {
+      cells[5].textContent = 'Src';
+    }
+  }
+
+  function watchGatewayActivity() {
+    var activity = document.getElementById('lastHerd');
+    if (!activity) return;
+    repairGatewaySourceHeading();
+    new MutationObserver(repairGatewaySourceHeading).observe(activity, { childList: true, subtree: true });
   }
 
   function setAslNetworkState(mode) {
@@ -142,7 +167,7 @@
       .catch(function () {});
   }
 
-  document.addEventListener('DOMContentLoaded', function () { addLinkControls(); addAslActivity(); refresh(); });
+  document.addEventListener('DOMContentLoaded', function () { addLinkControls(); addAslActivity(); watchGatewayActivity(); refresh(); });
   document.addEventListener('dvswitch-mode-buttons-mode', function (event) {
     var mode = event.detail && event.detail.mode;
     setMode(mode);

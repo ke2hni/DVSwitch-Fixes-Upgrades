@@ -68,6 +68,24 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('clean.sort(key=favorite_sort_key)', HELPER)
         self.assertIn('favorites.sort(function (left, right)', SCRIPT)
 
+    def test_asl_button_is_rendered_as_html_not_python_source(self):
+        import re
+        import subprocess
+        import tempfile
+        patcher = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
+        self.assertIsNotNone(patcher)
+        for available in (True, False):
+            with self.subTest(asl_available=available), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / 'index.php'
+                target.write_text('<div class="content"><center></center><div style="margin-top:8px;">RX Monitor</div></div>')
+                prelude = "import os; os.path.isfile=lambda _path: %r; os.access=lambda _path, _mode: %r; exec(compile(%r, '<button-patcher>', 'exec'))" % (available, available, patcher.group(1))
+                result = subprocess.run(['python3', '-c', prelude, str(target)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                installed = target.read_text()
+                self.assertEqual('data-mode="ASL">ASL</button>' in installed, available)
+                self.assertNotIn("if os.path.isfile('/usr/local/sbin/dvswitch-asl3-node-link')", installed)
+                self.assertNotIn("__ASL_BUTTON__", installed)
+
     def test_favorites_editor_explains_cancel_and_close_clearly(self):
         self.assertIn('<strong>Cancel or Esc</strong> closes this editor and discards unsaved changes.', INSTALLER)
         self.assertIn('class="button link dvs-favorites-cancel">Cancel / Close</button>', INSTALLER)

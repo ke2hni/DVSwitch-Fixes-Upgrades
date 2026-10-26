@@ -57,6 +57,12 @@ require("$remote_node" in ACTIVITY_HOOK and "CONNECTED)" in ACTIVITY_HOOK and "D
         "ASL connection event hook must record bounded local link events")
 require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and "astdb.txt" in ACTIVITY_ENDPOINT,
         "ASL Gateway Activity view must use ASTDB node names")
+dashboard_js = (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8")
+require("function normalizeHeader(value)" in dashboard_js and "clean(cell.textContent)" not in dashboard_js,
+        "ASL target-label updates must not depend on an undefined global cleaner")
+require("document.getElementById('modeInfo')" in dashboard_js and "watchGatewayActivity()" in dashboard_js and
+        "normalizeHeader(cells[5].textContent) === ''" in dashboard_js and "cells[5].textContent = 'Src'" in dashboard_js,
+        "ASL dashboard must scope the target label and restore the missing Src heading in the supported activity table")
 require("if [[ \"$mode\" != BM && \"$mode\" != TGIF ]]" in BUTTON_HELPER,
         "ASL selection must clear DMR pending-target state")
 print("PASS: ASL support is optional, menu-connected, backed up, and integrated with Mode Buttons node tuning")

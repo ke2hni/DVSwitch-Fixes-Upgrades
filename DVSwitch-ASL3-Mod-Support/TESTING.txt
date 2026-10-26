@@ -27,6 +27,7 @@ Then verify in the dashboard:
 1. Select ASL. Confirm the button remains selected after status refresh.
 2. Confirm the Analog_Bridge field label changes from `Tx TG/Ref` to `Node`.
 3. Confirm the ASL Net cell appears after D-Star Network and reflects selected mode.
+   Confirm Gateway Activity keeps its `Src` header after the live table refreshes.
 4. Enter a numeric AllStar node in Tune; verify the connection and saved ASL Favorite.
 5. Verify each checkbox action: Connect (ilink 3), Disconnect (ilink 1), Monitor
    (ilink 2), Local Monitor (ilink 8), and Disconnect All (ilink 6).
