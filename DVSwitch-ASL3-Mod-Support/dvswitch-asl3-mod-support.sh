@@ -64,7 +64,7 @@ preflight() {
     php -l "$DASHBOARD_SYSTEM" >/dev/null || die 'system.php syntax validation failed.'
     php -l "$DASHBOARD_INDEX" >/dev/null || die 'index.php syntax validation failed.'
     php -l "$ACTIVITY_ENDPOINT" >/dev/null || die 'ASL activity endpoint syntax validation failed.'
-    python3 "$LAYOUT_PATCHER" --check "$DASHBOARD_SYSTEM"
+    python3 "$LAYOUT_PATCHER" check "$DASHBOARD_SYSTEM"
     python3 "$SCRIPT_DIR/lib/patch_dvswitch_asl_mode_switch.py" --help >/dev/null
     python3 - "$DASHBOARD_INDEX" <<'PY_ASL_INDEX_CHECK'
 from pathlib import Path
@@ -246,7 +246,7 @@ else:
     os.chown(tmp,info.st_uid,info.st_gid); os.chmod(tmp,stat.S_IMODE(info.st_mode)); os.replace(tmp,path)
 PY_ASL_HOOKS
     install -d -o root -g www-data -m 0750 /var/lib/dvswitch-mods
-    python3 "$LAYOUT_PATCHER" --install "$DASHBOARD_SYSTEM"
+    python3 "$LAYOUT_PATCHER" install "$DASHBOARD_SYSTEM"
     install_index_script
     install_sudoers
     if [[ -x "$BUTTONS_HELPER" ]]; then (cd "$BUTTONS_DIR" && ./dvswitch-mode-buttons.sh --refresh-asl); else printf 'NOTICE: install Mode Buttons with manager option 2 to show the ASL mode button and tuner.\n'; fi

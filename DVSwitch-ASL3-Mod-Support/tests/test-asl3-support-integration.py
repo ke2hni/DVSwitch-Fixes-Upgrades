@@ -28,6 +28,8 @@ require("SKIP: ASL 3 is not installed" in SUPPORT and "DVSwitch remains usable w
         "installer must skip cleanly when ASL is absent")
 require('6) Install ASL 3 Support' in MANAGER and '6) run_asl3_support_installer ;;' in MANAGER,
         "manager option 6 is not connected to the optional ASL installer")
+require('"$LAYOUT_PATCHER" check "$DASHBOARD_SYSTEM"' in SUPPORT and '"$LAYOUT_PATCHER" install "$DASHBOARD_SYSTEM"' in SUPPORT,
+        "ASL layout patcher calls must use its positional action interface")
 require("--check" in SUPPORT and "--install" in SUPPORT and "BACKUP_ROOT=\"/var/backups/dvswitch-mods/asl3-support\"" in SUPPORT,
         "support installer check/install flow or protected backup location is missing")
 require("--refresh-asl" in SUPPORT and "--refresh-asl) mode=\"refresh_asl\"" in BUTTON_INSTALLER,

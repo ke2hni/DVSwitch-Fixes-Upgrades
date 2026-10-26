@@ -83,17 +83,17 @@ def atomic_write(path: Path, data: bytes) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("--check", "--install", "--uninstall"))
+    parser.add_argument("action", choices=("check", "install", "uninstall"))
     parser.add_argument("target", type=Path)
     args = parser.parse_args()
     if args.target.is_symlink() or not args.target.is_file():
         raise SystemExit(f"ERROR: dashboard target is not a regular file: {args.target}")
     original = args.target.read_bytes()
     try:
-        candidate = unpatch_text(original) if args.action == "--uninstall" else patch_text(original)
+        candidate = unpatch_text(original) if args.action == "uninstall" else patch_text(original)
     except ValueError as error:
         raise SystemExit(f"ERROR: {error}") from error
-    if args.action == "--check":
+    if args.action == "check":
         print("ALREADY INSTALLED" if candidate == original and MARKER in original else "READY")
         print("PASS: ASL Net layout structure is supported; no files changed.")
     elif candidate != original:
