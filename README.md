@@ -43,3 +43,10 @@ The projects can also be used independently from their respective directories. F
 - [DVSwitch-Mode-Buttons README](DVSwitch-Mode-Buttons/README.md)
 
 Each subproject contains its own license and tests. Review its README and safety notes before installing on a node.
+
+## Default DVSwitch Dashboard Design & Layout
+<img width="1600" height="900" alt="Screenshot 2026-10-25 195335" src="https://github.com/user-attachments/assets/df7ccb60-8dc8-4de8-8794-d7db53535efa" />
+## Upgraded DVSwitch Dashboard Design & Layout
+<img width="1600" height="900" alt="Screenshot 2026-10-25 202336" src="https://github.com/user-attachments/assets/f2166c94-49d4-4c6c-9b41-d4ee86d395cc" />
+<img width="1600" height="900" alt="Screenshot 2026-10-25 202342" src="https://github.com/user-attachments/assets/5208d1e9-523a-4e0a-b11a-a0fec70c74d2" />
+
