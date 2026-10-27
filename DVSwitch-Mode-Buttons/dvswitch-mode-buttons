@@ -32,19 +32,10 @@ switch_dmr_network(){
     BM:*brandmeister*|BM:*repeater.net|BM:*3102*|BM:*3104*|TGIF:*tgif*) ;;
     *) address='';;
   esac
-  if [[ -n "$address" ]] && cmp -s "$INI" "$preset" && cmp -s "$ANALOG_INI" "$analog_preset"; then
-    "$MODE_CMD" mode DMR >/tmp/dvswitch-mode-buttons-dmr.out 2>&1 || { cat /tmp/dvswitch-mode-buttons-dmr.out; die 'DVSwitch DMR mode command failed'; }
-    systemctl is-active --quiet analog_bridge mmdvm_bridge || die 'DVSwitch service verification failed'
-    echo "PASS: DMR network is already $network ($address); skipped preset copies and service restart."
-    return 0
-  fi
 
-  owner=$(stat -c '%u' "$INI"); group=$(stat -c '%g' "$INI"); perms=$(stat -c '%a' "$INI")
-  tmp=$(mktemp "${INI}.tmp.XXXXXX") || die 'could not create temporary MMDVM_Bridge INI'
-  trap 'rm -f "${tmp:-}" "${analog_tmp:-}"' EXIT
-  cp "$preset" "$tmp" || die "could not copy $network preset"
   analog_owner=$(stat -c '%u' "$ANALOG_INI"); analog_group=$(stat -c '%g' "$ANALOG_INI"); analog_perms=$(stat -c '%a' "$ANALOG_INI")
   analog_tmp=$(mktemp "${ANALOG_INI}.tmp.XXXXXX") || die 'could not create temporary Analog_Bridge INI'
+  trap 'rm -f "${tmp:-}" "${analog_tmp:-}"' EXIT
   cp "$analog_preset" "$analog_tmp" || die "could not copy $network Analog_Bridge preset"
   # DMR presets must not undo the active Asterisk USRP audio port pairing.
   python3 - "$ANALOG_INI" "$analog_tmp" <<'PY' || die 'could not preserve Analog_Bridge USRP ports'
@@ -57,7 +48,9 @@ live_path, preset_path = map(Path, sys.argv[1:])
 def usrps(path):
     sections = []
     current = None
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(keepends=True)):
+    with path.open("r", encoding="utf-8", newline="") as source:
+        lines = source.readlines()
+    for number, line in enumerate(lines):
         content = line.rstrip("\r\n")
         newline = line[len(content):]
         match = re.match(r"\s*\[([^]]+)\]", content)
@@ -77,7 +70,7 @@ def usrps(path):
     found = [section for section in sections if section["name"] == "USRP"]
     if len(found) != 1 or set(found[0]["ports"]) != {"txport", "rxport"}:
         raise ValueError(f"expected one USRP section with txPort and rxPort in {path}")
-    return path.read_text(encoding="utf-8").splitlines(keepends=True), found[0]["ports"]
+    return lines, found[0]["ports"]
 
 _, live_ports = usrps(live_path)
 preset_lines, preset_ports = usrps(preset_path)
@@ -90,10 +83,25 @@ for key in ("txport", "rxport"):
     leading = port_spacing[:len(port_spacing) - len(port_spacing.lstrip())]
     trailing = port_spacing[len(port_spacing.rstrip()):]
     preset_lines[line_number] = f"{groups[0]}{groups[1]}{groups[2]}{leading}{live_value}{trailing}{groups[4]}{newline}"
-preset_path.write_text("".join(preset_lines), encoding="utf-8")
+with preset_path.open("w", encoding="utf-8", newline="") as output:
+    output.write("".join(preset_lines))
 PY
   chown "$analog_owner:$analog_group" "$analog_tmp" || die 'could not preserve Analog_Bridge ownership'
   chmod "$analog_perms" "$analog_tmp" || die 'could not preserve Analog_Bridge permissions'
+
+  if [[ -n "$address" ]] && cmp -s "$INI" "$preset" && cmp -s "$ANALOG_INI" "$analog_tmp"; then
+    "$MODE_CMD" mode DMR >/tmp/dvswitch-mode-buttons-dmr.out 2>&1 || { cat /tmp/dvswitch-mode-buttons-dmr.out; die 'DVSwitch DMR mode command failed'; }
+    systemctl is-active --quiet analog_bridge mmdvm_bridge || die 'DVSwitch service verification failed'
+    rm -f "$analog_tmp"
+    analog_tmp=''
+    trap - EXIT
+    echo "PASS: DMR network is already $network ($address); skipped preset copies and service restart."
+    return 0
+  fi
+
+  owner=$(stat -c '%u' "$INI"); group=$(stat -c '%g' "$INI"); perms=$(stat -c '%a' "$INI")
+  tmp=$(mktemp "${INI}.tmp.XXXXXX") || die 'could not create temporary MMDVM_Bridge INI'
+  cp "$preset" "$tmp" || die "could not copy $network preset"
 
   # Replace live INIs only after the Analog_Bridge port-preserving copy validates.
   chown "$owner:$group" "$tmp" || die 'could not preserve MMDVM_Bridge ownership'

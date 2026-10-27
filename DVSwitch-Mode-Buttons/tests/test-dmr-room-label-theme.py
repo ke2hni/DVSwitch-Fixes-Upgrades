@@ -31,7 +31,7 @@ class DmrRoomLabelThemeTest(unittest.TestCase):
         self.assertIn('data-mode="STFU"', INSTALLER)
         self.assertIn("return in_array($mode, array('BM', 'TGIF'), true) ? $mode : '';", INSTALLER)
         current_mode = INSTALLER.split("new_current_mode_function = r'''", 1)[1].split("'''", 1)[0]
-        self.assertLess(current_mode.index("array('STFU', 'YSF', 'P25', 'NXDN', 'DSTAR')"), current_mode.index("if ($mode === 'DMR')"))
+        self.assertLess(current_mode.index("array('STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'ASL')"), current_mode.index("if ($mode === 'DMR')"))
         self.assertIn("in_array($selectedMode, array('BM', 'TGIF', 'STFU'), true)", current_mode)
         self.assertIn("chown root:www-data /var/lib/dvswitch-mode-buttons/last-dmr-talkgroup", INSTALLER)
         self.assertIn("chmod 664 /var/lib/dvswitch-mode-buttons/last-dmr-talkgroup", INSTALLER)

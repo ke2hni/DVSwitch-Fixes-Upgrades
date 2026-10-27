@@ -75,8 +75,8 @@ def main() -> None:
         preset_dir = root / "etc/dvswitch-mode-buttons/dmr-presets"
         mmdvm = "[DMR Network]\nAddress=tgif.network\nPort=62030\nPassword=secret\n"
         analog = (
-            "[AMBE_AUDIO]\ntxTg=12345\n[USRP]\n"
-            "txPort=31001 ; Transmit USRP frames\nrxPort=31001 ; Listen for USRP frames\n"
+            "[AMBE_AUDIO]\r\ntxTg=12345\r\n[USRP]\r\n"
+            "txPort=31001 ; Transmit USRP frames\r\nrxPort=31001 ; Listen for USRP frames\r\n"
         )
         live_mmdvm = root / "opt/MMDVM_Bridge/MMDVM_Bridge.ini"
         live_analog = root / "opt/Analog_Bridge/Analog_Bridge.ini"
@@ -85,7 +85,10 @@ def main() -> None:
 
         # Same network and matching companion INI: mode only, no copy or restart.
         live_mmdvm.write_text(mmdvm, encoding="utf-8")
-        live_analog.write_text(analog, encoding="utf-8")
+        live_analog.write_text(
+            analog.replace("txPort=31001", "txPort=32001").replace("rxPort=31001", "rxPort=34001"),
+            encoding="utf-8",
+        )
         result = subprocess.run([str(helper), "TGIF"], env=env, text=True, capture_output=True)
         assert result.returncode == 0, result.stderr
         calls = log.read_text(encoding="utf-8").splitlines()
@@ -130,10 +133,17 @@ def main() -> None:
         assert result.returncode == 0, result.stderr
         calls = log.read_text(encoding="utf-8").splitlines()
         assert "systemctl restart analog_bridge mmdvm_bridge" in calls, calls
-        switched_analog = live_analog.read_text(encoding="utf-8")
+        switched_analog = live_analog.read_bytes().decode("utf-8")
         assert "txTg=12345" in switched_analog
-        assert "txPort=32001 ; Transmit USRP frames\n" in switched_analog
-        assert "rxPort=34001 ; Listen for USRP frames\n" in switched_analog
+        assert "txPort=32001 ; Transmit USRP frames\r\n" in switched_analog
+        assert "rxPort=34001 ; Listen for USRP frames\r\n" in switched_analog
+
+        # A repeat switch compares against the normalized candidate, avoiding another restart.
+        log.write_text("", encoding="utf-8")
+        result = subprocess.run([str(helper), "TGIF"], env=env, text=True, capture_output=True)
+        assert result.returncode == 0, result.stderr
+        assert "skipped preset copies and service restart" in result.stdout
+        assert "systemctl restart analog_bridge mmdvm_bridge" not in log.read_text(encoding="utf-8")
 
     print("PASS: DMR preset switches preserve the live ASL USRP port pair")
 

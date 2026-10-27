@@ -28,6 +28,8 @@ Analog_Bridge. Check the listeners with `sudo ss -lunp | grep -E ':(31001|32001|
 
 BM/TGIF preset switching must preserve the active Analog_Bridge `[USRP]` `txPort`/`rxPort`; older saved presets may contain `31001/31001` and must not replace the ASL pair. The regression test above reproduces switching from a stale preset and verifies the live ASL pair survives while the DMR talkgroup setting changes. For on-node validation after updating Mode Buttons, switch to BM or TGIF and back to ASL, then confirm the configured ports and process listeners still match the private node's USRP mapping before testing monitor audio.
 
+If an earlier Mode Buttons build joined the USRP port lines and `--check` reports a missing `rxPort`, restore `/opt/Analog_Bridge/Analog_Bridge.ini` from the timestamped ASL backup named `opt__Analog_Bridge__Analog_Bridge.ini`, then run the USRP port helper in `install` mode and restart `analog_bridge` before testing again.
+
 After install, activate the new ASL activity hooks on the test node:
 
 sudo asterisk -rx "module reload app_rpt.so"
