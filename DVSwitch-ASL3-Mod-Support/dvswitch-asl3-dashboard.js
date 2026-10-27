@@ -6,7 +6,25 @@
     return String(value || '').replace(/\s+/g, ' ').trim();
   }
 
+  var activeMode = '';
+  var connectedNodes = [];
+
+  function updateAnalogBridgeNode() {
+    if (activeMode !== 'ASL') return;
+    var info = document.getElementById('modeInfo');
+    if (!info) return;
+    info.querySelectorAll('tr').forEach(function (row) {
+      var heading = row.querySelector('th');
+      var value = row.querySelector('td');
+      if (heading && value && normalizeHeader(heading.textContent) === 'Node') {
+        var nodeText = connectedNodes.length ? connectedNodes.join(', ') : '—';
+        if (value.textContent !== nodeText) value.textContent = nodeText;
+      }
+    });
+  }
+
   function setTargetLabel(mode) {
+    activeMode = mode;
     var label = mode === 'ASL' ? 'Node' : 'Tx TG/Ref';
     var info = document.getElementById('modeInfo');
     if (!info) return;
@@ -16,6 +34,7 @@
         cell.textContent = label;
       }
     });
+    updateAnalogBridgeNode();
   }
 
   function repairGatewaySourceHeading() {
@@ -79,11 +98,14 @@
     activity = document.createElement('section');
     activity.id = 'dvs-asl-activity';
     activity.hidden = true;
-    activity.style.cssText = 'margin:8px auto;max-width:1000px';
-    var title = document.createElement('h3');
+    activity.style.cssText = 'margin:8px auto;max-width:1400px';
+    var title = document.createElement('span');
     title.textContent = 'ASL Gateway Activity';
+    title.style.cssText = 'font-weight:bold;font-size:14px';
+    var card = document.createElement('fieldset');
+    card.style.cssText = 'box-shadow:0 0 10px #999;background-color:#e8e8e8e8;width:min(95%,1400px);margin:10px auto 0;font-size:12px;border-radius:10px';
     var table = document.createElement('table');
-    table.style.cssText = 'width:100%;border-collapse:collapse';
+    table.style.cssText = 'width:100%;margin-top:3px;border-collapse:collapse';
     var header = document.createElement('tr');
     ['Time', 'Node', 'Name', 'Activity'].forEach(function (text) {
       var th = document.createElement('th'); th.textContent = text; header.appendChild(th);
@@ -91,7 +113,8 @@
     var body = document.createElement('tbody');
     body.id = 'dvs-asl-activity-rows';
     table.append(header, body);
-    activity.append(title, table);
+    card.appendChild(table);
+    activity.append(title, card);
     document.getElementById('lastHerd').insertAdjacentElement('afterend', activity);
     refreshActivity();
   }
@@ -103,6 +126,9 @@
       .then(function (response) { return response.json(); })
       .then(function (result) {
         if (!result || !result.ok || !Array.isArray(result.rows)) return;
+        connectedNodes = result.rows.map(function (row) { return String(row.node || '').trim(); })
+          .filter(function (node) { return /^[0-9]{1,8}$/.test(node); });
+        updateAnalogBridgeNode();
         body.replaceChildren();
         result.rows.forEach(function (row) {
           var tr = document.createElement('tr');
@@ -129,7 +155,14 @@
       .catch(function () {});
   }
 
-  document.addEventListener('DOMContentLoaded', function () { addLinkControls(); addAslActivity(); watchGatewayActivity(); refresh(); });
+  document.addEventListener('DOMContentLoaded', function () {
+    addLinkControls(); addAslActivity(); watchGatewayActivity(); refresh();
+    var info = document.getElementById('modeInfo');
+    if (info) new MutationObserver(updateAnalogBridgeNode).observe(info, { childList: true, subtree: true });
+    var themeStyle = document.createElement('style');
+    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
+    document.head.appendChild(themeStyle);
+  });
   document.addEventListener('dvswitch-mode-buttons-mode', function (event) {
     var mode = event.detail && event.detail.mode;
     setMode(mode);

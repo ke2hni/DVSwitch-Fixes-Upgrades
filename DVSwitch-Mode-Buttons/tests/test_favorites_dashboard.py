@@ -95,16 +95,18 @@ class FavoritesDashboardTests(unittest.TestCase):
         for message in ('Connected', 'Disconnected', 'Monitoring', 'Local monitor', 'Disconnected all nodes'):
             self.assertIn(message, SCRIPT)
         self.assertNotIn("result.message || 'ASL '", SCRIPT)
+        self.assertIn("if (activeMode === 'ASL' && !selectedAslAction)", SCRIPT)
+        self.assertIn("Select an ASL link action.", SCRIPT)
 
     def test_test23_upgrade_and_uninstall_cover_the_favorites_script(self):
-        self.assertIn('VERSION="1.0.0-test58"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test59"', INSTALLER)
         self.assertIn('|17|18|19|20|21|22|23', INSTALLER)
         self.assertIn('dvswitch-mode-favorites.js', INSTALLER)
         self.assertIn('./dvswitch-mode-favorites "$FAVORITES_HELPER"', INSTALLER)
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('<dialog class="dvs-favorites-editor"', INSTALLER)
-        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test58 -->'", INSTALLER)
+        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test59 -->'", INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
         self.assertIn('dvs-favorites-editor', INSTALLER)
         self.assertIn('class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div>', INSTALLER)

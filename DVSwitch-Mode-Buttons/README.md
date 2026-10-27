@@ -254,3 +254,6 @@ Version 1.0.0-test57 fixes the dashboard preflight for installed test56 controls
 
 
 Version 1.0.0-test58 shows concise ASL Tune results beside the controls, such as “Connected 55553”, instead of displaying the helper’s full diagnostic output.
+
+
+Version 1.0.0-test59 requires an ASL link action checkbox before Tune sends a link command. Existing test50 through test58 dashboard controls upgrade in place.

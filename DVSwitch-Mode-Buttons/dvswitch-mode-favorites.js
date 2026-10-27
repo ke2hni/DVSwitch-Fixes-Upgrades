@@ -251,7 +251,11 @@
       const selectedAslAction = activeMode === 'ASL'
         ? document.querySelector('#dvs-asl-links input[name="aslAction"]:checked')
         : null;
-      const aslAction = selectedAslAction ? selectedAslAction.value : 'CONNECT';
+      const aslAction = selectedAslAction ? selectedAslAction.value : '';
+      if (activeMode === 'ASL' && !selectedAslAction) {
+        tuneStatus.textContent = 'Select an ASL link action.';
+        return;
+      }
       const disconnectAll = activeMode === 'ASL' && aslAction === 'DISCONNECT_ALL';
       tuneStatus.textContent = '';
       if (!disconnectAll && !validTarget(activeMode, target)) {
