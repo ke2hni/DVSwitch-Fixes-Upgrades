@@ -48,8 +48,10 @@ Then verify in the dashboard:
    works after the switch.
    Repeat the mode switch with the private-to-public link down; it must not
    report that the public node cannot be found or block the mode change.
-8. Connect and disconnect a node. Confirm ASL Gateway Activity shows its node
-   number, ASTDB name when available, event, and UTC time.
+8. Connect an external node. Confirm ASL Gateway Activity lists it while
+   connected. Disconnect it and confirm it disappears from that section.
+   Reboot and confirm the section lists only nodes that reconnect and remain
+   established; historical connect/disconnect events are not shown there.
 9. Confirm non-ASL mode buttons, Tune/Favorites, RX Monitor, and services still
    behave as before.
 

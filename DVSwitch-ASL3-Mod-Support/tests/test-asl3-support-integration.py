@@ -97,8 +97,10 @@ require("$remote_node" in ACTIVITY_HOOK and "CONNECTED)" in ACTIVITY_HOOK and "D
         "ASL connection event hook must record bounded local link events")
 require("$remote_node" != "$private_node" in ACTIVITY_HOOK and "asl3_rpt_conf.py node /etc/asterisk/rpt.conf" in ACTIVITY_HOOK,
         "ASL activity hook must omit the private-to-public bridge from external-link activity")
-require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and "astdb.txt" in ACTIVITY_ENDPOINT,
-        "ASL Gateway Activity view must use ASTDB node names")
+require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
+        "dvswitch-asl3-node-links" in ACTIVITY_ENDPOINT and "asl3-link-activity.tsv" not in ACTIVITY_ENDPOINT and
+        "Connected" in ACTIVITY_ENDPOINT and "astdb.txt" in ACTIVITY_ENDPOINT,
+        "ASL Gateway Activity must list only live connected nodes with ASTDB names")
 require('readonly DASHBOARD_STATUS="/usr/share/dvswitch/include/status.php"' in SUPPORT and
         'readonly DASHBOARD_CARD_TARGET="/usr/share/dvswitch/include/dvswitch-asl3-net-card.php"' in SUPPORT and
         '"$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET"' in SUPPORT,
