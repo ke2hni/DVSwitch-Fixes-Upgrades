@@ -134,7 +134,13 @@
           var tr = document.createElement('tr');
           [row.time, row.node, row.name || row.node, row.activity].forEach(function (value, index) {
             var td = document.createElement('td'); td.textContent = value; td.style.padding = '4px';
-            if (index === 2) td.className = 'dvs-asl-node-name';
+            if (index === 2) {
+              td.className = 'dvs-asl-node-name';
+              var darkTheme = document.body.classList.contains('theme-dark') ||
+                (document.body.classList.contains('theme-auto') && document.body.classList.contains('dvs-prefers-dark'));
+              td.style.setProperty('color', darkTheme ? '#b5651d' : '#6b2f00', 'important');
+              td.style.fontWeight = 'bold';
+            }
             tr.appendChild(td);
           });
           body.appendChild(tr);
