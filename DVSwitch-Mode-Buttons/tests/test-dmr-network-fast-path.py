@@ -74,7 +74,10 @@ def main() -> None:
         )
         preset_dir = root / "etc/dvswitch-mode-buttons/dmr-presets"
         mmdvm = "[DMR Network]\nAddress=tgif.network\nPort=62030\nPassword=secret\n"
-        analog = "[AMBE_AUDIO]\ntxTg=12345\n[USRP]\ntxPort=31001\nrxPort=31001\n"
+        analog = (
+            "[AMBE_AUDIO]\ntxTg=12345\n[USRP]\n"
+            "txPort=31001 ; Transmit USRP frames\nrxPort=31001 ; Listen for USRP frames\n"
+        )
         live_mmdvm = root / "opt/MMDVM_Bridge/MMDVM_Bridge.ini"
         live_analog = root / "opt/Analog_Bridge/Analog_Bridge.ini"
         (preset_dir / "MMDVM_Bridge.TGIF.ini").write_text(mmdvm, encoding="utf-8")
@@ -106,6 +109,17 @@ def main() -> None:
         assert result.returncode == 0, result.stderr
         assert "mode tune 98765" in log.read_text(encoding="utf-8").splitlines()
 
+        # Invalid live ports must not partially replace either live INI.
+        log.write_text("", encoding="utf-8")
+        live_analog.write_text(
+            "[AMBE_AUDIO]\ntxTg=99999\n[USRP]\ntxPort=bad\nrxPort=34001\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run([str(helper), "TGIF"], env=env, text=True, capture_output=True)
+        assert result.returncode != 0 and "invalid live USRP" in result.stderr
+        assert live_mmdvm.read_text(encoding="utf-8") == mmdvm
+        assert "systemctl restart analog_bridge mmdvm_bridge" not in log.read_text(encoding="utf-8")
+
         # A differing Analog_Bridge file still takes the established full path.
         log.write_text("", encoding="utf-8")
         live_analog.write_text(
@@ -118,7 +132,8 @@ def main() -> None:
         assert "systemctl restart analog_bridge mmdvm_bridge" in calls, calls
         switched_analog = live_analog.read_text(encoding="utf-8")
         assert "txTg=12345" in switched_analog
-        assert "txPort=32001" in switched_analog and "rxPort=34001" in switched_analog
+        assert "txPort=32001 ; Transmit USRP frames\n" in switched_analog
+        assert "rxPort=34001 ; Listen for USRP frames\n" in switched_analog
 
     print("PASS: DMR preset switches preserve the live ASL USRP port pair")
 
