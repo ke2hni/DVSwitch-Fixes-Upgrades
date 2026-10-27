@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 
-"""Verify BM/TGIF clicks skip copies and restarts only when both INIs match."""
+"""Verify BM/TGIF switches preserve the active Analog_Bridge USRP ports."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def main() -> None:
         )
         preset_dir = root / "etc/dvswitch-mode-buttons/dmr-presets"
         mmdvm = "[DMR Network]\nAddress=tgif.network\nPort=62030\nPassword=secret\n"
-        analog = "[AMBE_AUDIO]\ntxTg=12345\n"
+        analog = "[AMBE_AUDIO]\ntxTg=12345\n[USRP]\ntxPort=31001\nrxPort=31001\n"
         live_mmdvm = root / "opt/MMDVM_Bridge/MMDVM_Bridge.ini"
         live_analog = root / "opt/Analog_Bridge/Analog_Bridge.ini"
         (preset_dir / "MMDVM_Bridge.TGIF.ini").write_text(mmdvm, encoding="utf-8")
@@ -108,14 +108,19 @@ def main() -> None:
 
         # A differing Analog_Bridge file still takes the established full path.
         log.write_text("", encoding="utf-8")
-        live_analog.write_text("[AMBE_AUDIO]\ntxTg=99999\n", encoding="utf-8")
+        live_analog.write_text(
+            "[AMBE_AUDIO]\ntxTg=99999\n[USRP]\ntxPort=32001\nrxPort=34001\n",
+            encoding="utf-8",
+        )
         result = subprocess.run([str(helper), "TGIF"], env=env, text=True, capture_output=True)
         assert result.returncode == 0, result.stderr
         calls = log.read_text(encoding="utf-8").splitlines()
         assert "systemctl restart analog_bridge mmdvm_bridge" in calls, calls
-        assert live_analog.read_text(encoding="utf-8") == analog
+        switched_analog = live_analog.read_text(encoding="utf-8")
+        assert "txTg=12345" in switched_analog
+        assert "txPort=32001" in switched_analog and "rxPort=34001" in switched_analog
 
-    print("PASS: matching BM/TGIF presets skip recopy/restart; mismatches use the full switch path")
+    print("PASS: DMR preset switches preserve the live ASL USRP port pair")
 
 
 if __name__ == "__main__":

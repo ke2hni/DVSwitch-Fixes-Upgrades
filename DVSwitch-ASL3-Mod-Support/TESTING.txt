@@ -10,6 +10,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-supp
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-rpt-conf.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-usrp-ports.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-ami-status.py
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-Mode-Buttons/tests/test-dmr-network-fast-path.py
 
 On a test node, check compatibility without changing installed files:
 
@@ -24,6 +25,8 @@ The installer compares the private node's USRP `remote-port:local-port` with
 Analog_Bridge's `[USRP]` `rxPort` and `txPort`. If they differ, it backs up
 Analog_Bridge.ini, applies the reciprocal port values, and restarts
 Analog_Bridge. Check the listeners with `sudo ss -lunp | grep -E ':(31001|32001|34001|2222)([[:space:]]|$)'`; the configured pair for the test `34001:32001` should leave Analog_Bridge listening on `34001` and Asterisk on `32001`. A prior capture during received ASL audio showed no UDP packets on port 2222, so do not repeat that capture before checking the HTTPS WebSocket route below.
+
+BM/TGIF preset switching must preserve the active Analog_Bridge `[USRP]` `txPort`/`rxPort`; older saved presets may contain `31001/31001` and must not replace the ASL pair. The regression test above reproduces switching from a stale preset and verifies the live ASL pair survives while the DMR talkgroup setting changes. For on-node validation after updating Mode Buttons, switch to BM or TGIF and back to ASL, then confirm the configured ports and process listeners still match the private node's USRP mapping before testing monitor audio.
 
 After install, activate the new ASL activity hooks on the test node:
 
