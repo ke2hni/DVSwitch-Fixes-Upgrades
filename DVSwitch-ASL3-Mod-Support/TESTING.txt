@@ -23,7 +23,7 @@ sudo ./dvswitch-asl3-mod-support.sh --install
 The installer compares the private node's USRP `remote-port:local-port` with
 Analog_Bridge's `[USRP]` `rxPort` and `txPort`. If they differ, it backs up
 Analog_Bridge.ini, applies the reciprocal port values, and restarts
-Analog_Bridge. Check the listeners with `sudo ss -lunp | grep -E ':(31001|32001|34001|2222)([[:space:]]|$)'`; the configured pair for the test `34001:32001` should leave Analog_Bridge listening on `34001` and Asterisk on `32001`. Keep external test node 55553 connected and have another node send audio during this capture: `sudo timeout 30 tcpdump -ni lo -c 10 'udp port 2222'`. PCM packets should arrive at Web Proxy for the RX Monitor.
+Analog_Bridge. Check the listeners with `sudo ss -lunp | grep -E ':(31001|32001|34001|2222)([[:space:]]|$)'`; the configured pair for the test `34001:32001` should leave Analog_Bridge listening on `34001` and Asterisk on `32001`. A prior capture during received ASL audio showed no UDP packets on port 2222, so do not repeat that capture before checking the HTTPS WebSocket route below.
 
 After install, activate the new ASL activity hooks on the test node:
 
@@ -69,8 +69,8 @@ Then verify in the dashboard:
 
 The standalone repair was already validated on pi4test for ASL-to-P25, NXDN,
 DMR, D-Star, YSF, and STFU switching. ASL RX Monitor audio is currently
-unresolved; v35 adds HTTPS-safe WebSocket routing and still requires live-node
-verification.
+unresolved; this update adds HTTPS-safe WebSocket routing and still requires
+live-node verification.
 
 After pi4test passes, proceed to pi5test, then test3040. Do not install on
 production nodes without explicit authorization.
