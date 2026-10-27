@@ -2,12 +2,18 @@
 declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
-$output = array();
-$status = 1;
-exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links 2>/dev/null', $output, $status);
-if ($status !== 0) {
-    echo json_encode(array('ok' => false, 'rows' => array()), JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-    exit;
+// Use Allmon3's local AMI status data; keep live link listing as a safe fallback.
+$statusOutput = array();
+$statusCode = 1;
+exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-ami-status 2>/dev/null', $statusOutput, $statusCode);
+$status = $statusCode === 0 ? json_decode(implode("\n", $statusOutput), true) : null;
+$links = array();
+if (!is_array($status) || empty($status['ok'])) {
+    $publicNode = is_array($status) && isset($status['public_node']) ? (string)$status['public_node'] : '';
+    $linkCode = 1;
+    exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links 2>/dev/null', $links, $linkCode);
+    if ($linkCode !== 0) { $links = array(); }
+    $status = array('ok' => false, 'public_node' => $publicNode, 'connected_nodes' => $links);
 }
 
 $names = array();
@@ -22,12 +28,45 @@ if (is_readable($astdb)) {
     }
 }
 
-$rows = array();
+$publicNode = isset($status['public_node']) && preg_match('/^[0-9]{1,8}$/D', (string)$status['public_node'])
+    ? (string)$status['public_node'] : '';
+$rxKeyed = !empty($status['rx_keyed']);
+$txKeyed = !empty($status['tx_keyed']);
+$txeKeyed = !empty($status['txe_keyed']);
+$linkKeying = isset($status['link_keying']) && is_array($status['link_keying']) ? $status['link_keying'] : array();
+$keyedNodes = array();
+foreach ($linkKeying as $node => $state) {
+    if (is_array($state) && !empty($state['ptt'])) { $keyedNodes[] = (string)$node; }
+}
+$connKeyed = count($keyedNodes) > 0;
 $time = date('H:i:s M d');
 $timezone = date('T');
-foreach (array_unique($output) as $node) {
+$rows = array();
+foreach (array_unique(is_array($status['connected_nodes']) ? $status['connected_nodes'] : array()) as $node) {
     $node = trim($node);
     if (!preg_match('/^[0-9]{1,8}$/D', $node) || (int)$node < 1) { continue; }
-    $rows[] = array('time' => $time, 'node' => $node, 'name' => isset($names[$node]) ? $names[$node] : '', 'activity' => 'Connected');
+    $peer = isset($linkKeying[$node]) && is_array($linkKeying[$node]) ? $linkKeying[$node] : array();
+    $peerKeyed = !empty($peer['ptt']);
+    // Follow Allmon3's RX/TX and connected-node keying classification.
+    if (empty($status['ok'])) { $source = 'Status unavailable'; }
+    elseif ($rxKeyed && ($txKeyed || !$txeKeyed)) { $source = 'Radio RX'; }
+    elseif ($connKeyed && $txKeyed && !$rxKeyed) { $source = $peerKeyed ? 'Node TX' : 'Idle'; }
+    elseif ($txKeyed && !$rxKeyed && !$connKeyed) { $source = 'System TX'; }
+    elseif (!$txKeyed && !$rxKeyed && !$txeKeyed && $peerKeyed) { $source = 'Node playback'; }
+    elseif ($peerKeyed) { $source = 'Node RX'; }
+    else { $source = 'Idle'; }
+    $rows[] = array(
+        'time' => $time,
+        'mode' => 'ASL',
+        'node' => $node,
+        'name' => isset($names[$node]) ? $names[$node] : '',
+        'target' => $publicNode,
+        'source' => $source,
+        'keyed' => !empty($status['ok']) && $source !== 'Idle',
+        'duration' => $peerKeyed && isset($peer['seconds_since_key']) ? (int)$peer['seconds_since_key'] : null,
+        'loss' => '—',
+        'ber' => '—'
+    );
 }
-echo json_encode(array('ok' => true, 'timezone' => $timezone, 'rows' => $rows), JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+echo json_encode(array('ok' => true, 'telemetry' => !empty($status['ok']), 'public_node' => $publicNode,
+    'timezone' => $timezone, 'rows' => $rows), JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);

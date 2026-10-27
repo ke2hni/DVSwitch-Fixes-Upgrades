@@ -11,6 +11,7 @@ LINK = (ROOT / "dvswitch-asl3-node-link").read_text(encoding="utf-8")
 LIVE_LINKS = (ROOT / "dvswitch-asl3-node-links").read_text(encoding="utf-8")
 ACTIVITY_HOOK = (ROOT / "dvswitch-asl3-link-event").read_text(encoding="utf-8")
 ACTIVITY_ENDPOINT = (ROOT / "dvswitch-asl3-activity.php").read_text(encoding="utf-8")
+AMI_STATUS = (ROOT / "dvswitch-asl3-ami-status.py").read_text(encoding="utf-8")
 RPT_CONF_TOOL = (ROOT / "lib" / "asl3_rpt_conf.py").read_text(encoding="utf-8")
 USRP_PORT_TOOL = (ROOT / "lib" / "asl3_usrp_ports.py").read_text(encoding="utf-8")
 MANAGER = (ROOT.parent / "DVSwitch-Mods" / "manage-dvswitch-mods.sh").read_text(encoding="utf-8")
@@ -108,7 +109,7 @@ require("asl3_usrp_ports.py" in SUPPORT and 'readonly ANALOG_BRIDGE_CONF="/opt/A
         "ASL support must discover, back up, and align Analog_Bridge USRP ports with the private node")
 require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "dvswitch-asl3-node-links" in ACTIVITY_ENDPOINT and "asl3-link-activity.tsv" not in ACTIVITY_ENDPOINT and
-        "Connected" in ACTIVITY_ENDPOINT and "astdb.txt" in ACTIVITY_ENDPOINT,
+        "astdb.txt" in ACTIVITY_ENDPOINT,
         "ASL Gateway Activity must list only live connected nodes with ASTDB names")
 require("$time = date('H:i:s M d');" in ACTIVITY_ENDPOINT and "$timezone = date('T');" in ACTIVITY_ENDPOINT and
         "'timezone' => $timezone" in ACTIVITY_ENDPOINT and "Time (' + result.timezone + ')'" in ASL_DASHBOARD_JS,
@@ -126,6 +127,20 @@ require('readonly DASHBOARD_STATUS="/usr/share/dvswitch/include/status.php"' in 
         'readonly DASHBOARD_CARD_TARGET="/usr/share/dvswitch/include/dvswitch-asl3-net-card.php"' in SUPPORT and
         '"$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET"' in SUPPORT,
         "ASL Net card must be installed in the dashboard's left status-card renderer and included in backups")
+require('readonly ACTIVITY_STATUS_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-ami-status"' in SUPPORT and
+        '"$ACTIVITY_STATUS_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET"' in SUPPORT and
+        'install -o root -g root -m 0755 "$ACTIVITY_STATUS_HELPER" "$ACTIVITY_STATUS_HELPER_TARGET"' in SUPPORT and
+        "RptStatus" in AMI_STATUS and 'Command="XStat"' in AMI_STATUS and 'Command="SawStat"' in AMI_STATUS and
+        "find_public_node" in AMI_STATUS and "127.0.0.1" in AMI_STATUS,
+        "dashboard activity must use local Allmon3-compatible public-node XStat/SawStat data")
+require("dvswitch-asl3-ami-status" in ACTIVITY_ENDPOINT and "telemetry" in ACTIVITY_ENDPOINT and
+        "Radio RX" in ACTIVITY_ENDPOINT and "System TX" in ACTIVITY_ENDPOINT and
+        "['Time', 'Mode', 'Callsign', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER']" in ASL_DASHBOARD_JS and
+        "No external ASL nodes connected" in ASL_DASHBOARD_JS and "activityStarted" in ASL_DASHBOARD_JS,
+        "ASL activity must match Gateway Activity columns and display current keying and duration")
+require('python3 "$ACTIVITY_STATUS_HELPER" >/dev/null 2>&1' in SUPPORT and
+        'NOTICE: Allmon3 keying status is unavailable' in SUPPORT,
+        "ASL check must report unavailable Allmon3 telemetry without blocking the support install")
 require("dvswitch-asl3-node-links" in ASL_NET_CARD and "astdb.txt" in ASL_NET_CARD and
         "dvswitchASL3ShowNetCard" in ASL_NET_CARD and "Listening" in ASL_NET_CARD and
         "$NF" in LIVE_LINKS and "ESTABLISHED" in LIVE_LINKS,

@@ -9,6 +9,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dash
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-support-integration.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-rpt-conf.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-usrp-ports.py
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-ami-status.py
 
 On a test node, check compatibility without changing installed files:
 
@@ -22,9 +23,7 @@ sudo ./dvswitch-asl3-mod-support.sh --install
 The installer compares the private node's USRP `remote-port:local-port` with
 Analog_Bridge's `[USRP]` `rxPort` and `txPort`. If they differ, it backs up
 Analog_Bridge.ini, applies the reciprocal port values, and restarts
-Analog_Bridge. Check the listeners with `sudo ss -lunp | grep -E ':(31001|32001|34001|2222)([[:space:]]|$)'`. With ASL audio active, run
-`sudo timeout 15 tcpdump -ni lo -c 10 'udp port 2222'`; PCM packets should
-arrive at Web Proxy for the RX Monitor.
+Analog_Bridge. Check the listeners with `sudo ss -lunp | grep -E ':(31001|32001|34001|2222)([[:space:]]|$)'`; the configured pair for the test `34001:32001` should leave Analog_Bridge listening on `34001` and Asterisk on `32001`. Keep external test node 55553 connected and have another node send audio during this capture: `sudo timeout 30 tcpdump -ni lo -c 10 'udp port 2222'`. PCM packets should arrive at Web Proxy for the RX Monitor.
 
 After install, activate the new ASL activity hooks on the test node:
 
@@ -56,10 +55,12 @@ Then verify in the dashboard:
    works after the switch.
    Repeat the mode switch with the private-to-public link down; it must not
    report that the public node cannot be found or block the mode change.
-8. Connect an external node. Confirm ASL Gateway Activity lists it while
-   connected. Disconnect it and confirm it disappears from that section.
-   Reboot and confirm the section lists only nodes that reconnect and remain
-   established; historical connect/disconnect events are not shown there.
+8. Keep external node 55553 connected. Confirm ASL Gateway Activity uses the
+   same `Time`, `Mode`, `Callsign`, `Name`, `Target`, `Src`, `Dur(s)`, `Loss`,
+   and `BER` columns as Gateway Activity. Confirm the public node's RX/TX and
+   remote PTT activity follows Allmon3 while another node sends audio; duration
+   advances while keyed, and Loss/BER display `—`. Disconnect 55553 and confirm
+   it disappears. Reboot and confirm only peers that reconnect are listed.
 9. Confirm non-ASL mode buttons, Tune/Favorites, RX Monitor, and services still
    behave as before.
 

@@ -20,12 +20,14 @@ readonly NODE_HELPER="$SCRIPT_DIR/dvswitch-asl3-node-link"
 readonly LINKS_HELPER="$SCRIPT_DIR/dvswitch-asl3-node-links"
 readonly EVENT_HELPER="$SCRIPT_DIR/dvswitch-asl3-link-event"
 readonly ACTIVITY_ENDPOINT="$SCRIPT_DIR/dvswitch-asl3-activity.php"
+readonly ACTIVITY_STATUS_HELPER="$SCRIPT_DIR/dvswitch-asl3-ami-status.py"
 readonly DASHBOARD_JS="$SCRIPT_DIR/dvswitch-asl3-dashboard.js"
 readonly DASHBOARD_CARD="$SCRIPT_DIR/dvswitch-asl3-net-card.php"
 readonly HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-link"
 readonly LINKS_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-links"
 readonly DASHBOARD_JS_TARGET="/usr/share/dvswitch/dvswitch-asl3-dashboard.js"
 readonly ACTIVITY_ENDPOINT_TARGET="/usr/share/dvswitch/dvswitch-asl3-activity.php"
+readonly ACTIVITY_STATUS_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-ami-status"
 readonly EVENT_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-link-event"
 readonly RPT_CONF_TOOL_TARGET="/usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py"
 readonly DASHBOARD_SYSTEM="/usr/share/dvswitch/include/system.php"
@@ -69,6 +71,7 @@ preflight() {
     require_file "$LINKS_HELPER"
     require_file "$EVENT_HELPER"
     require_file "$ACTIVITY_ENDPOINT"
+    require_file "$ACTIVITY_STATUS_HELPER"
     require_file "$DASHBOARD_JS"
     require_file "$DASHBOARD_CARD"
     require_file "$DASHBOARD_SYSTEM"
@@ -81,6 +84,7 @@ preflight() {
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$LAYOUT_PATCHER" || die 'ASL dashboard layout patcher syntax validation failed.'
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$RPT_CONF_TOOL" || die 'ASL rpt.conf helper syntax validation failed.'
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$USRP_PORT_TOOL" || die 'ASL USRP port helper syntax validation failed.'
+    python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$ACTIVITY_STATUS_HELPER" || die 'ASL activity status helper syntax validation failed.'
     node --check "$DASHBOARD_JS" >/dev/null || die 'ASL dashboard script syntax validation failed.'
     php -l "$DASHBOARD_SYSTEM" >/dev/null || die 'system.php syntax validation failed.'
     php -l "$DASHBOARD_STATUS" >/dev/null || die 'status.php syntax validation failed.'
@@ -133,7 +137,7 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
         if [[ $ANALOG_BRIDGE_CHANGED -eq 1 ]]; then systemctl restart analog_bridge >/dev/null 2>&1 || true; fi
         systemctl restart apache2 >/dev/null 2>&1 || true
@@ -170,7 +174,7 @@ install_sudoers() {
     local temporary
     install -d -o root -g root -m 0755 /etc/sudoers.d
     temporary=$(mktemp /etc/sudoers.d/.dvswitch-asl3-support.XXXXXX)
-    printf '%s\n' 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-asl3-node-link, /usr/local/sbin/dvswitch-asl3-node-links' > "$temporary"
+    printf '%s\n' 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-asl3-node-link, /usr/local/sbin/dvswitch-asl3-node-links, /usr/local/sbin/dvswitch-asl3-ami-status ""' > "$temporary"
     chown root:root "$temporary"
     chmod 0440 "$temporary"
     visudo -cf "$temporary" >/dev/null || { rm -f "$temporary"; die 'ASL sudo rule validation failed.'; }
@@ -200,6 +204,11 @@ run_check() {
     fi
     "$ASL_REPAIR" --check
     python3 "$USRP_PORT_TOOL" check "$RPT_CONF" "$ANALOG_BRIDGE_CONF"
+    if python3 "$ACTIVITY_STATUS_HELPER" >/dev/null 2>&1; then
+        printf 'PASS: Allmon3 public-node keying status is available.\n'
+    else
+        printf 'NOTICE: Allmon3 keying status is unavailable; live ASL links will still be listed.\n'
+    fi
     printf 'PASS: ASL 3 dashboard support is ready; --check made no changes.\n'
 }
 
@@ -222,7 +231,7 @@ run_install() {
     local collision=0
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file "$target"; done
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
 
     # Match Analog_Bridge's USRP ports to the dynamic private-node channel map.
@@ -239,6 +248,8 @@ run_install() {
     install -o root -g root -m 0755 "$NODE_HELPER" "$HELPER_TARGET"
     install -o root -g root -m 0755 "$LINKS_HELPER" "$LINKS_HELPER_TARGET"
     install -o root -g root -m 0755 "$EVENT_HELPER" "$EVENT_HELPER_TARGET"
+    # The root-owned AMI reader uses the local Allmon3 account without exposing its secret to PHP.
+    install -o root -g root -m 0755 "$ACTIVITY_STATUS_HELPER" "$ACTIVITY_STATUS_HELPER_TARGET"
     install -o root -g root -m 0644 "$RPT_CONF_TOOL" "$RPT_CONF_TOOL_TARGET"
     install -o root -g root -m 0644 "$DASHBOARD_JS" "$DASHBOARD_JS_TARGET"
     install -o root -g root -m 0644 "$ACTIVITY_ENDPOINT" "$ACTIVITY_ENDPOINT_TARGET"

@@ -8,6 +8,7 @@
 
   var activeMode = '';
   var connectedNodes = [];
+  var activityStarted = Object.create(null);
 
   function updateAnalogBridgeNode() {
     if (activeMode !== 'ASL') return;
@@ -107,7 +108,8 @@
     var table = document.createElement('table');
     table.style.cssText = 'width:100%;margin-top:3px;border-collapse:collapse';
     var header = document.createElement('tr');
-    ['Time', 'Node', 'Name', 'Activity'].forEach(function (text) {
+    // Mirror Gateway Activity columns; ASL keying and duration come from Allmon3-style AMI status.
+    ['Time', 'Mode', 'Callsign', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER'].forEach(function (text) {
       var th = document.createElement('th'); th.textContent = text; header.appendChild(th);
     });
     var body = document.createElement('tbody');
@@ -132,11 +134,33 @@
           .filter(function (node) { return /^[0-9]{1,8}$/.test(node); });
         updateAnalogBridgeNode();
         body.replaceChildren();
+        if (!result.rows.length) {
+          var emptyRow = document.createElement('tr');
+          var emptyCell = document.createElement('td');
+          emptyCell.colSpan = 9;
+          emptyCell.textContent = 'No external ASL nodes connected';
+          emptyCell.style.padding = '4px';
+          emptyRow.appendChild(emptyCell);
+          body.appendChild(emptyRow);
+          return;
+        }
         result.rows.forEach(function (row) {
           var tr = document.createElement('tr');
-          [row.time, row.node, row.name || row.node, row.activity].forEach(function (value, index) {
+          var duration = '—';
+          if (row.keyed) {
+            if (row.duration !== null && row.duration !== '' && Number.isFinite(Number(row.duration))) {
+              duration = String(Math.max(0, Number(row.duration)));
+            } else {
+              if (!activityStarted[row.node]) activityStarted[row.node] = Date.now();
+              duration = String(Math.max(0, Math.floor((Date.now() - activityStarted[row.node]) / 1000)));
+            }
+          } else {
+            delete activityStarted[row.node];
+          }
+          [row.time, row.mode, row.node, row.name || row.node, row.target || '—', row.source,
+            duration, row.loss || '—', row.ber || '—'].forEach(function (value, index) {
             var td = document.createElement('td'); td.style.padding = '4px';
-            if (index === 2) {
+            if (index === 3) {
               var name = document.createElement('span');
               name.setAttribute('style', 'display:block;color:#b5651d;font-weight:bold;white-space:normal;');
               name.textContent = value;
