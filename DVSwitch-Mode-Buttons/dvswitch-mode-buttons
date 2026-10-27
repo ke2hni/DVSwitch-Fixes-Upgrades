@@ -83,7 +83,7 @@ mode="${1^^}"
 install -d -m 755 -o root -g root "$STATE_DIR"
 
 target=''
-if [[ ( "$mode" == BM || "$mode" == TGIF || "$mode" == ASL ) && -x "$TARGET_HELPER" ]]; then
+if [[ ( "$mode" == BM || "$mode" == TGIF ) && -x "$TARGET_HELPER" ]]; then
   target=$($TARGET_HELPER get "$mode" 2>/dev/null || true)
   if [[ -z "$target" && ( "$mode" == BM || "$mode" == TGIF ) ]]; then
     preset="$PRESET_DIR/Analog_Bridge.$mode.ini"
@@ -115,7 +115,7 @@ if [[ "$mode" =~ ^(BM|TGIF|DSTAR|STFU|YSF|P25|NXDN)$ && -x "$ASL_NODE_HELPER" &&
 fi
 case "$mode" in
   BM|TGIF) switch_dmr_network "$mode" ;;
-  ASL) [[ -x "$ASL_NODE_HELPER" ]] || die 'ASL 3 support is not installed'; [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode ASL || exit 1 ;;
+  ASL) [[ -x "$ASL_NODE_HELPER" ]] || die 'ASL 3 support is not installed'; [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode ASL || exit 1; printf 'ENSURE_BRIDGE\n' | "$ASL_NODE_HELPER" || die 'could not establish the private-to-public ASL bridge' ;;
   DSTAR|STFU|YSF|P25|NXDN) [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode "$mode" || exit 1 ;;
   *) die "unsupported mode: $1" ;;
 esac
@@ -127,16 +127,12 @@ if [[ "$mode" == BM || "$mode" == TGIF ]]; then
   printf '%s\n' "$mode" > "$DMR_CARD_MODE_FILE"
   chown root:root "$DMR_CARD_MODE_FILE"; chmod 644 "$DMR_CARD_MODE_FILE"
 fi
-if [[ -x "$TARGET_HELPER" ]]; then
+if [[ -x "$TARGET_HELPER" && "$mode" != ASL ]]; then
   if [[ "$mode" != BM && "$mode" != TGIF ]]; then
     target=$($TARGET_HELPER get "$mode" 2>/dev/null || true)
   fi
   if [[ -n "$target" ]]; then
-    if [[ "$mode" == ASL && -x "$ASL_NODE_HELPER" ]]; then
-      printf 'CONNECT\t%s\n' "$target" | "$ASL_NODE_HELPER" || die 'ASL node connect command failed'
-    elif [[ "$mode" != ASL ]]; then
-      "$MODE_CMD" tune "$target" || true
-    fi
+    "$MODE_CMD" tune "$target" || true
   fi
 fi
 echo "PASS: DVSwitch mode selected: $mode"

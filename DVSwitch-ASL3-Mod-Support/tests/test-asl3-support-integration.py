@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORT = (ROOT / "dvswitch-asl3-mod-support.sh").read_text(encoding="utf-8")
 LINK = (ROOT / "dvswitch-asl3-node-link").read_text(encoding="utf-8")
+LIVE_LINKS = (ROOT / "dvswitch-asl3-node-links").read_text(encoding="utf-8")
 ACTIVITY_HOOK = (ROOT / "dvswitch-asl3-link-event").read_text(encoding="utf-8")
 ACTIVITY_ENDPOINT = (ROOT / "dvswitch-asl3-activity.php").read_text(encoding="utf-8")
 RPT_CONF_TOOL = (ROOT / "lib" / "asl3_rpt_conf.py").read_text(encoding="utf-8")
@@ -50,10 +51,9 @@ require('"$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT"' in SUPP
 require("dvswitch-asl3-node-link" in BUTTON_INSTALLER and "is_executable('/usr/local/sbin/dvswitch-asl3-node-link')" in BUTTON_INSTALLER,
         "ASL button and tuning endpoint are not gated by the installed helper")
 require('"$ASTERISK" -rx "rpt cmd $public_node ilink $ilink $target"' in LINK and
-        '"$ASTERISK" -rx "rpt lstats $candidate"' in LINK and
-        '"$RPT_CONF_TOOL" nodes "$RPT_CONF"' in LINK and "configured_nodes" in RPT_CONF_TOOL and
+        '"$RPT_CONF_TOOL" public-node "$RPT_CONF"' in LINK and "find_public_node" in RPT_CONF_TOOL and
         "rxchannel" in RPT_CONF_TOOL and "USRP" in RPT_CONF_TOOL,
-        "node linking must discover the public node dynamically from the live private-bridge link")
+        "node linking must discover the public node from this unit's rpt.conf even when the bridge is down")
 require("$target" in LINK and "dvswitch-mode-targets save ASL" in LINK and "save ASL \"$target\" >/dev/null || true" in LINK and
         "DSTAR|ASL" in TARGET_HELPER,
         "successful ASL links must persist their node for Favorites and mode switching")
@@ -66,6 +66,10 @@ require('rpt cmd $public_node ilink 1 $peer' in LINK and '"$peer" != "$private_n
 require('printf \'DISCONNECT_ALL\\n\' | "$ASL_NODE_HELPER"' in BUTTON_HELPER and
         '"$(<"$STATE_FILE")" == ASL' in BUTTON_HELPER,
         "leaving ASL mode must disconnect external links before switching modes")
+require("ENSURE_BRIDGE" in LINK and "rpt cmd $public_node ilink 3 $private_node" in LINK and
+        'if [[ "$action" == CONNECT || "$action" == MONITOR || "$action" == LOCAL_MONITOR ]]; then ensure_bridge; fi' in LINK and
+        "printf 'ENSURE_BRIDGE\\n' | \"$ASL_NODE_HELPER\"" in BUTTON_HELPER,
+        "ASL selection and link actions must re-establish and verify the private-to-public bridge when it is down")
 require("aslAction" in BUTTON_INSTALLER and "dvs-asl-links" in ASL_DASHBOARD_JS,
         "ASL checkbox link controls are not connected to the dashboard endpoint")
 require("Run ASL Link Action" not in ASL_DASHBOARD_JS and "dvs-asl-link-form" not in ASL_DASHBOARD_JS and
@@ -73,13 +77,18 @@ require("Run ASL Link Action" not in ASL_DASHBOARD_JS and "dvs-asl-link-form" no
         "ASL link actions must use the existing Tune button with Connect as the default action")
 require("isset($_POST['target']) && !isset($_POST['aslAction'])" in BUTTON_INSTALLER and
         "fwrite($pipes[0], $mode === 'ASL' ? \"CONNECT\\t\" . $target . \"\\n\" : $target . \"\\n\")" in BUTTON_INSTALLER and
-        "printf 'CONNECT\\t%s\\n'" in BUTTON_HELPER and
         "max-width:760px;border:1px solid #aaa" in ASL_DASHBOARD_JS and "padding:0 8px 3px" in ASL_DASHBOARD_JS,
         "ASL action requests and saved targets must reach the node-link helper with an action")
+require('if [[ -x "$TARGET_HELPER" && "$mode" != ASL ]]; then' in BUTTON_HELPER and
+        'if [[ ( "$mode" == BM || "$mode" == TGIF ) && -x "$TARGET_HELPER" ]]; then' in BUTTON_HELPER and
+        'printf \'CONNECT\\t%s\\n\' "$target" | "$ASL_NODE_HELPER"' not in BUTTON_HELPER,
+        "selecting ASL must not automatically reconnect a saved node")
 require("connpgm = {helper} CONNECTED" in RPT_CONF_TOOL and "discpgm = {helper} DISCONNECTED" in RPT_CONF_TOOL and
         "find_public_node" in RPT_CONF_TOOL and "ASL local public node:" in RPT_CONF_TOOL,
         "ASL activity hooks are not attached to the discovered local public node")
 require('"$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET"' in SUPPORT and
+        'install -o root -g root -m 0755 "$LINKS_HELPER" "$LINKS_HELPER_TARGET"' in SUPPORT and
+        "/usr/local/sbin/dvswitch-asl3-node-links" in SUPPORT and
         "asterisk ALL=(root) NOPASSWD:" in SUPPORT and "[[ ${EUID:-$(id -u)} -eq 0 ]]" in ACTIVITY_HOOK,
         "ASL activity events must use the root-owned logger through a constrained Asterisk sudo rule")
 require("(?:\\([^)]*\\))?" in RPT_CONF_TOOL and '"$RPT_CONF_TOOL" check "$RPT_CONF"' in SUPPORT,
@@ -94,9 +103,10 @@ require('readonly DASHBOARD_STATUS="/usr/share/dvswitch/include/status.php"' in 
         'readonly DASHBOARD_CARD_TARGET="/usr/share/dvswitch/include/dvswitch-asl3-net-card.php"' in SUPPORT and
         '"$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET"' in SUPPORT,
         "ASL Net card must be installed in the dashboard's left status-card renderer and included in backups")
-require("asl3-link-activity.tsv" in ASL_NET_CARD and "astdb.txt" in ASL_NET_CARD and
-        "dvswitchASL3ShowNetCard" in ASL_NET_CARD and "Listening" in ASL_NET_CARD,
-        "ASL Net card must show connected nodes, ASTDB friendly names, and the idle state")
+require("dvswitch-asl3-node-links" in ASL_NET_CARD and "astdb.txt" in ASL_NET_CARD and
+        "dvswitchASL3ShowNetCard" in ASL_NET_CARD and "Listening" in ASL_NET_CARD and
+        "$NF" in LIVE_LINKS and "ESTABLISHED" in LIVE_LINKS,
+        "ASL Net card must show live established remote nodes, ASTDB names, and current idle state")
 dashboard_js = (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8")
 require("function normalizeHeader(value)" in dashboard_js and "clean(cell.textContent)" not in dashboard_js,
         "ASL target-label updates must not depend on an undefined global cleaner")

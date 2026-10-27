@@ -56,6 +56,7 @@ require(b"dvswitchASL3ShowNetStatus" not in cleaned and cleaned == b"", "old sum
 js = (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8")
 card = (ROOT / "dvswitch-asl3-net-card.php").read_text(encoding="utf-8")
 require("setTargetLabel" in js and "dvswitch-asl3-net-status" not in js, "dashboard JS must retain Node label only, not the misplaced cell")
-require("asl3-link-activity.tsv" in card and "astdb.txt" in card and "ASL Net" in card,
-        "ASL Net card must render connection state and ASTDB friendly names")
+require("dvswitch-asl3-node-links" in card and "astdb.txt" in card and "ASL Net" in card and
+        "Status unavailable" in card,
+        "ASL Net card must render live connection state and ASTDB friendly names")
 print("PASS: ASL Net card installs after D-Star in the left status column and removes the obsolete summary cell")

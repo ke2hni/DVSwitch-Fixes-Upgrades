@@ -15,11 +15,13 @@ readonly BUTTONS_DIR="$SCRIPT_DIR/../DVSwitch-Mode-Buttons"
 readonly BUTTONS_INSTALLER="$BUTTONS_DIR/dvswitch-mode-buttons.sh"
 readonly BUTTONS_HELPER="/usr/local/sbin/dvswitch-mode-buttons"
 readonly NODE_HELPER="$SCRIPT_DIR/dvswitch-asl3-node-link"
+readonly LINKS_HELPER="$SCRIPT_DIR/dvswitch-asl3-node-links"
 readonly EVENT_HELPER="$SCRIPT_DIR/dvswitch-asl3-link-event"
 readonly ACTIVITY_ENDPOINT="$SCRIPT_DIR/dvswitch-asl3-activity.php"
 readonly DASHBOARD_JS="$SCRIPT_DIR/dvswitch-asl3-dashboard.js"
 readonly DASHBOARD_CARD="$SCRIPT_DIR/dvswitch-asl3-net-card.php"
 readonly HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-link"
+readonly LINKS_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-links"
 readonly DASHBOARD_JS_TARGET="/usr/share/dvswitch/dvswitch-asl3-dashboard.js"
 readonly ACTIVITY_ENDPOINT_TARGET="/usr/share/dvswitch/dvswitch-asl3-activity.php"
 readonly EVENT_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-link-event"
@@ -60,6 +62,7 @@ preflight() {
     require_file "$LAYOUT_PATCHER"
     require_file "$RPT_CONF_TOOL"
     require_file "$NODE_HELPER"
+    require_file "$LINKS_HELPER"
     require_file "$EVENT_HELPER"
     require_file "$ACTIVITY_ENDPOINT"
     require_file "$DASHBOARD_JS"
@@ -68,7 +71,7 @@ preflight() {
     require_file "$DASHBOARD_STATUS"
     require_file "$DASHBOARD_INDEX"
     require_file "$RPT_CONF"
-    bash -n "$ASL_REPAIR" "$NODE_HELPER" "$EVENT_HELPER" || die 'ASL support shell syntax validation failed.'
+    bash -n "$ASL_REPAIR" "$NODE_HELPER" "$LINKS_HELPER" "$EVENT_HELPER" || die 'ASL support shell syntax validation failed.'
     python3 "$SCRIPT_DIR/lib/patch_dvswitch_asl_mode_switch.py" --help >/dev/null || die 'ASL mode-switch patcher validation failed.'
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$LAYOUT_PATCHER" || die 'ASL dashboard layout patcher syntax validation failed.'
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$RPT_CONF_TOOL" || die 'ASL rpt.conf helper syntax validation failed.'
@@ -124,7 +127,7 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
         systemctl restart apache2 >/dev/null 2>&1 || true
     fi
@@ -160,7 +163,7 @@ install_sudoers() {
     local temporary
     install -d -o root -g root -m 0755 /etc/sudoers.d
     temporary=$(mktemp /etc/sudoers.d/.dvswitch-asl3-support.XXXXXX)
-    printf '%s\n' 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-asl3-node-link' > "$temporary"
+    printf '%s\n' 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-asl3-node-link, /usr/local/sbin/dvswitch-asl3-node-links' > "$temporary"
     chown root:root "$temporary"
     chmod 0440 "$temporary"
     visudo -cf "$temporary" >/dev/null || { rm -f "$temporary"; die 'ASL sudo rule validation failed.'; }
@@ -211,12 +214,13 @@ run_install() {
     local collision=0
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
 
     install -d -o root -g root -m 0755 /usr/local/sbin "$(dirname "$RPT_CONF_TOOL_TARGET")" "$(dirname "$DASHBOARD_JS_TARGET")"
     install -o root -g root -m 0644 "$DASHBOARD_CARD" "$DASHBOARD_CARD_TARGET"
     install -o root -g root -m 0755 "$NODE_HELPER" "$HELPER_TARGET"
+    install -o root -g root -m 0755 "$LINKS_HELPER" "$LINKS_HELPER_TARGET"
     install -o root -g root -m 0755 "$EVENT_HELPER" "$EVENT_HELPER_TARGET"
     install -o root -g root -m 0644 "$RPT_CONF_TOOL" "$RPT_CONF_TOOL_TARGET"
     install -o root -g root -m 0644 "$DASHBOARD_JS" "$DASHBOARD_JS_TARGET"

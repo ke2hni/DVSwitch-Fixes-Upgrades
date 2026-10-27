@@ -33,6 +33,13 @@ def main() -> None:
     assert TOOL.find_local_node(SAMPLE) == "1970"
     assert TOOL.find_public_node(SAMPLE) == "446901"
     assert TOOL.configured_nodes(SAMPLE) == ["446901", "1970"]
+    ambiguous = SAMPLE.replace(b"[446901](node-main)\n", b"[446901](node-main)\n[446902](node-main)\n")
+    try:
+        TOOL.find_public_node(ambiguous)
+    except ValueError as error:
+        assert "found 2 candidates" in str(error)
+    else:
+        raise AssertionError("ambiguous public-node configuration was accepted")
     old_private_hooks = SAMPLE.replace(
         b"[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n",
         b"[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n" + TOOL.MARKER + b"\nconnpgm = /usr/local/sbin/dvswitch-asl3-link-event CONNECTED\ndiscpgm = /usr/local/sbin/dvswitch-asl3-link-event DISCONNECTED\n",

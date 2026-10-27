@@ -24,12 +24,16 @@ sudo asterisk -rx "module reload app_rpt.so"
 
 Then verify in the dashboard:
 
-1. Select ASL. Confirm the button remains selected after status refresh.
+1. Select ASL. Confirm the button remains selected after status refresh and
+   the private-to-public bridge is established if it was down. Confirm mode
+   selection does not connect an external node, even if an older ASL target is
+   saved. External links require a node entry and Tune.
 2. Confirm the Analog_Bridge field label changes from `Tx TG/Ref` to `Node`.
 3. Confirm the ASL Net card appears in the left status column with the other
-   network cards. With an ASL link active, confirm it shows the node number and
-   friendly name from `astdb.txt`; after disconnecting, confirm it returns to
-   `Listening`. Confirm Gateway Activity keeps its `Src` header after refresh.
+   network cards. With an ASL link active, confirm it shows the remote node and
+   friendly name from `astdb.txt`; after disconnecting or rebooting with the
+   remote link gone, refresh the page and confirm it returns to `Listening`.
+   Confirm Gateway Activity keeps its `Src` header after refresh.
 4. Enter a numeric AllStar node in Tune; verify the connection is made through
    the discovered local public node and the target is saved as an ASL Favorite.
 5. Verify each checkbox action: Connect (ilink 3), Disconnect (ilink 1), Monitor
@@ -42,6 +46,8 @@ Then verify in the dashboard:
    Confirm the external ASL peer is disconnected before the mode changes and
    the private-to-public bridge remains established. Confirm the selected mode
    works after the switch.
+   Repeat the mode switch with the private-to-public link down; it must not
+   report that the public node cannot be found or block the mode change.
 8. Connect and disconnect a node. Confirm ASL Gateway Activity shows its node
    number, ASTDB name when available, event, and UTC time.
 9. Confirm non-ASL mode buttons, Tune/Favorites, RX Monitor, and services still

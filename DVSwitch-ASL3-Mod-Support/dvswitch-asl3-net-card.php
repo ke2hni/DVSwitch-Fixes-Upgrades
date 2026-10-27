@@ -3,14 +3,16 @@
 if (!function_exists('dvswitchASL3ShowNetCard')) {
     function dvswitchASL3ShowNetCard()
     {
-        $activityFile = '/var/lib/dvswitch-mods/asl3-link-activity.tsv';
         $connected = array();
-        if (is_readable($activityFile)) {
-            foreach (file($activityFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: array() as $line) {
-                $fields = explode("\t", $line, 4);
-                if (count($fields) !== 4 || !ctype_digit($fields[0]) || !preg_match('/^[0-9]{1,8}$/D', $fields[1])) { continue; }
-                if ($fields[3] === 'Connected') { $connected[$fields[1]] = true; }
-                elseif ($fields[3] === 'Disconnected') { unset($connected[$fields[1]]); }
+        $linksAvailable = false;
+        $linkOutput = array();
+        $linkStatus = 1;
+        exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links 2>/dev/null', $linkOutput, $linkStatus);
+        if ($linkStatus === 0) {
+            $linksAvailable = true;
+            foreach ($linkOutput as $node) {
+                $node = trim($node);
+                if (preg_match('/^[0-9]{1,8}$/D', $node) && (int)$node > 0) { $connected[$node] = true; }
             }
         }
 
@@ -27,7 +29,9 @@ if (!function_exists('dvswitchASL3ShowNetCard')) {
         }
 
         echo "<br />\n<table>\n<tr><th colspan=\"2\">ASL Net</th></tr>\n";
-        if (!$connected) {
+        if (!$linksAvailable) {
+            echo '<tr><td colspan="2" style="background:#ffffed;text-align:center;">Status unavailable</td></tr>' . "\n";
+        } elseif (!$connected) {
             echo '<tr><td colspan="2" style="background:#ffffed;text-align:center;">Listening</td></tr>' . "\n";
         } else {
             foreach (array_keys($connected) as $node) {

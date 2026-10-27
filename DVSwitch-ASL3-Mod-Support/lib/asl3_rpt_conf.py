@@ -153,7 +153,7 @@ def write_updated(path: Path, lines: list[bytes]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "install", "node", "nodes"))
+    parser.add_argument("action", choices=("check", "install", "node", "nodes", "public-node"))
     parser.add_argument("rpt_conf", type=Path)
     parser.add_argument("helper", nargs="?")
     args = parser.parse_args()
@@ -162,6 +162,8 @@ def main() -> int:
             print(find_local_node(args.rpt_conf.read_bytes()))
         elif args.action == "nodes":
             print("\n".join(configured_nodes(args.rpt_conf.read_bytes())))
+        elif args.action == "public-node":
+            print(find_public_node(args.rpt_conf.read_bytes()))
         elif args.action == "check":
             data = args.rpt_conf.read_bytes()
             print(f"ASL private DVSwitch bridge node: {find_local_node(data)}")

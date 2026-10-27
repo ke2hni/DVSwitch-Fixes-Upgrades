@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Jeff Milne, KE2HNI
+
+set -Eeuo pipefail
+[[ ${EUID:-$(id -u)} -eq 0 ]] || exit 2
+[[ $# -eq 0 ]] || exit 2
+
+readonly RPT_CONF=/etc/asterisk/rpt.conf
+readonly ASTERISK=/usr/sbin/asterisk
+readonly RPT_CONF_TOOL=/usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py
+[[ -f "$RPT_CONF" && -f "$RPT_CONF_TOOL" && -x "$ASTERISK" ]] || exit 1
+
+private_node=$(python3 "$RPT_CONF_TOOL" node "$RPT_CONF")
+public_node=$(python3 "$RPT_CONF_TOOL" public-node "$RPT_CONF")
+links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1)
+awk '$1 == "NODE" && $2 == "PEER" { header=1 } END { exit !header }' <<< "$links" || exit 1
+awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep && $NF == "ESTABLISHED" && !seen[$1]++ { print $1 }' <<< "$links"
