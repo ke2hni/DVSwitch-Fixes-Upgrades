@@ -133,13 +133,14 @@
         result.rows.forEach(function (row) {
           var tr = document.createElement('tr');
           [row.time, row.node, row.name || row.node, row.activity].forEach(function (value, index) {
-            var td = document.createElement('td'); td.textContent = value; td.style.padding = '4px';
+            var td = document.createElement('td'); td.style.padding = '4px';
             if (index === 2) {
-              td.className = 'dvs-asl-node-name';
-              var darkTheme = document.body.classList.contains('theme-dark') ||
-                (document.body.classList.contains('theme-auto') && document.body.classList.contains('dvs-prefers-dark'));
-              td.style.setProperty('color', darkTheme ? '#b5651d' : '#6b2f00', 'important');
-              td.style.fontWeight = 'bold';
+              var name = document.createElement('span');
+              name.setAttribute('style', 'display:block;color:#b5651d;font-weight:bold;white-space:normal;');
+              name.textContent = value;
+              td.appendChild(name);
+            } else {
+              td.textContent = value;
             }
             tr.appendChild(td);
           });
@@ -176,7 +177,7 @@
       setTargetLabel(mode);
     }).observe(info, { childList: true, subtree: true });
     var themeStyle = document.createElement('style');
-    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity td.dvs-asl-node-name,body.theme-auto.dvs-prefers-dark #dvs-asl-activity td.dvs-asl-node-name{color:#b5651d!important;font-weight:bold}body.theme-light #dvs-asl-activity td.dvs-asl-node-name,body.theme-auto:not(.dvs-prefers-dark) #dvs-asl-activity td.dvs-asl-node-name{color:#6b2f00!important;font-weight:bold}';
+    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
     document.head.appendChild(themeStyle);
   });
   document.addEventListener('dvswitch-mode-buttons-mode', function (event) {

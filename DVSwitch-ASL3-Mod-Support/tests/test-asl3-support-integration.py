@@ -108,9 +108,8 @@ require("connectedNodes" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(enco
         "width:min(95%,600px)" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "new MutationObserver(function ()" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "insertAdjacentElement('beforebegin', activity)" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
-        "td.className = 'dvs-asl-node-name'" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
-        "td.dvs-asl-node-name{color:#b5651d!important" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
-        "td.dvs-asl-node-name{color:#6b2f00!important" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
+        "name.setAttribute('style', 'display:block;color:#b5651d;font-weight:bold;white-space:normal;')" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
+        "updateAslNameColors" not in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
         "ASL dashboard must show live linked node IDs, keep the Node label through status refreshes, and fit the link controls")
 require('readonly DASHBOARD_STATUS="/usr/share/dvswitch/include/status.php"' in SUPPORT and
         'readonly DASHBOARD_CARD_TARGET="/usr/share/dvswitch/include/dvswitch-asl3-net-card.php"' in SUPPORT and
@@ -121,6 +120,9 @@ require("dvswitch-asl3-node-links" in ASL_NET_CARD and "astdb.txt" in ASL_NET_CA
         "$NF" in LIVE_LINKS and "ESTABLISHED" in LIVE_LINKS,
         "ASL Net card must show live established remote nodes, ASTDB names, and current idle state")
 dashboard_js = (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8")
+require("name.setAttribute('style', 'display:block;color:#b5651d;font-weight:bold;white-space:normal;')" in dashboard_js and
+        "updateAslNameColors" not in dashboard_js and "dvs-asl-node-name" not in dashboard_js,
+        "ASL activity names must use the same inline color markup as other dashboard names and targets")
 require("function normalizeHeader(value)" in dashboard_js and "clean(cell.textContent)" not in dashboard_js,
         "ASL target-label updates must not depend on an undefined global cleaner")
 require("document.getElementById('modeInfo')" in dashboard_js and "watchGatewayActivity()" in dashboard_js and
