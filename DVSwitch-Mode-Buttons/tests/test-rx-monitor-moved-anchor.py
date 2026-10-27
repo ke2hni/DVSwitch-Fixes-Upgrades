@@ -87,10 +87,10 @@ class RxMonitorAnchorTests(unittest.TestCase):
                 result = run_checker(target)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_check_strips_installed_test56_controls_before_layout_validation(self) -> None:
+    def test_check_strips_installed_test62_controls_before_layout_validation(self) -> None:
         source = (
             '<div class="content"><center>\n'
-            '<!-- DVSwitch-Mode-Buttons 1.0.0-test56 -->\n'
+            '<!-- DVSwitch-Mode-Buttons 1.0.0-test62 -->\n'
             '<div id="dvs-mode-buttons">installed controls</div>\n'
             '<script>installed()</script>\n'
             '</center></div>\n'
