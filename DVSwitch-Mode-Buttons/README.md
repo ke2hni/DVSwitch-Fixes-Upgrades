@@ -248,3 +248,6 @@ Version 1.0.0-test54 routes ASL link actions and activity hooks through the disc
 Version 1.0.0-test55 stops ASL mode selection from reconnecting a saved node automatically. ASL links are created only by the Tune action or a checked Connect action. Existing test50 through test54 controls upgrade in place.
 
 Version 1.0.0-test56 keeps ASL mode switching independent of the private/public link state, re-establishes that bridge when ASL is selected, and upgrades the ASL Net card to read live established links so stale entries clear after reboot. Existing test50 through test55 controls upgrade in place.
+
+
+Version 1.0.0-test57 fixes the dashboard preflight for installed test56 controls. The checker now removes its own controls before validating the relocated RX Monitor space, allowing ASL support checks and upgrades to proceed. Existing test50 through test56 controls upgrade in place.
