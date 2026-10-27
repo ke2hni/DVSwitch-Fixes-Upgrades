@@ -260,3 +260,6 @@ Version 1.0.0-test59 requires an ASL link action checkbox before Tune sends a li
 
 
 Version 1.0.0-test60 improves the ASL controls: Tune requires a checked action, and the Node Link box is sized to its controls. Existing test50 through test59 dashboard controls upgrade in place.
+
+
+Version 1.0.0-test61 refreshes the ASL dashboard placement and Node link display styling. Existing test50 through test60 controls upgrade in place.

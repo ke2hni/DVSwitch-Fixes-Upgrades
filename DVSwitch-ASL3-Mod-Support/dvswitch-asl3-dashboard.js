@@ -115,7 +115,7 @@
     table.append(header, body);
     card.appendChild(table);
     activity.append(title, card);
-    document.getElementById('lastHerd').insertAdjacentElement('afterend', activity);
+    document.getElementById('lastHerd').insertAdjacentElement('beforebegin', activity);
     refreshActivity();
   }
 
@@ -132,8 +132,10 @@
         body.replaceChildren();
         result.rows.forEach(function (row) {
           var tr = document.createElement('tr');
-          [row.time, row.node, row.name || row.node, row.activity].forEach(function (value) {
-            var td = document.createElement('td'); td.textContent = value; td.style.padding = '4px'; tr.appendChild(td);
+          [row.time, row.node, row.name || row.node, row.activity].forEach(function (value, index) {
+            var td = document.createElement('td'); td.textContent = value; td.style.padding = '4px';
+            if (index === 2) td.style.color = '#b5651d';
+            tr.appendChild(td);
           });
           body.appendChild(tr);
         });
