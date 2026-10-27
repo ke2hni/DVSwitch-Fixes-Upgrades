@@ -108,7 +108,9 @@ require("connectedNodes" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(enco
         "width:min(95%,600px)" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "new MutationObserver(function ()" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "insertAdjacentElement('beforebegin', activity)" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
-        "td.style.color = '#b5651d'" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
+        "td.className = 'dvs-asl-node-name'" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
+        "td.dvs-asl-node-name{color:#b5651d!important" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
+        "td.dvs-asl-node-name{color:#6b2f00!important" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
         "ASL dashboard must show live linked node IDs, keep the Node label through status refreshes, and fit the link controls")
 require('readonly DASHBOARD_STATUS="/usr/share/dvswitch/include/status.php"' in SUPPORT and
         'readonly DASHBOARD_CARD_TARGET="/usr/share/dvswitch/include/dvswitch-asl3-net-card.php"' in SUPPORT and
