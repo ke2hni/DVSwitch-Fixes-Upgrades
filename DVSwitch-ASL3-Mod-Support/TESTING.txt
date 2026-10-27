@@ -56,18 +56,21 @@ Then verify in the dashboard:
    Repeat the mode switch with the private-to-public link down; it must not
    report that the public node cannot be found or block the mode change.
 8. Keep external node 55553 connected. Confirm ASL Gateway Activity uses the
-   same `Time`, `Mode`, `Callsign`, `Name`, `Target`, `Src`, `Dur(s)`, `Loss`,
-   and `BER` columns as Gateway Activity. Confirm the public node's RX/TX and
-   remote PTT activity follows Allmon3 while another node sends audio; duration
-   advances while keyed, and Loss/BER display `—`. Disconnect 55553 and confirm
-   it disappears. Reboot and confirm only peers that reconnect are listed.
-9. Confirm non-ASL mode buttons, Tune/Favorites, RX Monitor, and services still
-   behave as before.
+   same `Time`, `Mode`, `Node`, `Name`, `Target`, `Src`, `Dur(s)`, `Loss`, and
+   `BER` columns as Gateway Activity, with Loss at `0%` and BER at `0.0%`.
+   Confirm the public node's RX/TX and remote PTT activity follows Allmon3 while
+   another node sends audio; duration advances while keyed. Disconnect 55553
+   and confirm it disappears. Reboot and confirm only peers that reconnect are
+   listed.
+9. Test RX Monitor while another node sends audio to the connected node. On an
+   HTTPS dashboard, confirm the browser opens
+   `wss://<dashboard-host>/dvswitch-audio/` and that audio plays. Also confirm
+   non-ASL mode buttons, Tune/Favorites, and services still behave as before.
 
 The standalone repair was already validated on pi4test for ASL-to-P25, NXDN,
-DMR, D-Star, YSF, and STFU switching, and the user confirmed ASL RX Monitor
-audio works. Do not repeat those checks without a code change or a specific
-failure reason.
+DMR, D-Star, YSF, and STFU switching. ASL RX Monitor audio is currently
+unresolved; v35 adds HTTPS-safe WebSocket routing and still requires live-node
+verification.
 
 After pi4test passes, proceed to pi5test, then test3040. Do not install on
 production nodes without explicit authorization.

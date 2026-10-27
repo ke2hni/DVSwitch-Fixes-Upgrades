@@ -10,6 +10,19 @@
   var connectedNodes = [];
   var activityStarted = Object.create(null);
 
+  function routeRxMonitorOverHttps() {
+    var player = window.DVSwitchPlayer;
+    if (!player || !player.prototype || player.prototype.asl3AudioProxyInstalled) return;
+    var play = player.prototype.play;
+    player.prototype.play = function () {
+      if (window.location.protocol === 'https:') {
+        this.socketURL = 'wss://' + window.location.host + '/dvswitch-audio/';
+      }
+      return play.apply(this, arguments);
+    };
+    player.prototype.asl3AudioProxyInstalled = true;
+  }
+
   function updateAnalogBridgeNode() {
     if (activeMode !== 'ASL') return;
     var info = document.getElementById('modeInfo');
@@ -109,7 +122,7 @@
     table.style.cssText = 'width:100%;margin-top:3px;border-collapse:collapse';
     var header = document.createElement('tr');
     // Mirror Gateway Activity columns; ASL keying and duration come from Allmon3-style AMI status.
-    ['Time', 'Mode', 'Callsign', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER'].forEach(function (text) {
+    ['Time', 'Mode', 'Node', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER'].forEach(function (text) {
       var th = document.createElement('th'); th.textContent = text; header.appendChild(th);
     });
     var body = document.createElement('tbody');
@@ -191,6 +204,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    routeRxMonitorOverHttps();
     addLinkControls(); addAslActivity(); watchGatewayActivity(); refresh();
     var info = document.getElementById('modeInfo');
     if (info) new MutationObserver(function () {

@@ -11,6 +11,7 @@ LINK = (ROOT / "dvswitch-asl3-node-link").read_text(encoding="utf-8")
 LIVE_LINKS = (ROOT / "dvswitch-asl3-node-links").read_text(encoding="utf-8")
 ACTIVITY_HOOK = (ROOT / "dvswitch-asl3-link-event").read_text(encoding="utf-8")
 ACTIVITY_ENDPOINT = (ROOT / "dvswitch-asl3-activity.php").read_text(encoding="utf-8")
+APACHE_AUDIO_CONF = (ROOT / "apache" / "dvswitch-asl3-webproxy.conf.in").read_text(encoding="utf-8")
 AMI_STATUS = (ROOT / "dvswitch-asl3-ami-status.py").read_text(encoding="utf-8")
 RPT_CONF_TOOL = (ROOT / "lib" / "asl3_rpt_conf.py").read_text(encoding="utf-8")
 USRP_PORT_TOOL = (ROOT / "lib" / "asl3_usrp_ports.py").read_text(encoding="utf-8")
@@ -135,9 +136,17 @@ require('readonly ACTIVITY_STATUS_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-a
         "dashboard activity must use local Allmon3-compatible public-node XStat/SawStat data")
 require("dvswitch-asl3-ami-status" in ACTIVITY_ENDPOINT and "telemetry" in ACTIVITY_ENDPOINT and
         "Radio RX" in ACTIVITY_ENDPOINT and "System TX" in ACTIVITY_ENDPOINT and
-        "['Time', 'Mode', 'Callsign', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER']" in ASL_DASHBOARD_JS and
+        "'loss' => '0%'" in ACTIVITY_ENDPOINT and "'ber' => '0.0%'" in ACTIVITY_ENDPOINT and
+        "['Time', 'Mode', 'Node', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER']" in ASL_DASHBOARD_JS and
         "No external ASL nodes connected" in ASL_DASHBOARD_JS and "activityStarted" in ASL_DASHBOARD_JS,
         "ASL activity must match Gateway Activity columns and display current keying and duration")
+require("routeRxMonitorOverHttps" in ASL_DASHBOARD_JS and
+        "wss://' + window.location.host + '/dvswitch-audio/'" in ASL_DASHBOARD_JS and
+        "ProxyPass /dvswitch-audio/ ws://127.0.0.1:8080/" in APACHE_AUDIO_CONF and
+        'readonly AUDIO_PROXY_CONF_TARGET="/etc/apache2/conf-available/dvswitch-asl3-webproxy.conf"' in SUPPORT and
+        'a2disconf a2enconf a2enmod apache2ctl' in SUPPORT and
+        'a2enmod proxy proxy_wstunnel' in SUPPORT and 'a2enconf dvswitch-asl3-webproxy' in SUPPORT,
+        "RX Monitor must use a same-origin secure WebSocket proxy on HTTPS dashboards")
 require('python3 "$ACTIVITY_STATUS_HELPER" >/dev/null 2>&1' in SUPPORT and
         'NOTICE: Allmon3 keying status is unavailable' in SUPPORT,
         "ASL check must report unavailable Allmon3 telemetry without blocking the support install")

@@ -64,8 +64,8 @@ foreach (array_unique(is_array($status['connected_nodes']) ? $status['connected_
         'source' => $source,
         'keyed' => !empty($status['ok']) && $source !== 'Idle',
         'duration' => $peerKeyed && isset($peer['seconds_since_key']) ? (int)$peer['seconds_since_key'] : null,
-        'loss' => '—',
-        'ber' => '—'
+        'loss' => '0%',
+        'ber' => '0.0%'
     );
 }
 echo json_encode(array('ok' => true, 'telemetry' => !empty($status['ok']), 'public_node' => $publicNode,

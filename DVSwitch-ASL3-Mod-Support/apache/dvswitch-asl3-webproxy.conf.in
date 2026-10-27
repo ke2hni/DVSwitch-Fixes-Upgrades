@@ -1,0 +1,2 @@
+# Carry dashboard WebSocket audio over the same HTTPS origin.
+ProxyPass /dvswitch-audio/ ws://127.0.0.1:8080/

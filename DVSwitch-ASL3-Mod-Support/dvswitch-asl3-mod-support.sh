@@ -23,6 +23,7 @@ readonly ACTIVITY_ENDPOINT="$SCRIPT_DIR/dvswitch-asl3-activity.php"
 readonly ACTIVITY_STATUS_HELPER="$SCRIPT_DIR/dvswitch-asl3-ami-status.py"
 readonly DASHBOARD_JS="$SCRIPT_DIR/dvswitch-asl3-dashboard.js"
 readonly DASHBOARD_CARD="$SCRIPT_DIR/dvswitch-asl3-net-card.php"
+readonly AUDIO_PROXY_CONF="$SCRIPT_DIR/apache/dvswitch-asl3-webproxy.conf.in"
 readonly HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-link"
 readonly LINKS_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-links"
 readonly DASHBOARD_JS_TARGET="/usr/share/dvswitch/dvswitch-asl3-dashboard.js"
@@ -33,6 +34,7 @@ readonly RPT_CONF_TOOL_TARGET="/usr/local/lib/dvswitch-asl3-support/asl3_rpt_con
 readonly DASHBOARD_SYSTEM="/usr/share/dvswitch/include/system.php"
 readonly DASHBOARD_STATUS="/usr/share/dvswitch/include/status.php"
 readonly DASHBOARD_CARD_TARGET="/usr/share/dvswitch/include/dvswitch-asl3-net-card.php"
+readonly AUDIO_PROXY_CONF_TARGET="/etc/apache2/conf-available/dvswitch-asl3-webproxy.conf"
 readonly DASHBOARD_INDEX="/usr/share/dvswitch/index.php"
 readonly BUTTONS_ENDPOINT="/usr/share/dvswitch/dvswitch-mode-buttons.php"
 readonly BUTTONS_JS="/usr/share/dvswitch/dvswitch-mode-favorites.js"
@@ -48,6 +50,7 @@ BACKUP_DIR=""
 REPAIR_BACKUP=""
 INSTALL_ACTIVE=0
 ANALOG_BRIDGE_CHANGED=0
+APACHE_AUDIO_CONF_ENABLED_BEFORE=0
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
@@ -61,7 +64,7 @@ require_file() { [[ -f "$1" && ! -L "$1" ]] || die "Required regular file is una
 
 preflight() {
     [[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run this command with sudo.'
-    for command in bash cat chmod chown cp date grep getent id install mktemp mv node php python3 rm sed sudo systemctl visudo; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
+    for command in a2disconf a2enconf a2enmod apache2ctl bash cat chmod chown cp date grep getent id install mktemp mv node php python3 rm sed sudo systemctl visudo; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
     getent passwd asterisk >/dev/null || die 'The ASL Asterisk service account was not found.'
     require_file "$ASL_REPAIR"
     require_file "$LAYOUT_PATCHER"
@@ -74,6 +77,7 @@ preflight() {
     require_file "$ACTIVITY_STATUS_HELPER"
     require_file "$DASHBOARD_JS"
     require_file "$DASHBOARD_CARD"
+    require_file "$AUDIO_PROXY_CONF"
     require_file "$DASHBOARD_SYSTEM"
     require_file "$DASHBOARD_STATUS"
     require_file "$DASHBOARD_INDEX"
@@ -137,7 +141,8 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        if [[ $APACHE_AUDIO_CONF_ENABLED_BEFORE -eq 0 ]]; then a2disconf dvswitch-asl3-webproxy >/dev/null 2>&1 || true; fi
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
         if [[ $ANALOG_BRIDGE_CHANGED -eq 1 ]]; then systemctl restart analog_bridge >/dev/null 2>&1 || true; fi
         systemctl restart apache2 >/dev/null 2>&1 || true
@@ -231,8 +236,14 @@ run_install() {
     local collision=0
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file "$target"; done
+    if [[ -e /etc/apache2/conf-enabled/dvswitch-asl3-webproxy.conf ]]; then APACHE_AUDIO_CONF_ENABLED_BEFORE=1; fi
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
+
+    install -o root -g root -m 0644 "$AUDIO_PROXY_CONF" "$AUDIO_PROXY_CONF_TARGET"
+    a2enmod proxy proxy_wstunnel >/dev/null
+    a2enconf dvswitch-asl3-webproxy >/dev/null
+    apache2ctl configtest >/dev/null
 
     # Match Analog_Bridge's USRP ports to the dynamic private-node channel map.
     local usrp_port_output
