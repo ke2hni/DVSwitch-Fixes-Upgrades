@@ -9,7 +9,9 @@ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly ASL_REPAIR="$SCRIPT_DIR/repair-dvswitch-asl-mode-switch.sh"
 readonly LAYOUT_PATCHER="$SCRIPT_DIR/lib/patch_asl3_dashboard_layout.py"
 readonly RPT_CONF_TOOL="$SCRIPT_DIR/lib/asl3_rpt_conf.py"
+readonly USRP_PORT_TOOL="$SCRIPT_DIR/lib/asl3_usrp_ports.py"
 readonly RPT_CONF="/etc/asterisk/rpt.conf"
+readonly ANALOG_BRIDGE_CONF="/opt/Analog_Bridge/Analog_Bridge.ini"
 readonly ASTERISK="/usr/sbin/asterisk"
 readonly BUTTONS_DIR="$SCRIPT_DIR/../DVSwitch-Mode-Buttons"
 readonly BUTTONS_INSTALLER="$BUTTONS_DIR/dvswitch-mode-buttons.sh"
@@ -43,6 +45,7 @@ readonly BACKUP_ROOT="/var/backups/dvswitch-mods/asl3-support"
 BACKUP_DIR=""
 REPAIR_BACKUP=""
 INSTALL_ACTIVE=0
+ANALOG_BRIDGE_CHANGED=0
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
@@ -61,6 +64,7 @@ preflight() {
     require_file "$ASL_REPAIR"
     require_file "$LAYOUT_PATCHER"
     require_file "$RPT_CONF_TOOL"
+    require_file "$USRP_PORT_TOOL"
     require_file "$NODE_HELPER"
     require_file "$LINKS_HELPER"
     require_file "$EVENT_HELPER"
@@ -71,10 +75,12 @@ preflight() {
     require_file "$DASHBOARD_STATUS"
     require_file "$DASHBOARD_INDEX"
     require_file "$RPT_CONF"
+    require_file "$ANALOG_BRIDGE_CONF"
     bash -n "$ASL_REPAIR" "$NODE_HELPER" "$LINKS_HELPER" "$EVENT_HELPER" || die 'ASL support shell syntax validation failed.'
     python3 "$SCRIPT_DIR/lib/patch_dvswitch_asl_mode_switch.py" --help >/dev/null || die 'ASL mode-switch patcher validation failed.'
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$LAYOUT_PATCHER" || die 'ASL dashboard layout patcher syntax validation failed.'
     python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$RPT_CONF_TOOL" || die 'ASL rpt.conf helper syntax validation failed.'
+    python3 -c 'import sys; from pathlib import Path; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$USRP_PORT_TOOL" || die 'ASL USRP port helper syntax validation failed.'
     node --check "$DASHBOARD_JS" >/dev/null || die 'ASL dashboard script syntax validation failed.'
     php -l "$DASHBOARD_SYSTEM" >/dev/null || die 'system.php syntax validation failed.'
     php -l "$DASHBOARD_STATUS" >/dev/null || die 'status.php syntax validation failed.'
@@ -127,8 +133,9 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
+        if [[ $ANALOG_BRIDGE_CHANGED -eq 1 ]]; then systemctl restart analog_bridge >/dev/null 2>&1 || true; fi
         systemctl restart apache2 >/dev/null 2>&1 || true
     fi
     exit "$status"
@@ -192,6 +199,7 @@ run_check() {
         (cd "$BUTTONS_DIR" && ./dvswitch-mode-buttons.sh --check)
     fi
     "$ASL_REPAIR" --check
+    python3 "$USRP_PORT_TOOL" check "$RPT_CONF" "$ANALOG_BRIDGE_CONF"
     printf 'PASS: ASL 3 dashboard support is ready; --check made no changes.\n'
 }
 
@@ -214,8 +222,17 @@ run_install() {
     local collision=0
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF"; do snapshot_file "$target"; done
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$BUTTONS_HELPER" "$BUTTONS_TARGET_HELPER" "$BUTTONS_ENDPOINT" "$BUTTONS_JS" "$BUTTONS_SUDOERS" "$BUTTONS_TUNE_HELPER" "$BUTTONS_FAVORITES_HELPER" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
+
+    # Match Analog_Bridge's USRP ports to the dynamic private-node channel map.
+    local usrp_port_output
+    usrp_port_output=$(python3 "$USRP_PORT_TOOL" install "$RPT_CONF" "$ANALOG_BRIDGE_CONF")
+    printf '%s\n' "$usrp_port_output"
+    if grep -qx 'CHANGED=1' <<< "$usrp_port_output"; then
+        ANALOG_BRIDGE_CHANGED=1
+        systemctl restart analog_bridge
+    fi
 
     install -d -o root -g root -m 0755 /usr/local/sbin "$(dirname "$RPT_CONF_TOOL_TARGET")" "$(dirname "$DASHBOARD_JS_TARGET")"
     install -o root -g root -m 0644 "$DASHBOARD_CARD" "$DASHBOARD_CARD_TARGET"

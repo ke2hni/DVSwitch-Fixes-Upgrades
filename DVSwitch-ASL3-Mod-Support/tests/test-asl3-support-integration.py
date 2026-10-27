@@ -12,6 +12,7 @@ LIVE_LINKS = (ROOT / "dvswitch-asl3-node-links").read_text(encoding="utf-8")
 ACTIVITY_HOOK = (ROOT / "dvswitch-asl3-link-event").read_text(encoding="utf-8")
 ACTIVITY_ENDPOINT = (ROOT / "dvswitch-asl3-activity.php").read_text(encoding="utf-8")
 RPT_CONF_TOOL = (ROOT / "lib" / "asl3_rpt_conf.py").read_text(encoding="utf-8")
+USRP_PORT_TOOL = (ROOT / "lib" / "asl3_usrp_ports.py").read_text(encoding="utf-8")
 MANAGER = (ROOT.parent / "DVSwitch-Mods" / "manage-dvswitch-mods.sh").read_text(encoding="utf-8")
 BUTTON_INSTALLER = (ROOT.parent / "DVSwitch-Mode-Buttons" / "dvswitch-mode-buttons.sh").read_text(encoding="utf-8")
 BUTTON_HELPER = (ROOT.parent / "DVSwitch-Mode-Buttons" / "dvswitch-mode-buttons").read_text(encoding="utf-8")
@@ -98,6 +99,13 @@ require("$remote_node" in ACTIVITY_HOOK and "CONNECTED)" in ACTIVITY_HOOK and "D
         "ASL connection event hook must record bounded local link events")
 require("$remote_node" != "$private_node" in ACTIVITY_HOOK and "asl3_rpt_conf.py node /etc/asterisk/rpt.conf" in ACTIVITY_HOOK,
         "ASL activity hook must omit the private-to-public bridge from external-link activity")
+require("asl3_usrp_ports.py" in SUPPORT and 'readonly ANALOG_BRIDGE_CONF="/opt/Analog_Bridge/Analog_Bridge.ini"' in SUPPORT and
+        '"$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file' in SUPPORT and
+        '"$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot' in SUPPORT and
+        'if grep -qx \'CHANGED=1\' <<< "$usrp_port_output"; then' in SUPPORT and
+        'systemctl restart analog_bridge' in SUPPORT and "USRP/address:remote-port:local-port" in USRP_PORT_TOOL and
+        "CHANGED=1" in USRP_PORT_TOOL and "txPort" in USRP_PORT_TOOL and "rxPort" in USRP_PORT_TOOL,
+        "ASL support must discover, back up, and align Analog_Bridge USRP ports with the private node")
 require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "dvswitch-asl3-node-links" in ACTIVITY_ENDPOINT and "asl3-link-activity.tsv" not in ACTIVITY_ENDPOINT and
         "Connected" in ACTIVITY_ENDPOINT and "astdb.txt" in ACTIVITY_ENDPOINT,

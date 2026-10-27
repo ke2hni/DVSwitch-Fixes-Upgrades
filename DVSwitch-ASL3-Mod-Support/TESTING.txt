@@ -8,6 +8,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-dvswitch-
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-support-integration.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-rpt-conf.py
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-usrp-ports.py
 
 On a test node, check compatibility without changing installed files:
 
@@ -17,6 +18,13 @@ If the check passes, install or upgrade the Mode Buttons integration on pi4test
 first:
 
 sudo ./dvswitch-asl3-mod-support.sh --install
+
+The installer compares the private node's USRP `remote-port:local-port` with
+Analog_Bridge's `[USRP]` `rxPort` and `txPort`. If they differ, it backs up
+Analog_Bridge.ini, applies the reciprocal port values, and restarts
+Analog_Bridge. Check the listeners with `sudo ss -lunp | grep -E ':(31001|32001|34001|2222)([[:space:]]|$)'`. With ASL audio active, run
+`sudo timeout 15 tcpdump -ni lo -c 10 'udp port 2222'`; PCM packets should
+arrive at Web Proxy for the RX Monitor.
 
 After install, activate the new ASL activity hooks on the test node:
 
