@@ -126,6 +126,8 @@
       .then(function (response) { return response.json(); })
       .then(function (result) {
         if (!result || !result.ok || !Array.isArray(result.rows)) return;
+        var header = document.querySelector('#dvs-asl-activity table tr');
+        if (header && result.timezone) header.cells[0].textContent = 'Time (' + result.timezone + ')';
         connectedNodes = result.rows.map(function (row) { return String(row.node || '').trim(); })
           .filter(function (node) { return /^[0-9]{1,8}$/.test(node); });
         updateAnalogBridgeNode();

@@ -23,10 +23,11 @@ if (is_readable($astdb)) {
 }
 
 $rows = array();
-$time = gmdate('Y-m-d H:i:s') . ' UTC';
+$time = date('H:i:s M d');
+$timezone = date('T');
 foreach (array_unique($output) as $node) {
     $node = trim($node);
     if (!preg_match('/^[0-9]{1,8}$/D', $node) || (int)$node < 1) { continue; }
     $rows[] = array('time' => $time, 'node' => $node, 'name' => isset($names[$node]) ? $names[$node] : '', 'activity' => 'Connected');
 }
-echo json_encode(array('ok' => true, 'rows' => $rows), JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+echo json_encode(array('ok' => true, 'timezone' => $timezone, 'rows' => $rows), JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);

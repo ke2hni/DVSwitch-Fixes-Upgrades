@@ -102,6 +102,9 @@ require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_tex
         "dvswitch-asl3-node-links" in ACTIVITY_ENDPOINT and "asl3-link-activity.tsv" not in ACTIVITY_ENDPOINT and
         "Connected" in ACTIVITY_ENDPOINT and "astdb.txt" in ACTIVITY_ENDPOINT,
         "ASL Gateway Activity must list only live connected nodes with ASTDB names")
+require("$time = date('H:i:s M d');" in ACTIVITY_ENDPOINT and "$timezone = date('T');" in ACTIVITY_ENDPOINT and
+        "'timezone' => $timezone" in ACTIVITY_ENDPOINT and "Time (' + result.timezone + ')'" in ASL_DASHBOARD_JS,
+        "ASL Gateway Activity must use the dashboard server's local time and matching timezone label")
 require("connectedNodes" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "updateAnalogBridgeNode" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "box-shadow:0 0 10px #999" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
