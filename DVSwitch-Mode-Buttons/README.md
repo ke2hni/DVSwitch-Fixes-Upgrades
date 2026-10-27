@@ -257,3 +257,6 @@ Version 1.0.0-test58 shows concise ASL Tune results beside the controls, such as
 
 
 Version 1.0.0-test59 requires an ASL link action checkbox before Tune sends a link command. Existing test50 through test58 dashboard controls upgrade in place.
+
+
+Version 1.0.0-test60 improves the ASL controls: Tune requires a checked action, and the Node Link box is sized to its controls. Existing test50 through test59 dashboard controls upgrade in place.

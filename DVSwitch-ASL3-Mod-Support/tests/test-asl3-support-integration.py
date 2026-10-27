@@ -78,7 +78,7 @@ require("Run ASL Link Action" not in ASL_DASHBOARD_JS and "dvs-asl-link-form" no
         "ASL link actions must use the existing Tune button and require an explicitly checked action")
 require("isset($_POST['target']) && !isset($_POST['aslAction'])" in BUTTON_INSTALLER and
         "fwrite($pipes[0], $mode === 'ASL' ? \"CONNECT\\t\" . $target . \"\\n\" : $target . \"\\n\")" in BUTTON_INSTALLER and
-        "max-width:760px;border:1px solid #aaa" in ASL_DASHBOARD_JS and "padding:0 8px 3px" in ASL_DASHBOARD_JS,
+        "width:min(95%,600px)" in ASL_DASHBOARD_JS and "padding:0 8px 3px" in ASL_DASHBOARD_JS,
         "ASL action requests and saved targets must reach the node-link helper with an action")
 require('if [[ -x "$TARGET_HELPER" && "$mode" != ASL ]]; then' in BUTTON_HELPER and
         'if [[ ( "$mode" == BM || "$mode" == TGIF ) && -x "$TARGET_HELPER" ]]; then' in BUTTON_HELPER and
@@ -104,8 +104,10 @@ require("ASL Gateway Activity" in (ROOT / "dvswitch-asl3-dashboard.js").read_tex
         "ASL Gateway Activity must list only live connected nodes with ASTDB names")
 require("connectedNodes" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
         "updateAnalogBridgeNode" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
-        "box-shadow:0 0 10px #999" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
-        "ASL dashboard must show live linked node IDs in Analog Bridge Info and use the dashboard card layout")
+        "box-shadow:0 0 10px #999" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
+        "width:min(95%,600px)" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8") and
+        "new MutationObserver(function ()" in (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8"),
+        "ASL dashboard must show live linked node IDs, keep the Node label through status refreshes, and fit the link controls")
 require('readonly DASHBOARD_STATUS="/usr/share/dvswitch/include/status.php"' in SUPPORT and
         'readonly DASHBOARD_CARD_TARGET="/usr/share/dvswitch/include/dvswitch-asl3-net-card.php"' in SUPPORT and
         '"$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET"' in SUPPORT,

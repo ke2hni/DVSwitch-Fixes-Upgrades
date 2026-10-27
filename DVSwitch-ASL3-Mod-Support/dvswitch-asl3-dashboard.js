@@ -30,7 +30,7 @@
     if (!info) return;
     info.querySelectorAll('th').forEach(function (cell) {
       var heading = normalizeHeader(cell.textContent);
-      if (heading === 'Tx TG/Ref' || heading === 'Node') {
+      if ((heading === 'Tx TG/Ref' || heading === 'Node') && heading !== label) {
         cell.textContent = label;
       }
     });
@@ -61,7 +61,7 @@
     root = document.createElement('fieldset');
     root.id = 'dvs-asl-links';
     root.hidden = true;
-    root.style.cssText = 'margin:2px auto 4px;padding:0 8px 3px;max-width:760px;border:1px solid #aaa;text-align:center';
+    root.style.cssText = 'box-sizing:border-box;width:min(95%,600px);margin:2px auto 4px;padding:0 8px 3px;border:1px solid #aaa;text-align:center';
     var legend = document.createElement('legend');
     legend.textContent = 'ASL Node Link';
     legend.style.cssText = 'padding:0 5px;font-size:12px;line-height:1';
@@ -158,7 +158,15 @@
   document.addEventListener('DOMContentLoaded', function () {
     addLinkControls(); addAslActivity(); watchGatewayActivity(); refresh();
     var info = document.getElementById('modeInfo');
-    if (info) new MutationObserver(updateAnalogBridgeNode).observe(info, { childList: true, subtree: true });
+    if (info) new MutationObserver(function () {
+      var mode = activeMode;
+      info.querySelectorAll('tr').forEach(function (row) {
+        var heading = row.querySelector('th');
+        var value = row.querySelector('td');
+        if (heading && value && normalizeHeader(heading.textContent) === 'Mode') mode = normalizeHeader(value.textContent).toUpperCase();
+      });
+      setTargetLabel(mode);
+    }).observe(info, { childList: true, subtree: true });
     var themeStyle = document.createElement('style');
     themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
     document.head.appendChild(themeStyle);

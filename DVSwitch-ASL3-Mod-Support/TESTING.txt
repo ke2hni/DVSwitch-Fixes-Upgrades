@@ -71,3 +71,6 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     not issue a link command. Select Connect and Tune; confirm the external
     node ID appears in Analog Bridge Info and the ASL Gateway Activity card.
     Confirm the card matches Gateway Activity styling in light and dark modes.
+11. Leave ASL selected and watch Analog Bridge Info through multiple status
+    refreshes; the target label must remain `Node`. Confirm the ASL Node Link
+    box is compact and stays usable at narrow browser widths.
