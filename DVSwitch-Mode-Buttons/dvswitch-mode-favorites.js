@@ -252,6 +252,10 @@
         ? document.querySelector('#dvs-asl-links input[name="aslAction"]:checked')
         : null;
       const aslAction = selectedAslAction ? selectedAslAction.value : '';
+      const disconnectOption = document.getElementById('dvs-asl-disconnect-before-connect');
+      // The replacement option applies only to Connect; other link actions remain independent.
+      const disconnectBeforeConnect = activeMode === 'ASL' && aslAction === 'CONNECT' &&
+        Boolean(disconnectOption && disconnectOption.checked);
       if (activeMode === 'ASL' && !selectedAslAction) {
         tuneStatus.textContent = 'Select an ASL link action.';
         return;
@@ -268,7 +272,11 @@
         const response = await fetch('/dvswitch/dvswitch-mode-buttons.php', {
           method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: activeMode === 'ASL'
-            ? new URLSearchParams({ aslAction: aslAction, target: disconnectAll ? '' : target })
+            ? new URLSearchParams({
+                aslAction: aslAction,
+                target: disconnectAll ? '' : target,
+                disconnectBeforeConnect: disconnectBeforeConnect ? '1' : '0'
+              })
             : new URLSearchParams({ target: target })
         });
         const result = await response.json();
@@ -281,7 +289,9 @@
             LOCAL_MONITOR: 'Local monitor',
             DISCONNECT_ALL: 'Disconnected all nodes'
           };
-          tuneStatus.textContent = (actionMessages[aslAction] || 'ASL link updated') + (target ? ' ' + target : '');
+          tuneStatus.textContent = disconnectBeforeConnect
+            ? 'Replaced external links with ' + target
+            : (actionMessages[aslAction] || 'ASL link updated') + (target ? ' ' + target : '');
         } else {
           tuneStatus.textContent = 'Tuned ' + target + ' (' + result.mode + ')';
         }

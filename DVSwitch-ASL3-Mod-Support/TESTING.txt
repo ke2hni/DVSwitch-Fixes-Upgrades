@@ -11,6 +11,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-rpt-
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-usrp-ports.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-ami-status.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-Mode-Buttons/tests/test-dmr-network-fast-path.py
+sudo PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-connect-replaces-external-links.py
 
 On a test node, check compatibility without changing installed files:
 
@@ -48,6 +49,11 @@ Then verify in the dashboard:
    Confirm Gateway Activity keeps its `Src` header after refresh.
 4. Enter a numeric AllStar node in Tune; verify the connection is made through
    the discovered local public node and the target is saved as an ASL Favorite.
+   Confirm `Disconnect before Connect` is checked by default. With node 55553
+   connected, enter a different node and select Connect; confirm the old
+   external link drops before the new one connects, while the private bridge
+   remains established. Repeat with the checkbox cleared and verify Connect
+   leaves other external links alone.
 5. Verify each checkbox action: Connect (ilink 3), Disconnect (ilink 1), Monitor
    (ilink 2), and Local Monitor (ilink 8).
 6. With the private-to-public bridge and at least one external node connected,

@@ -102,6 +102,16 @@
       actionContainer.appendChild(label);
     });
     root.appendChild(actionContainer);
+    var replaceLabel = document.createElement('label');
+    replaceLabel.style.cssText = 'display:inline-flex;align-items:center;margin:1px 0 0;white-space:nowrap;font-size:12px';
+    var replaceCheckbox = document.createElement('input');
+    replaceCheckbox.type = 'checkbox';
+    replaceCheckbox.id = 'dvs-asl-disconnect-before-connect';
+    // Default to replacing prior external links whenever Connect is selected.
+    replaceCheckbox.checked = true;
+    replaceCheckbox.title = 'Disconnect existing external ASL links before connecting; the private bridge is preserved.';
+    replaceLabel.append(replaceCheckbox, document.createTextNode(' Disconnect before Connect'));
+    root.appendChild(replaceLabel);
     var buttons = document.getElementById('dvs-mode-buttons');
     buttons.insertAdjacentElement('afterend', root);
   }

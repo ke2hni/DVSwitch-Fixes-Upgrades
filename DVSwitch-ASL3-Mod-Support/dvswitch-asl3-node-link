@@ -16,7 +16,7 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ -x "$ASTERISK" ]] || die "Asterisk command is unavailable: $ASTERISK"
 
 request="$(cat)"
-IFS=$'\t' read -r action target extra <<< "$request"
+IFS=$'\t' read -r action target option extra <<< "$request"
 [[ -z "${extra:-}" ]] || die 'Invalid ASL link request.'
 case "$action" in
     CONNECT) ilink=3 ;;
@@ -27,6 +27,7 @@ case "$action" in
     ENSURE_BRIDGE) ilink=3 ;;
     *) die 'Unsupported ASL link action.' ;;
 esac
+[[ -z "${option:-}" || ( "$action" == CONNECT && "$option" == DISCONNECT_BEFORE_CONNECT ) ]] || die 'Disconnect before Connect is valid only for Connect.'
 if [[ "$action" == DISCONNECT_ALL || "$action" == ENSURE_BRIDGE ]]; then
     [[ -z "${target:-}" ]] || die 'Disconnect All does not take a node number.'
 else
@@ -55,20 +56,34 @@ ensure_bridge() {
     printf 'PASS: private bridge node %s is already established on local public node %s.\n' "$private_node" "$public_node"
 }
 
+disconnect_external_links() {
+    local links peers peer result attempt
+    links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not list links on local public ASL node $public_node: $links"
+    peers=$(awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { print $1 }' <<< "$links")
+    while IFS= read -r peer; do
+        [[ -n "$peer" ]] || continue
+        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 1 $peer" 2>&1) || die "Could not disconnect external ASL node $peer: $result"
+        printf '%s\n' "$result"
+    done <<< "$peers"
+    for attempt in {1..10}; do
+        links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify external ASL disconnections: $links"
+        if ! awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { found=1 } END { exit found ? 0 : 1 }' <<< "$links"; then
+            printf 'PASS: external ASL links are disconnected; private bridge node %s remains protected.\n' "$private_node"
+            return 0
+        fi
+        sleep 1
+    done
+    die 'An external ASL link remained established after the disconnect request.'
+}
+
 if [[ "$action" == ENSURE_BRIDGE ]]; then
     ensure_bridge
 elif [[ "$action" == DISCONNECT_ALL ]]; then
-    links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not list links on local public ASL node $public_node: $links"
-    disconnected=0
-    while IFS= read -r peer; do
-        [[ -n "$peer" && "$peer" != "$private_node" ]] || continue
-        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 1 $peer" 2>&1) || die "Could not disconnect external ASL node $peer: $result"
-        printf '%s\n' "$result"
-        disconnected=$((disconnected + 1))
-    done < <(awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { print $1 }' <<< "$links")
-    printf 'PASS: disconnected %s external ASL link(s) on node %s; preserved private bridge node %s.\n' "$disconnected" "$public_node" "$private_node"
+    disconnect_external_links
 else
     if [[ "$action" == CONNECT || "$action" == MONITOR || "$action" == LOCAL_MONITOR ]]; then ensure_bridge; fi
+    # Replace external links only when Connect explicitly requests it; the helper always excludes the private bridge.
+    if [[ "$action" == CONNECT && "${option:-}" == DISCONNECT_BEFORE_CONNECT ]]; then disconnect_external_links; fi
     result=$("$ASTERISK" -rx "rpt cmd $public_node ilink $ilink $target" 2>&1) || die "Asterisk rejected the link command: $result"
     printf '%s\n' "$result"
     if [[ "$action" == CONNECT && -x /usr/local/sbin/dvswitch-mode-targets ]]; then /usr/local/sbin/dvswitch-mode-targets save ASL "$target" >/dev/null || true; fi

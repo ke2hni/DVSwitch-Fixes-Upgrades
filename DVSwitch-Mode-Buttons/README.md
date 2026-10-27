@@ -265,4 +265,4 @@ Version 1.0.0-test60 improves the ASL controls: Tune requires a checked action, 
 Version 1.0.0-test61 refreshes the ASL dashboard placement and Node link display styling. Existing test50 through test60 controls upgrade in place.
 
 
-Version 1.0.0-test62 fixes the ASL Gateway Activity Name color in both light and dark dashboard themes. Existing test50 through test61 controls upgrade in place.
+Version 1.0.0-test63 adds a default-checked ASL Disconnect before Connect option. Existing test45 through test62 controls upgrade in place.

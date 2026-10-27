@@ -63,7 +63,7 @@ require("$target" in LINK and "dvswitch-mode-targets save ASL" in LINK and "save
 for action, code in (("CONNECT", "3"), ("DISCONNECT", "1"), ("MONITOR", "2"), ("LOCAL_MONITOR", "8")):
     require(action in LINK and f"{action}) ilink={code}" in LINK,
             f"ASL link action {action} must map to documented ilink {code}")
-require('rpt cmd $public_node ilink 1 $peer' in LINK and '"$peer" != "$private_node"' in LINK and
+require('rpt cmd $public_node ilink 1 $peer' in LINK and '$1 != keep { print $1 }' in LINK and
         'rpt lstats $public_node' in LINK and "ilink 6" not in LINK,
         "Disconnect All must individually remove public-node peers and preserve the private bridge")
 require('printf \'DISCONNECT_ALL\\n\' | "$ASL_NODE_HELPER"' in BUTTON_HELPER and
@@ -75,12 +75,23 @@ require("ENSURE_BRIDGE" in LINK and "rpt cmd $public_node ilink 3 $private_node"
         "ASL selection and link actions must re-establish and verify the private-to-public bridge when it is down")
 require("aslAction" in BUTTON_INSTALLER and "dvs-asl-links" in ASL_DASHBOARD_JS,
         "ASL checkbox link controls are not connected to the dashboard endpoint")
+require("dvs-asl-disconnect-before-connect" in ASL_DASHBOARD_JS and "replaceCheckbox.checked = true" in ASL_DASHBOARD_JS and
+        "disconnectBeforeConnect: disconnectBeforeConnect ? '1' : '0'" in BUTTON_JS and
+        "$disconnectBeforeConnect = (string)($_POST['disconnectBeforeConnect'] ?? '1');" in BUTTON_INSTALLER and
+        "if ($action === 'CONNECT' && $disconnectBeforeConnect === '1')" in BUTTON_INSTALLER,
+        "Connect must default to disconnecting previous external ASL links")
+replace_before_connect = LINK.index('if [[ "$action" == CONNECT && "${option:-}" == DISCONNECT_BEFORE_CONNECT ]]; then disconnect_external_links; fi')
+connect_request = LINK.index('rpt cmd $public_node ilink $ilink $target')
+require(replace_before_connect < connect_request and '[[ -z "${option:-}" || ( "$action" == CONNECT && "$option" == DISCONNECT_BEFORE_CONNECT ) ]]' in LINK and
+        '$1 != keep { print $1 }' in LINK and
+        'if ! awk -v keep="$private_node"' in LINK,
+        "replace-connect must wait for external links to clear while retaining the private bridge")
 require("Run ASL Link Action" not in ASL_DASHBOARD_JS and "dvs-asl-link-form" not in ASL_DASHBOARD_JS and
         "selectedAslAction" in BUTTON_JS and "aslAction: aslAction" in BUTTON_JS and
         "if (activeMode === 'ASL' && !selectedAslAction)" in BUTTON_JS,
         "ASL link actions must use the existing Tune button and require an explicitly checked action")
 require("isset($_POST['target']) && !isset($_POST['aslAction'])" in BUTTON_INSTALLER and
-        "fwrite($pipes[0], $mode === 'ASL' ? \"CONNECT\\t\" . $target . \"\\n\" : $target . \"\\n\")" in BUTTON_INSTALLER and
+        'fwrite($pipes[0], $request . "\\n"); fclose($pipes[0]);' in BUTTON_INSTALLER and
         "width:min(95%,600px)" in ASL_DASHBOARD_JS and "padding:0 8px 3px" in ASL_DASHBOARD_JS,
         "ASL action requests and saved targets must reach the node-link helper with an action")
 require('if [[ -x "$TARGET_HELPER" && "$mode" != ASL ]]; then' in BUTTON_HELPER and
