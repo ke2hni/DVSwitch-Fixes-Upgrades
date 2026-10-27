@@ -269,9 +269,18 @@
         });
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || 'Tune failed.');
-        tuneStatus.textContent = activeMode === 'ASL'
-          ? (result.message || 'ASL ' + aslAction.toLowerCase().replace('_', ' ') + ' request sent.')
-          : 'Tuned ' + target + ' (' + result.mode + ')';
+        if (activeMode === 'ASL') {
+          const actionMessages = {
+            CONNECT: 'Connected',
+            DISCONNECT: 'Disconnected',
+            MONITOR: 'Monitoring',
+            LOCAL_MONITOR: 'Local monitor',
+            DISCONNECT_ALL: 'Disconnected all nodes'
+          };
+          tuneStatus.textContent = (actionMessages[aslAction] || 'ASL link updated') + (target ? ' ' + target : '');
+        } else {
+          tuneStatus.textContent = 'Tuned ' + target + ' (' + result.mode + ')';
+        }
         if (selectedAslAction) selectedAslAction.checked = false;
       } catch (error) {
         tuneStatus.textContent = error.message;
