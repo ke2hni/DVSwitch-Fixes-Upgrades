@@ -31,6 +31,11 @@ sudo ./dvswitch-asl3-mod-support.sh --install
 keeps its own backups under `/var/backups/dvswitch-mods/asl-mode-switch/` and
 supports `--restore BACKUP-NAME`.
 
+The 1.0.1 mode-switch repair reads the candidate TLV ports once per
+`dvswitch.sh` command and caches the live listener snapshot until an `rxport`
+change. This avoids repeating the INI parser and socket search for each
+Analog_Bridge command in a mode transition.
+
 The patchers reject unsupported versions and dashboard structures without
 changing installed files. The ASL node check requires one USRP private node and
 one other configured node; it refuses ambiguous layouts. From the combined repository root, run

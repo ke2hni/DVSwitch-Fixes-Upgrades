@@ -272,3 +272,6 @@ Version 1.0.0-test63 adds a default-checked ASL Disconnect before Connect option
 
 
 Version 1.0.0-test66 applies the ASL-aware `dvswitch.sh` mode-switch repair during a normal Mode Buttons install when ASL support is already installed. The repair files are included in this repository, so the check and install work independently of ASL Support. The check path verifies the repair first. Existing test45 through test65 controls upgrade in place. Run `PYTHONDONTWRITEBYTECODE=1 python3 tests/test-mode-buttons-asl-mode-repair.py` to verify the local repair path and patcher.
+
+
+Version 1.0.0-test67 optimizes the ASL-aware TLV listener lookup used during mode changes. It caches configured ports and the listener snapshot for each `dvswitch.sh` command, refreshing the snapshot only after an RX port change. Existing test45 through test66 controls upgrade in place.

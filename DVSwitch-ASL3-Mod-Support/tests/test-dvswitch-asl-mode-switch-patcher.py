@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -66,6 +66,12 @@ for version in ("1.6.2", "1.6.3"):
         candidate.flush()
         subprocess.run(["bash", "-n", candidate.name], check=True)
 
+require(module.REMOTE_BLOCK.count('python3 - "$DVSWITCH_INI"') == 1, "mode port candidates are not loaded in one config parse")
+require("parseIniFile" not in module.REMOTE_BLOCK, "listener lookup starts separate INI parser processes")
+require(module.REMOTE_BLOCK.count("ss -H -lun ") == 1, "listener sockets are not read from one snapshot")
+require("grep" not in module.REMOTE_BLOCK, "listener lookup still starts a grep process per candidate")
+require("unset _ASL_TLV_LISTENERS_VALID" in module.REMOTE_BLOCK, "listener cache is not invalidated after an rxport change")
+
 legacy = fixture("1.6.2").replace(
     '    else\nPYTHON_ARG="$1" python3 - <<END',
     f'    else\n{module.REMOTE_BLOCK}\nPYTHON_ARG="$1" python3 - <<END',
@@ -74,6 +80,15 @@ adopted = module.patch_text(legacy)
 require(adopted.count(module.REMOTE_MARKER) == 1, "existing unmarked live-port patch was not adopted")
 require(adopted.count(module.MODE_MARKER) == 1, "existing unmarked ASL patch was not adopted")
 require(module.patch_text(adopted) == adopted, "adopted patch is not idempotent")
+
+old_repair = fixture("1.6.3").replace(
+    '    else\nPYTHON_ARG="$1" python3 - <<END',
+    f'    else\n{module.REMOTE_MARKER}\n{module.LEGACY_REMOTE_BLOCK}\nPYTHON_ARG="$1" python3 - <<END',
+).replace(module.MODE_ANCHOR, f'{module.MODE_MARKER}\n{module.MODE_BLOCK}\n{module.MODE_ANCHOR}')
+upgraded = module.patch_text(old_repair)
+require(upgraded.count(module.REMOTE_BLOCK) == 1, "slow marked routing block was not upgraded")
+require(module.LEGACY_REMOTE_BLOCK not in upgraded, "slow marked routing block remains after upgrade")
+require(module.patch_text(upgraded) == upgraded, "upgraded repair is not idempotent")
 
 require_rejected(fixture("1.6.4"), "unknown DVSwitch script version")
 require_rejected(fixture("1.6.2").replace(module.MODE_ANCHOR, "", 1), "missing transition anchor")
