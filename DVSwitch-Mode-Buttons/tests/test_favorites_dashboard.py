@@ -68,6 +68,16 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('clean.sort(key=favorite_sort_key)', HELPER)
         self.assertIn('favorites.sort(function (left, right)', SCRIPT)
 
+    def test_button_install_applies_the_asl_mode_switch_repair_when_asl_is_present(self):
+        self.assertIn('ASL_MODE_REPAIR="$SCRIPT_DIR/dvswitch-mode-buttons-asl-mode-switch-repair.sh"', INSTALLER)
+        self.assertIn('if [[ ! -x "$ASL_NODE_HELPER" ]]', INSTALLER)
+        self.assertIn('no ASL mode-switch repair is needed.', INSTALLER)
+        self.assertIn('"$ASL_MODE_REPAIR" "$action"', INSTALLER)
+        self.assertIn('apply_asl_mode_repair --check', INSTALLER)
+        self.assertIn('apply_asl_mode_repair --install', INSTALLER)
+        self.assertIn('if [[ $mode == refresh_asl ]]; then', INSTALLER)
+        self.assertIn("VERSION=\"1.0.0-test66\"", INSTALLER)
+
     def test_asl_button_is_rendered_as_html_not_python_source(self):
         import re
         import subprocess
@@ -99,14 +109,14 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn("Select an ASL link action.", SCRIPT)
 
     def test_test23_upgrade_and_uninstall_cover_the_favorites_script(self):
-        self.assertIn('VERSION="1.0.0-test63"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test66"', INSTALLER)
         self.assertIn('|17|18|19|20|21|22|23', INSTALLER)
         self.assertIn('dvswitch-mode-favorites.js', INSTALLER)
         self.assertIn('./dvswitch-mode-favorites "$FAVORITES_HELPER"', INSTALLER)
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('<dialog class="dvs-favorites-editor"', INSTALLER)
-        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test63 -->'", INSTALLER)
+        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test66 -->'", INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
         self.assertIn('dvs-favorites-editor', INSTALLER)
         self.assertIn('class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div>', INSTALLER)

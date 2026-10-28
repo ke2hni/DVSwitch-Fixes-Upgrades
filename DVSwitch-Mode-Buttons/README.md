@@ -14,8 +14,11 @@ When DVSwitch-Mods is also installed, the BM/TGIF switch helper optionally
 records a timestamped network-selection event through
 `/usr/local/sbin/dvswitch-mods-record-dmr-network` for Gateway Activity
 labels. The recorder is checked only after a successful DMR switch; its
-absence does not affect Mode Buttons installation or switching. Each
-repository remains independently installable.
+absence does not affect Mode Buttons installation or switching. The optional
+ASL-aware `dvswitch.sh` repair is included in this repository: `--check` checks
+it and a normal install or ASL refresh applies it with its own timestamped
+backup when the ASL node helper is installed. Mode Buttons does not require the
+ASL support repository; when ASL is absent, the repair is skipped.
 
 Seven-mode dashboard selection for DVSwitch: **BM · TGIF · STFU · YSF · P25 · NXDN · D-Star**.
 
@@ -266,3 +269,6 @@ Version 1.0.0-test61 refreshes the ASL dashboard placement and Node link display
 
 
 Version 1.0.0-test63 adds a default-checked ASL Disconnect before Connect option. Existing test45 through test62 controls upgrade in place.
+
+
+Version 1.0.0-test66 applies the ASL-aware `dvswitch.sh` mode-switch repair during a normal Mode Buttons install when ASL support is already installed. The repair files are included in this repository, so the check and install work independently of ASL Support. The check path verifies the repair first. Existing test45 through test65 controls upgrade in place. Run `PYTHONDONTWRITEBYTECODE=1 python3 tests/test-mode-buttons-asl-mode-repair.py` to verify the local repair path and patcher.

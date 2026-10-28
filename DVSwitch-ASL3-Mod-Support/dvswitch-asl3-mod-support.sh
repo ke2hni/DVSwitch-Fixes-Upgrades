@@ -270,12 +270,14 @@ run_install() {
     python3 "$LAYOUT_PATCHER" install "$DASHBOARD_STATUS"
     install_index_script
     install_sudoers
-    if [[ -x "$BUTTONS_HELPER" ]]; then (cd "$BUTTONS_DIR" && ./dvswitch-mode-buttons.sh --refresh-asl); else printf 'NOTICE: install Mode Buttons with manager option 2 to show the ASL mode button and tuner.\n'; fi
 
     local repair_output
     repair_output=$("$ASL_REPAIR" --install)
     printf '%s\n' "$repair_output"
     REPAIR_BACKUP=$(printf '%s\n' "$repair_output" | sed -n 's#^Backup: .*/\(install-[0-9-]*\)$#\1#p' | tail -n 1)
+    # Apply the mode repair before refreshing the button install. The button
+    # refresh also checks/applies it, while REPAIR_BACKUP keeps rollback safe.
+    if [[ -x "$BUTTONS_HELPER" ]]; then (cd "$BUTTONS_DIR" && ./dvswitch-mode-buttons.sh --refresh-asl); else printf 'NOTICE: install Mode Buttons with manager option 2 to show the ASL mode button and tuner.\n'; fi
     php -l "$BUTTONS_ENDPOINT" >/dev/null 2>&1 || [[ ! -e "$BUTTONS_ENDPOINT" ]]
     php -l "$DASHBOARD_SYSTEM" >/dev/null
     php -l "$DASHBOARD_STATUS" >/dev/null
