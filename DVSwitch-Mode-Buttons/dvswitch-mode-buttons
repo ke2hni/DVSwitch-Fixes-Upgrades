@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test71
+# Version: 1.0.0-test72
 set -u
 MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
 STATE_DIR=/var/lib/dvswitch-mode-buttons
@@ -8,6 +8,7 @@ DMR_NETWORK_FILE=$STATE_DIR/last-dmr-network
 DMR_CARD_MODE_FILE=$STATE_DIR/last-dmr-card-mode
 TARGET_HELPER=/usr/local/sbin/dvswitch-mode-targets
 ASL_NODE_HELPER=/usr/local/sbin/dvswitch-asl3-node-link
+ASL_EXIT_HELPER=/usr/local/sbin/dvswitch-mode-buttons-asl-exit
 PRESET_DIR=/etc/dvswitch-mode-buttons/dmr-presets
 INI=/opt/MMDVM_Bridge/MMDVM_Bridge.ini
 ANALOG_INI=/opt/Analog_Bridge/Analog_Bridge.ini
@@ -169,7 +170,8 @@ else
 fi
 if [[ "$mode" != BM && "$mode" != TGIF ]]; then rm -f "$STATE_DIR/dmr-tune-pending"; fi
 if [[ "$mode" =~ ^(BM|TGIF|DSTAR|STFU|YSF|P25|NXDN)$ && -x "$ASL_NODE_HELPER" && -f "$STATE_FILE" ]] && [[ "$(<"$STATE_FILE")" == ASL ]]; then
-  printf 'DISCONNECT_ALL\n' | "$ASL_NODE_HELPER" || die 'could not disconnect external ASL nodes before changing mode'
+  [[ -x "$ASL_EXIT_HELPER" ]] || die 'Mode Buttons ASL exit helper is missing; reinstall Mode Buttons before leaving ASL mode'
+  "$ASL_EXIT_HELPER" || die 'could not disconnect external ASL nodes before changing mode'
 fi
 case "$mode" in
   BM|TGIF) switch_dmr_network "$mode" ;;

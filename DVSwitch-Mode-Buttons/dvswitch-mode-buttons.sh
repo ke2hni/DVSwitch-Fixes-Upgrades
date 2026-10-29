@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="1.0.0-test71"
+VERSION="1.0.0-test72"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -9,6 +9,7 @@ VAR="/var/lib/dvswitch/dvs/var.txt"
 TARGET="/usr/share/dvswitch/index.php"
 STATUS_TARGET="/usr/share/dvswitch/include/status.php"
 ASL_NODE_HELPER="/usr/local/sbin/dvswitch-asl3-node-link"
+ASL_EXIT_HELPER="/usr/local/sbin/dvswitch-mode-buttons-asl-exit"
 ASL_MODE_REPAIR="$SCRIPT_DIR/dvswitch-mode-buttons-asl-mode-switch-repair.sh"
 MODE_HELPER="/usr/local/sbin/dvswitch-mode-buttons"
 DMR_HELPER="/usr/local/sbin/dvswitch-dmr-network"
@@ -48,6 +49,7 @@ apply_asl_mode_repair(){
 [[ -f ./dvswitch-display-layout.sh ]] || die 'missing bundled display-layout installer'
 [[ -f ./dvswitch-mode-layout-state ]] || die 'missing display-layout ownership helper'
 [[ -f "$ASL_MODE_REPAIR" ]] || die 'missing optional ASL mode-switch repair source'
+[[ -f ./dvswitch-mode-buttons-asl-exit ]] || die 'missing Mode Buttons ASL exit helper source'
 [[ -f "$SCRIPT_DIR/lib/patch_dvswitch_mode_buttons_asl_mode.py" ]] || die 'missing optional ASL mode-switch patcher'
 grep -q '^switch_dmr_network(){' ./dvswitch-mode-buttons || die 'unified DMR switch function is missing'
 bash -n ./dvswitch-mode-buttons ./dvswitch-mode-targets ./dvswitch-mode-tune ./install-mode-target-persistence.sh ./install-standalone-dmr-master-card.sh ./dvswitch-display-layout.sh "$ASL_MODE_REPAIR" || die 'installer source syntax validation failed'
@@ -55,6 +57,7 @@ python3 -c 'from pathlib import Path; import sys; compile(Path(sys.argv[1]).read
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-favorites").read_text(), "dvswitch-mode-favorites", "exec")' || die 'favorites helper syntax validation failed'
 python3 -c 'import json; from pathlib import Path; data=json.loads(Path("favorites.json").read_text()); expected={"BM","TGIF","STFU","YSF","P25","NXDN","DSTAR","ASL"}; assert set(data)==expected; assert all(isinstance(items,list) and all(isinstance(item,dict) and set(item)=={"name","target"} for item in items) for items in data.values())' || die 'favorites starter file validation failed'
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-layout-state").read_text(), "dvswitch-mode-layout-state", "exec")' || die 'display-layout ownership helper syntax validation failed'
+python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-buttons-asl-exit").read_text(), "dvswitch-mode-buttons-asl-exit", "exec")' || die 'Mode Buttons ASL exit helper syntax validation failed'
 
 BACKUP_DIR=/var/backups/dvswitch-mode-buttons
 backup(){
@@ -78,6 +81,7 @@ uninstall(){
   backup "$ENDPOINT"
   backup "$FAVORITES_JS"
   backup "$SUDOERS"
+  backup "$ASL_EXIT_HELPER"
   backup "$TUNE_HELPER"
   backup "$FAVORITES_HELPER"
   backup "$STATUS_TARGET"
@@ -228,8 +232,8 @@ BRIDGE_ORIGINAL = '''    if [ $# -eq 0 ]; then
     else
         remoteControlCommand "txTg=$1"
     fi'''
-INDEX_MARKER = '<!-- DVSwitch-Mode-Buttons 1.0.0-test71 -->'
-INDEX_MARKERS = re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|[1-5][0-9]|6[0-9]|70|71) -->')
+INDEX_MARKER = '<!-- DVSwitch-Mode-Buttons 1.0.0-test72 -->'
+INDEX_MARKERS = re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|[1-5][0-9]|6[0-9]|70|71|72) -->')
 
 
 class UnsafeStructure(RuntimeError):
@@ -392,7 +396,7 @@ if __name__ == "__main__":
     except (OSError, UnicodeError, UnsafeStructure) as error:
         raise SystemExit(f"ERROR: {error}; shared files were left unchanged")
 PY_BUTTONS_UNINSTALL
-  rm -f "$MODE_HELPER" "$DMR_HELPER" "$TARGET_HELPER" "$TUNE_HELPER" "$FAVORITES_HELPER" "$FAVORITES_JS" "$ENDPOINT" "$SUDOERS" "$DMR_HELPER".tmp.*
+  rm -f "$MODE_HELPER" "$DMR_HELPER" "$TARGET_HELPER" "$TUNE_HELPER" "$FAVORITES_HELPER" "$FAVORITES_JS" "$ENDPOINT" "$SUDOERS" "$ASL_EXIT_HELPER" "$DMR_HELPER".tmp.*
   python3 ./dvswitch-mode-layout-state restore "$LAYOUT_STATE"
   rm -rf "$PRESET_DIR" /var/lib/dvswitch-mode-buttons
   # Restore an older standalone helper when one was present before consolidation.
@@ -654,8 +658,8 @@ SUDO
   python3 - "$TARGET" <<'PY'
 import os, re, shutil, sys, tempfile
 path=sys.argv[1]; text=open(path, encoding='utf-8').read()
-marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test71 -->'
-owned_marker=re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71) -->')
+marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test72 -->'
+owned_marker=re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72) -->')
 owned_matches=list(owned_marker.finditer(text))
 if len(owned_matches) > 1: raise SystemExit('ERROR: duplicate owned mode-button markers found')
 if owned_matches:
@@ -666,7 +670,7 @@ if owned_matches:
     text=text[:start]+text[end:]
 if marker not in text:
     asl_button_html = '<button type="button" class="button link" data-mode="ASL">ASL</button>' if os.path.isfile('/usr/local/sbin/dvswitch-asl3-node-link') and os.access('/usr/local/sbin/dvswitch-asl3-node-link', os.X_OK) else ''
-    block='''<!-- DVSwitch-Mode-Buttons 1.0.0-test71 -->
+    block='''<!-- DVSwitch-Mode-Buttons 1.0.0-test72 -->
 <div id="dvs-mode-buttons" aria-label="Select Mode"><div class="dvs-mode-buttons-title">Select Mode</div>
 <button type="button" class="button link" data-mode="BM">BM</button><button type="button" class="button link" data-mode="TGIF">TGIF</button><button type="button" class="button link" data-mode="STFU">STFU</button><button type="button" class="button link" data-mode="YSF">YSF</button><button type="button" class="button link" data-mode="P25">P25</button><button type="button" class="button link" data-mode="NXDN">NXDN</button><button type="button" class="button link" data-mode="DSTAR">D-Star</button>__ASL_BUTTON__</div>
 <section id="dvs-favorites" hidden aria-label="Mode favorites"><div class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div><label class="dvs-favorites-select-label" for="dvs-favorites-select" hidden>Favorite</label><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="Active mode favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-edit">Edit</button>
@@ -695,14 +699,15 @@ if marker not in text:
     with os.fdopen(fd,'w',encoding='utf-8',newline='') as f: f.write(text)
     os.chown(tmp,st.st_uid,st.st_gid); os.chmod(tmp,st.st_mode & 0o7777); os.replace(tmp,path)
 PY
-  grep -qF '<!-- DVSwitch-Mode-Buttons 1.0.0-test71 -->' "$TARGET" || die 'dashboard controls block was not installed'
+  grep -qF '<!-- DVSwitch-Mode-Buttons 1.0.0-test72 -->' "$TARGET" || die 'dashboard controls block was not installed'
 }
 
 if [[ $mode == refresh_asl ]]; then
   [[ -x "$MODE_HELPER" && -x "$TARGET_HELPER" ]] || die 'Mode Buttons must be installed before refreshing its optional ASL dashboard controls.'
   apply_asl_mode_repair --install
-  for target in "$TARGET" "$ENDPOINT" "$FAVORITES_JS" "$SUDOERS" "$TUNE_HELPER" "$FAVORITES_HELPER" "$MODE_HELPER" "$TARGET_HELPER"; do backup "$target"; done
+  for target in "$TARGET" "$ENDPOINT" "$FAVORITES_JS" "$SUDOERS" "$TUNE_HELPER" "$FAVORITES_HELPER" "$MODE_HELPER" "$TARGET_HELPER" "$ASL_EXIT_HELPER"; do backup "$target"; done
   install -o root -g root -m 755 ./dvswitch-mode-buttons "$MODE_HELPER"
+  install -o root -g root -m 755 ./dvswitch-mode-buttons-asl-exit "$ASL_EXIT_HELPER"
   install -o root -g root -m 755 ./dvswitch-mode-targets "$TARGET_HELPER"
   install_dashboard_components
   php -l "$ENDPOINT" >/dev/null || die 'endpoint PHP validation failed during ASL dashboard refresh'
@@ -749,7 +754,7 @@ import re, sys
 from pathlib import Path
 path = Path(sys.argv[1])
 text = path.read_text(encoding='utf-8')
-button_markers = list(re.finditer(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|[1-5][0-9]|6[0-9]|70|71) -->', text))
+button_markers = list(re.finditer(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|[1-5][0-9]|6[0-9]|70|71|72) -->', text))
 if len(button_markers) > 1:
     raise SystemExit('ERROR: duplicate Mode Buttons blocks found')
 if button_markers:
@@ -815,7 +820,7 @@ fi
 # Verify the optional repair before the installer changes dashboard or bridge files.
 apply_asl_mode_repair --check
 
-if [[ -e "$MODE_HELPER" || -e "$TARGET_HELPER" || -e "$FAVORITES_HELPER" || -e "$ENDPOINT" || -e "$SUDOERS" ]] || grep -Eq '<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71) -->' "$TARGET"; then
+if [[ -e "$MODE_HELPER" || -e "$TARGET_HELPER" || -e "$FAVORITES_HELPER" || -e "$ENDPOINT" || -e "$SUDOERS" ]] || grep -Eq '<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72) -->' "$TARGET"; then
   echo "Existing installation detected; applying the current upgrade."
 else
   echo "No existing installation detected; starting installation."

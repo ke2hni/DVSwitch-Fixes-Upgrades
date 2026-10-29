@@ -286,4 +286,7 @@ Version 1.0.0-test69 retries the mode command once if Analog_Bridge remains in A
 Version 1.0.0-test70 speeds ASL exit confirmation by reading the live ABInfo mode used by the dashboard instead of launching repeated `dvswitch.sh mode` status commands. It retries once when the bridge still reports ASL and confirms the selected mode before updating button state. Existing test45 through test69 controls upgrade in place.
 
 
-Version 1.0.0-test71 includes the 250ms ASL link-state polling helper and the faster live-ABInfo confirmation for ASL exits. Existing test45 through test70 dashboard controls upgrade in place.
+Version 1.0.0-test71 updated the Mode Buttons release and dashboard markers; it did not change ASL link polling. The earlier description incorrectly attributed the separate ASL3 Support helper's polling interval to this repository.
+
+
+Version 1.0.0-test72 moves ASL external-link cleanup for mode changes into a helper owned and installed by Mode Buttons. It discovers the local private and public node IDs from `rpt.conf`, disconnects external nodes while preserving the private bridge, and polls link state every 250ms for up to ten seconds. The Mode Buttons installer installs, upgrades, backs up, and removes this helper without requiring an ASL3 Support update. Existing test45 through test71 dashboard controls upgrade in place. Run `PYTHONDONTWRITEBYTECODE=1 python3 tests/test-mode-buttons-asl-exit.py` to verify node discovery and the disconnect sequence.
