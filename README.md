@@ -24,6 +24,10 @@ Start the combined manager:
 sudo ./DVSwitch-Mods/manage-dvswitch-mods.sh
 ```
 
+Update Existing Repsoitory Folder
+
+cd ~ && git clone https://github.com/ke2hni/DVSwitch-Fixes-Upgrades.git && git pull --ff-only
+
 The menu offers:
 
 1. Install or upgrade all standard DVSwitch repairs and modifications,
