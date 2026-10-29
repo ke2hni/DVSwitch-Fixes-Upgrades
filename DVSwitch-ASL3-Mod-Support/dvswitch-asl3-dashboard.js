@@ -243,9 +243,12 @@
   function setMode(mode) {
     mode = String(mode || '').toUpperCase();
     setTargetLabel(mode);
-    document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]').forEach(function (button) {
-      button.classList.toggle('selected', button.dataset.mode === mode);
-    });
+    // Only ASL Support owns the ASL highlight; leave standard mode highlights to Mode Buttons.
+    var aslButton = document.querySelector('#dvs-mode-buttons [data-mode="ASL"], #dvs-asl-mode-buttons [data-mode="ASL"]');
+    if (aslButton) aslButton.classList.toggle('selected', mode === 'ASL');
+    if (mode === 'ASL') {
+      document.querySelectorAll('#dvs-mode-buttons [data-mode]').forEach(function (button) { button.classList.remove('selected'); });
+    }
     var links = document.getElementById('dvs-asl-links');
     if (links) links.hidden = mode !== 'ASL';
     var activity = document.getElementById('dvs-asl-activity');

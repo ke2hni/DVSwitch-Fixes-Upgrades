@@ -69,6 +69,8 @@ Then verify in the dashboard:
    Also verify standard mode changes outside ASL (TGIF to STFU, STFU to NXDN,
    and NXDN to P25). Record click-to-Analog_Bridge and click-to-green timing.
    Each button reports its selected color only after its mode command finishes.
+   Switch to YSF and leave the dashboard open through multiple status refreshes;
+   the YSF button must remain selected while Analog_Bridge reports YSFN or YSFW.
    When exiting ASL, confirm the external peer is disconnected before the new
    mode is applied; ASL Support performs this cleanup inside the repaired
    `dvswitch.sh` path and preserves the private bridge.

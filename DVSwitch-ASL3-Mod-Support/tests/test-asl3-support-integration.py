@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -51,6 +51,11 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         'dvs-asl-node' in DASHBOARD and 'dvs-asl-favorites' in DASHBOARD and
         "dataset.mode = 'ASL'" in DASHBOARD,
         'ASL dashboard must own the button, numeric tuner, and database-backed favorites')
+# The ASL poller must not overwrite standard mode highlights with raw values such as YSFN.
+set_mode = re.search(r'function setMode\(mode\) \{(.*?)\n  \}', DASHBOARD, re.S)
+require(set_mode is not None and "document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]')" not in set_mode.group(1) and
+        "#dvs-mode-buttons [data-mode=\"ASL\"], #dvs-asl-mode-buttons [data-mode=\"ASL\"]" in set_mode.group(1),
+        'ASL dashboard refresh must not clear or set standard-mode button highlights')
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')
