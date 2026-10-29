@@ -61,4 +61,6 @@ as `Connected to Node 55553`. Its ASL selection clears digital highlights
 without clearing its own selected state, including when the button shares the
 Mode Buttons row. Version 1.0.2 keeps the RX Monitor button visible in ASL mode
 when Mode Buttons hides its Favorites row, and restores it to that row for
-digital modes.
+digital modes. Version 1.0.3 holds the chosen digital-mode display while
+Analog_Bridge is still reporting ASL, then clears that transition state when
+the bridge reports the new mode.

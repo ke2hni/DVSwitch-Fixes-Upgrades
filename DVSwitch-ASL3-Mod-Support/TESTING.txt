@@ -118,6 +118,9 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     Also refresh the dashboard while ASL is selected: RX Monitor must remain
     visible outside the hidden Mode Buttons Favorites row. Switch to a digital
     mode and confirm RX Monitor returns to the Favorites control row.
+    When switching from ASL to a digital mode, click once and confirm the ASL
+    link box and selection do not flicker back while Analog_Bridge still reports
+    ASL. The selected mode should settle when Analog_Bridge reports the new mode.
 
 13. With Mode Buttons installed but ASL Support absent, run its `--check` and
     confirm it reports the legacy ASL button for removal. Install Mode Buttons

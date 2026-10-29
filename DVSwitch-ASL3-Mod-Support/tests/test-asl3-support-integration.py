@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.6
+# Version: 1.0.7
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -68,6 +68,13 @@ require('function placeRxMonitor(mode)' in DASHBOARD and
         "favoritesRow.insertBefore(rxButton, favoritesRow.firstChild)" in DASHBOARD and
         "document.addEventListener('dvswitch-mode-buttons-mode'" in DASHBOARD,
         'ASL mode must keep RX Monitor visible when the Mode Buttons Favorites row is hidden and restore its normal position for digital modes')
+require('function beginModeTransition(mode)' in DASHBOARD and
+        'pendingMode = mode;' in DASHBOARD and
+        'if (pendingMode && mode !== pendingMode) return;' in DASHBOARD and
+        'function confirmModeTransition(mode)' in DASHBOARD and
+        'The button request confirms command acceptance; modeInfo confirms bridge completion.' in DASHBOARD and
+        'if (pendingMode && mode !== pendingMode) return;' in DASHBOARD,
+        'stale ASL status must not reverse the selected digital mode while the bridge completes the transition')
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')

@@ -1,5 +1,5 @@
 /* ASL link controls and Analog_Bridge target label. */
-// Version: 1.0.2
+// Version: 1.0.3
 (function () {
   'use strict';
 
@@ -8,6 +8,8 @@
   }
 
   var activeMode = '';
+  var pendingMode = '';
+  var pendingModeTimer = null;
   var connectedNodes = [];
   var activityStarted = Object.create(null);
   // Names and favorites are ASL-owned so dashboard controls do not depend on Mode Buttons.
@@ -173,6 +175,32 @@
     }
   }
 
+  // Ignore stale ASL status briefly after a digital-mode click while the bridge changes modes.
+  function beginModeTransition(mode) {
+    pendingMode = mode;
+    if (pendingModeTimer) window.clearTimeout(pendingModeTimer);
+    pendingModeTimer = window.setTimeout(function () {
+      pendingMode = '';
+      pendingModeTimer = null;
+      refresh();
+    }, 30000);
+    setMode(mode);
+  }
+
+  function acceptModeUpdate(mode) {
+    mode = String(mode || '').toUpperCase();
+    if (pendingMode && mode !== pendingMode) return;
+    // The button request confirms command acceptance; modeInfo confirms bridge completion.
+    setMode(mode);
+  }
+
+  function confirmModeTransition(mode) {
+    if (pendingMode !== mode) return;
+    pendingMode = '';
+    if (pendingModeTimer) window.clearTimeout(pendingModeTimer);
+    pendingModeTimer = null;
+  }
+
   function loadFavorites() {
     fetch('/dvswitch/dvswitch-asl3-control.php?favorites=1', {cache:'no-store'}).then(function (response) { return response.json(); }).then(function (result) {
       if (!result.ok || !Array.isArray(result.favorites)) return;
@@ -292,7 +320,12 @@
     if (!info) return;
     info.querySelectorAll('tr').forEach(function (row) {
       var heading = row.querySelector('th'), value = row.querySelector('td');
-      if (heading && value && normalizeHeader(heading.textContent) === 'Mode') setMode(normalizeHeader(value.textContent).toUpperCase());
+      if (heading && value && normalizeHeader(heading.textContent) === 'Mode') {
+        var mode = normalizeHeader(value.textContent).toUpperCase();
+        if (pendingMode && mode !== pendingMode) return;
+        confirmModeTransition(mode);
+        setMode(mode);
+      }
     });
   }
 
@@ -315,10 +348,13 @@
   });
   document.addEventListener('click', function (event) {
     var button = event.target.closest('#dvs-mode-buttons [data-mode]');
-    if (button && button.dataset.mode !== 'ASL') setMode(button.dataset.mode);
+    if (button && button.dataset.mode !== 'ASL') {
+      if (activeMode === 'ASL') beginModeTransition(button.dataset.mode);
+      else setMode(button.dataset.mode);
+    }
   });
   document.addEventListener('dvswitch-mode-buttons-mode', function (event) {
-    placeRxMonitor(event.detail && event.detail.mode);
+    acceptModeUpdate(event.detail && event.detail.mode);
   });
   window.setInterval(refresh, 5000);
   window.setInterval(refreshActivity, 5000);
