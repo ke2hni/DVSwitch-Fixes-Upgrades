@@ -76,7 +76,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('apply_asl_mode_repair --check', INSTALLER)
         self.assertIn('apply_asl_mode_repair --install', INSTALLER)
         self.assertIn('if [[ $mode == refresh_asl ]]; then', INSTALLER)
-        self.assertIn("VERSION=\"1.0.0-test68\"", INSTALLER)
+        self.assertIn("VERSION=\"1.0.0-test69\"", INSTALLER)
 
     def test_asl_button_is_rendered_as_html_not_python_source(self):
         import re
@@ -109,14 +109,14 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn("Select an ASL link action.", SCRIPT)
 
     def test_test23_upgrade_and_uninstall_cover_the_favorites_script(self):
-        self.assertIn('VERSION="1.0.0-test68"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test69"', INSTALLER)
         self.assertIn('|17|18|19|20|21|22|23', INSTALLER)
         self.assertIn('dvswitch-mode-favorites.js', INSTALLER)
         self.assertIn('./dvswitch-mode-favorites "$FAVORITES_HELPER"', INSTALLER)
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('<dialog class="dvs-favorites-editor"', INSTALLER)
-        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test68 -->'", INSTALLER)
+        self.assertIn("marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test69 -->'", INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
         self.assertIn('dvs-favorites-editor', INSTALLER)
         self.assertIn('class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div>', INSTALLER)

@@ -278,3 +278,6 @@ Version 1.0.0-test67 optimizes the ASL-aware TLV listener lookup used during mod
 
 
 Version 1.0.0-test68 restricts the cached listener snapshot to sockets owned by Analog_Bridge and confirms an exit from ASL in live bridge status before saving the new selected mode. This prevents a same-number MMDVM_Bridge socket from receiving the TLV command and keeps failed attempts from suppressing the next ASL disconnect cleanup. Existing test45 through test67 controls upgrade in place.
+
+
+Version 1.0.0-test69 retries the mode command once if Analog_Bridge remains in ASL after external ASL link cleanup. The selected mode is saved only after live status confirms the transition. Existing test45 through test68 controls upgrade in place.

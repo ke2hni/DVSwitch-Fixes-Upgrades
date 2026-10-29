@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -133,5 +134,41 @@ assert "../DVSwitch-ASL3-Mod-Support" not in BUTTON_INSTALLER
 assert 'patch_dvswitch_mode_buttons_asl_mode.py' in BUTTON_REPAIR
 assert 'BACKUP_ROOT="/var/backups/dvswitch-mode-buttons/asl-mode-switch"' in BUTTON_REPAIR
 assert 'Analog_Bridge did not confirm the mode change; ASL remains selected.' in MODE_HELPER
+assert 'NOTICE: retrying the mode command after ASL link cleanup.' in MODE_HELPER
 assert MODE_HELPER.index('Analog_Bridge did not confirm the mode change; ASL remains selected.') < MODE_HELPER.index('printf \'%s\\n\' "$mode" > "$STATE_FILE"')
+
+# Exercise confirmation and one retry with a fake command: a delayed ASL
+# transition must recover, while an unresponsive bridge must keep ASL saved.
+guard_start = MODE_HELPER.index("# Do not record a mode change away from ASL")
+guard_end = MODE_HELPER.index('printf \'%s\\n\' "$mode" > "$STATE_FILE"', guard_start)
+mode_guard = MODE_HELPER[guard_start:guard_end]
+with tempfile.TemporaryDirectory(prefix="mode-buttons-asl-retry-") as directory:
+    temporary = Path(directory)
+    fake_mode = temporary / "fake-mode"
+    live_state = temporary / "live-mode"
+    fake_mode.write_text(
+        '#!/bin/bash\n'
+        'if [[ "$1" == mode && $# -eq 2 && "${IGNORE_MODE_COMMAND:-0}" != 1 ]]; then printf "%s\\n" "$2" > "$LIVE_MODE_FILE"; fi\n'
+        'cat "$LIVE_MODE_FILE"\n'
+    )
+    fake_mode.chmod(0o755)
+    prelude = (
+        f'MODE_CMD={fake_mode}; LIVE_MODE_FILE={live_state}; export LIVE_MODE_FILE; previous_mode=ASL; mode=P25; '
+        'die(){ echo "ERROR: $*" >&2; exit 1; }; sleep(){ :; }\n'
+    )
+    live_state.write_text("ASL\n")
+    recovered = subprocess.run(
+        ["bash", "-c", prelude + mode_guard + 'printf "STATE_WRITE\\n"'],
+        text=True, capture_output=True, check=False,
+    )
+    require(recovered.returncode == 0 and "STATE_WRITE" in recovered.stdout,
+            "one retry did not recover a delayed ASL-to-digital transition")
+    require(live_state.read_text().strip() == "P25", "retry did not issue the selected mode")
+    live_state.write_text("ASL\n")
+    not_recovered = subprocess.run(
+        ["bash", "-c", prelude + mode_guard + 'printf "STATE_WRITE\\n"'],
+        env={**os.environ, "IGNORE_MODE_COMMAND": "1"}, text=True, capture_output=True, check=False,
+    )
+    require(not_recovered.returncode != 0 and "STATE_WRITE" not in not_recovered.stdout,
+            "a failed retry incorrectly allowed the saved mode to leave ASL")
 print("PASS: self-contained Mode Buttons ASL repair supports 1.6.2/1.6.3, checks idempotently, adopts tested patches, and rejects unsupported structures")

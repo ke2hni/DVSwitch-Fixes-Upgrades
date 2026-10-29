@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test68
+# Version: 1.0.0-test69
 set -u
 MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
 STATE_DIR=/var/lib/dvswitch-mode-buttons
@@ -189,6 +189,21 @@ if [[ "$previous_mode" == ASL && "$mode" != ASL ]]; then
       *) live_mode=''; sleep 0.5 ;;
     esac
   done
+  if [[ -z "$live_mode" ]]; then
+    # A single retry covers the brief listener transition after external ASL links disconnect.
+    printf 'NOTICE: retrying the mode command after ASL link cleanup.\n'
+    case "$mode" in
+      BM|TGIF) "$MODE_CMD" mode DMR || die 'DVSwitch DMR mode retry failed' ;;
+      *) "$MODE_CMD" mode "$mode" || die 'DVSwitch mode retry failed' ;;
+    esac
+    for attempt in 1 2 3; do
+      live_mode=$("$MODE_CMD" mode 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+      case "$mode:$live_mode" in
+        BM:DMR|TGIF:DMR|STFU:DMR|STFU:STFU|YSF:YSF|YSF:YSFN|YSF:YSFW|P25:P25|NXDN:NXDN|DSTAR:DSTAR) break ;;
+        *) live_mode=''; sleep 0.5 ;;
+      esac
+    done
+  fi
   [[ -n "$live_mode" ]] || die 'Analog_Bridge did not confirm the mode change; ASL remains selected.'
 fi
 printf '%s\n' "$mode" > "$STATE_FILE"
