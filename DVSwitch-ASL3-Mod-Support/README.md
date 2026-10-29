@@ -59,4 +59,6 @@ the remote connection and reports an error if the link does not establish.
 Dashboard script version 1.0.1 restores short action-based link messages, such
 as `Connected to Node 55553`. Its ASL selection clears digital highlights
 without clearing its own selected state, including when the button shares the
-Mode Buttons row.
+Mode Buttons row. Version 1.0.2 keeps the RX Monitor button visible in ASL mode
+when Mode Buttons hides its Favorites row, and restores it to that row for
+digital modes.

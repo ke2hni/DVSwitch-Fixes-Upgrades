@@ -1,5 +1,5 @@
 /* ASL link controls and Analog_Bridge target label. */
-// Version: 1.0.1
+// Version: 1.0.2
 (function () {
   'use strict';
 
@@ -157,6 +157,22 @@
     return action === 'DISCONNECT_ALL' ? 'Disconnected all nodes' : (messages[action] || 'ASL link updated') + node;
   }
 
+  // Mode Buttons nests RX Monitor in its Favorites row, which is hidden in ASL mode.
+  // Keep the existing audio button visible in ASL and restore its normal position for digital modes.
+  function placeRxMonitor(mode) {
+    var rxButton = Array.from(document.querySelectorAll('button')).find(function (button) {
+      return button.textContent.replace(/\s+/g, ' ').trim().includes('RX Monitor');
+    });
+    if (!rxButton) return;
+    var favoritesRow = document.querySelector('#dvs-favorites .dvs-favorites-control-line');
+    var aslLinks = document.getElementById('dvs-asl-links');
+    if (mode === 'ASL' && favoritesRow && favoritesRow.contains(rxButton) && aslLinks) {
+      aslLinks.insertAdjacentElement('beforebegin', rxButton);
+    } else if (mode !== 'ASL' && favoritesRow && !favoritesRow.contains(rxButton)) {
+      favoritesRow.insertBefore(rxButton, favoritesRow.firstChild);
+    }
+  }
+
   function loadFavorites() {
     fetch('/dvswitch/dvswitch-asl3-control.php?favorites=1', {cache:'no-store'}).then(function (response) { return response.json(); }).then(function (result) {
       if (!result.ok || !Array.isArray(result.favorites)) return;
@@ -268,6 +284,7 @@
     if (links) links.hidden = mode !== 'ASL';
     var activity = document.getElementById('dvs-asl-activity');
     if (activity) activity.hidden = mode !== 'ASL';
+    placeRxMonitor(mode);
   }
 
   function refresh() {
@@ -299,6 +316,9 @@
   document.addEventListener('click', function (event) {
     var button = event.target.closest('#dvs-mode-buttons [data-mode]');
     if (button && button.dataset.mode !== 'ASL') setMode(button.dataset.mode);
+  });
+  document.addEventListener('dvswitch-mode-buttons-mode', function (event) {
+    placeRxMonitor(event.detail && event.detail.mode);
   });
   window.setInterval(refresh, 5000);
   window.setInterval(refreshActivity, 5000);
