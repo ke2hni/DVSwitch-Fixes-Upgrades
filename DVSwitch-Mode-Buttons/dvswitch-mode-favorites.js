@@ -4,7 +4,6 @@
   document.addEventListener('DOMContentLoaded', function () {
     const root = document.getElementById('dvs-favorites');
     const modeButtons = document.querySelectorAll('#dvs-mode-buttons button');
-    const aslSupported = Boolean(document.querySelector('#dvs-mode-buttons [data-mode="ASL"]'));
     const tuner = document.getElementById('dvs-target-tuner');
     const input = document.getElementById('dvs-target-input');
     const tuneButton = document.getElementById('dvs-target-submit');
@@ -34,12 +33,13 @@
     let activeMode = '';
     let editing = [];
 
+    // Keep the Buttons favorites editor scoped to the standard digital modes.
     function validMode(mode) {
-      return ['BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'].includes(mode) || (mode === 'ASL' && aslSupported);
+      return ['BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'].includes(mode);
     }
 
     function validTarget(mode, target) {
-      return mode === 'ASL' ? /^[0-9]{1,8}$/.test(target) && !/^0+$/.test(target) : /^[A-Za-z0-9_-]{1,32}$/.test(target);
+      return /^[A-Za-z0-9_-]{1,32}$/.test(target);
     }
 
     async function load(mode) {
@@ -71,8 +71,8 @@
         button.classList.toggle('selected', button.dataset.mode === activeMode);
       });
       root.hidden = !validMode(activeMode);
-      input.placeholder = activeMode === 'ASL' ? 'Enter AllStar node number' : 'Enter TG / reflector ID';
-      input.setAttribute('aria-label', activeMode === 'ASL' ? 'AllStar node number' : 'Talkgroup or reflector ID');
+      input.placeholder = 'Enter TG / reflector ID';
+      input.setAttribute('aria-label', 'Talkgroup or reflector ID');
       document.dispatchEvent(new CustomEvent('dvswitch-mode-buttons-mode', { detail: { mode: activeMode } }));
       if (editor.open) return;
       showFavorites();
@@ -111,7 +111,7 @@
       name.placeholder = 'Favorite name'; name.setAttribute('aria-label', 'Favorite name');
       const target = document.createElement('input');
       target.type = 'text'; target.maxLength = 32; target.value = favorite.target || '';
-      target.placeholder = selector.value === 'ASL' ? 'AllStar node number' : 'TG / reflector ID'; target.setAttribute('aria-label', selector.value === 'ASL' ? 'AllStar node number' : 'Talkgroup or reflector ID');
+      target.placeholder = 'TG / reflector ID'; target.setAttribute('aria-label', 'Talkgroup or reflector ID');
       const remove = document.createElement('button');
       remove.type = 'button'; remove.className = 'button link'; remove.textContent = 'Delete';
       remove.addEventListener('click', function () { row.remove(); });
@@ -228,7 +228,7 @@
       }
     });
 
-    selector.innerHTML = '<option value="BM">BM</option><option value="TGIF">TGIF</option><option value="STFU">STFU</option><option value="YSF">YSF</option><option value="P25">P25</option><option value="NXDN">NXDN</option><option value="DSTAR">D-Star</option>' + (aslSupported ? '<option value="ASL">ASL</option>' : '');
+    selector.innerHTML = '<option value="BM">BM</option><option value="TGIF">TGIF</option><option value="STFU">STFU</option><option value="YSF">YSF</option><option value="P25">P25</option><option value="NXDN">NXDN</option><option value="DSTAR">D-Star</option>';
     modeButtons.forEach(function (button) {
       button.addEventListener('click', async function () {
         modeButtons.forEach(function (item) { item.disabled = true; });
@@ -248,59 +248,23 @@
     tuner.addEventListener('submit', async function (event) {
       event.preventDefault();
       const target = input.value.trim();
-      const selectedAslAction = activeMode === 'ASL'
-        ? document.querySelector('#dvs-asl-links input[name="aslAction"]:checked')
-        : null;
-      const aslAction = selectedAslAction ? selectedAslAction.value : '';
-      const disconnectOption = document.getElementById('dvs-asl-disconnect-before-connect');
-      // The replacement option applies only to Connect; other link actions remain independent.
-      const disconnectBeforeConnect = activeMode === 'ASL' && aslAction === 'CONNECT' &&
-        Boolean(disconnectOption && disconnectOption.checked);
-      if (activeMode === 'ASL' && !selectedAslAction) {
-        tuneStatus.textContent = 'Select an ASL link action.';
-        return;
-      }
-      const disconnectAll = activeMode === 'ASL' && aslAction === 'DISCONNECT_ALL';
       tuneStatus.textContent = '';
-      if (!disconnectAll && !validTarget(activeMode, target)) {
-        tuneStatus.textContent = activeMode === 'ASL' ? 'Enter a numeric AllStar node number.' : 'Enter a valid ID.';
-        return;
-      }
+      if (!validTarget(activeMode, target)) { tuneStatus.textContent = 'Enter a valid ID.'; return; }
       tuneButton.disabled = true;
       input.disabled = true;
       try {
         const response = await fetch('/dvswitch/dvswitch-mode-buttons.php', {
           method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: activeMode === 'ASL'
-            ? new URLSearchParams({
-                aslAction: aslAction,
-                target: disconnectAll ? '' : target,
-                disconnectBeforeConnect: disconnectBeforeConnect ? '1' : '0'
-              })
-            : new URLSearchParams({ target: target })
+          body: new URLSearchParams({ target: target })
         });
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || 'Tune failed.');
-        if (activeMode === 'ASL') {
-          const actionMessages = {
-            CONNECT: 'Connected',
-            DISCONNECT: 'Disconnected',
-            MONITOR: 'Monitoring',
-            LOCAL_MONITOR: 'Local monitor',
-            DISCONNECT_ALL: 'Disconnected all nodes'
-          };
-          tuneStatus.textContent = disconnectBeforeConnect
-            ? 'Replaced external links with ' + target
-            : (actionMessages[aslAction] || 'ASL link updated') + (target ? ' ' + target : '');
-        } else {
-          tuneStatus.textContent = 'Tuned ' + target + ' (' + result.mode + ')';
-        }
-        if (selectedAslAction) selectedAslAction.checked = false;
+        tuneStatus.textContent = 'Tuned ' + target + ' (' + result.mode + ')';
       } catch (error) {
         tuneStatus.textContent = error.message;
       } finally {
         tuneButton.disabled = false;
-        input.disabled = Boolean(selectedAslAction && selectedAslAction.checked && selectedAslAction.value === 'DISCONNECT_ALL');
+        input.disabled = false;
         if (!input.disabled) input.focus();
       }
     });

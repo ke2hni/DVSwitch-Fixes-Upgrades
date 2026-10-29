@@ -6,9 +6,10 @@ die(){ echo "ERROR: $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die 'run with sudo'
 [[ $# -ge 2 ]] || die 'usage: save MODE TARGET | get MODE'
 mode="${2:-}"
-case "$mode" in BM|TGIF|STFU|YSF|P25|NXDN|DSTAR|ASL) ;; *) die 'unsupported mode';; esac
+# ASL node favorites are managed by ASL Support, separate from this mode-target store.
+case "$mode" in BM|TGIF|STFU|YSF|P25|NXDN|DSTAR) ;; *) die 'unsupported mode';; esac
 case "$1" in
-  save) [[ $# -eq 3 ]] || die 'usage: save MODE TARGET'; target="$3"; [[ -n "$target" ]] || die 'target is empty'; if [[ "$mode" == ASL ]]; then [[ "$target" =~ ^[0-9]{1,8}$ ]] && ((10#$target > 0)) || die 'ASL target must be a non-zero numeric node number'; else [[ "$target" =~ ^[A-Za-z0-9_-]{1,32}$ ]] || die 'invalid target'; fi ;;
+  save) [[ $# -eq 3 ]] || die 'usage: save MODE TARGET'; target="$3"; [[ -n "$target" ]] || die 'target is empty'; [[ "$target" =~ ^[A-Za-z0-9_-]{1,32}$ ]] || die 'invalid target' ;;
   get) [[ $# -eq 2 ]] || die 'usage: get MODE' ;;
   *) die 'usage: save MODE TARGET | get MODE' ;;
 esac
@@ -18,7 +19,7 @@ chmod 755 "$STATE_DIR"
 python3 - "$1" "$mode" "${target:-}" "$STATE" <<'PY'
 import json, os, sys, tempfile
 op, mode, target, path = sys.argv[1:]
-data={m:{"target":""} for m in ("BM","TGIF","STFU","YSF","P25","NXDN","DSTAR","ASL")}
+data={m:{"target":""} for m in ("BM","TGIF","STFU","YSF","P25","NXDN","DSTAR")}
 if os.path.exists(path):
     with open(path, encoding='utf-8') as f: old=json.load(f)
     for m in data:

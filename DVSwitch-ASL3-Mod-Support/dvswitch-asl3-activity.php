@@ -27,6 +27,18 @@ if (is_readable($astdb)) {
         if ($node !== '' && $name !== '') { $names[$node] = $name; }
     }
 }
+// A user's saved ASL favorite name takes precedence over the ASTDB label for that node.
+$favoriteFile = '/etc/dvswitch-asl3-support/favorites.json';
+$favoriteNames = is_readable($favoriteFile) ? json_decode((string)file_get_contents($favoriteFile), true) : array();
+if (is_array($favoriteNames)) {
+    foreach ($favoriteNames as $favorite) {
+        if (is_array($favorite) && isset($favorite['node'], $favorite['name']) &&
+            preg_match('/^[0-9]{1,8}$/D', (string)$favorite['node']) &&
+            is_string($favorite['name']) && trim($favorite['name']) !== '') {
+            $names[(string)$favorite['node']] = trim($favorite['name']);
+        }
+    }
+}
 
 $publicNode = isset($status['public_node']) && preg_match('/^[0-9]{1,8}$/D', (string)$status['public_node'])
     ? (string)$status['public_node'] : '';

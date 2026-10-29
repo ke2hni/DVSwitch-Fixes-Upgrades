@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="1.0.0-test73"
+VERSION="1.0.0-test74"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
 VAR="/var/lib/dvswitch/dvs/var.txt"
 TARGET="/usr/share/dvswitch/index.php"
 STATUS_TARGET="/usr/share/dvswitch/include/status.php"
-ASL_NODE_HELPER="/usr/local/sbin/dvswitch-asl3-node-link"
-ASL_EXIT_HELPER="/usr/local/sbin/dvswitch-mode-buttons-asl-exit"
-ASL_MODE_REPAIR="$SCRIPT_DIR/dvswitch-mode-buttons-asl-mode-switch-repair.sh"
 MODE_HELPER="/usr/local/sbin/dvswitch-mode-buttons"
 DMR_HELPER="/usr/local/sbin/dvswitch-dmr-network"
 TARGET_HELPER="/usr/local/sbin/dvswitch-mode-targets"
@@ -26,15 +23,6 @@ PRESET_DIR="/etc/dvswitch-mode-buttons/dmr-presets"
 LEGACY_PRESET_DIR="/etc/dvswitch-mode-buttons"
 
 die(){ echo "ERROR: $*" >&2; exit 1; }
-apply_asl_mode_repair(){
-  local action=$1
-  if [[ ! -x "$ASL_NODE_HELPER" ]]; then
-    printf 'SKIP: ASL 3 support is not installed; no ASL mode-switch repair is needed.\n'
-    return 0
-  fi
-  [[ -x "$ASL_MODE_REPAIR" ]] || die 'ASL 3 is installed, but the local mode-switch repair is unavailable.'
-  "$ASL_MODE_REPAIR" "$action"
-}
 [[ $EUID -eq 0 ]] || die "run with sudo"
 [[ -f "$INI" ]] || die "missing $INI"
 [[ -f "$TARGET" ]] || die "missing $TARGET"
@@ -48,16 +36,11 @@ apply_asl_mode_repair(){
 [[ -f ./install-standalone-dmr-master-card.sh ]] || die 'missing standalone DMR-card installer'
 [[ -f ./dvswitch-display-layout.sh ]] || die 'missing bundled display-layout installer'
 [[ -f ./dvswitch-mode-layout-state ]] || die 'missing display-layout ownership helper'
-[[ -f "$ASL_MODE_REPAIR" ]] || die 'missing optional ASL mode-switch repair source'
-[[ -f ./dvswitch-mode-buttons-asl-exit ]] || die 'missing Mode Buttons ASL exit helper source'
-[[ -f "$SCRIPT_DIR/lib/patch_dvswitch_mode_buttons_asl_mode.py" ]] || die 'missing optional ASL mode-switch patcher'
 grep -q '^switch_dmr_network(){' ./dvswitch-mode-buttons || die 'unified DMR switch function is missing'
-bash -n ./dvswitch-mode-buttons ./dvswitch-mode-targets ./dvswitch-mode-tune ./install-mode-target-persistence.sh ./install-standalone-dmr-master-card.sh ./dvswitch-display-layout.sh "$ASL_MODE_REPAIR" || die 'installer source syntax validation failed'
-python3 -c 'from pathlib import Path; import sys; compile(Path(sys.argv[1]).read_text(), sys.argv[1], "exec")' "$SCRIPT_DIR/lib/patch_dvswitch_mode_buttons_asl_mode.py" || die 'ASL mode-switch patcher syntax validation failed'
+bash -n ./dvswitch-mode-buttons ./dvswitch-mode-targets ./dvswitch-mode-tune ./install-mode-target-persistence.sh ./install-standalone-dmr-master-card.sh ./dvswitch-display-layout.sh || die 'installer source syntax validation failed'
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-favorites").read_text(), "dvswitch-mode-favorites", "exec")' || die 'favorites helper syntax validation failed'
-python3 -c 'import json; from pathlib import Path; data=json.loads(Path("favorites.json").read_text()); expected={"BM","TGIF","STFU","YSF","P25","NXDN","DSTAR","ASL"}; assert set(data)==expected; assert all(isinstance(items,list) and all(isinstance(item,dict) and set(item)=={"name","target"} for item in items) for items in data.values())' || die 'favorites starter file validation failed'
+python3 -c 'import json; from pathlib import Path; data=json.loads(Path("favorites.json").read_text()); expected={"BM","TGIF","STFU","YSF","P25","NXDN","DSTAR"}; assert set(data)==expected; assert all(isinstance(items,list) and all(isinstance(item,dict) and set(item)=={"name","target"} for item in items) for items in data.values())' || die 'favorites starter file validation failed'
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-layout-state").read_text(), "dvswitch-mode-layout-state", "exec")' || die 'display-layout ownership helper syntax validation failed'
-python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-buttons-asl-exit").read_text(), "dvswitch-mode-buttons-asl-exit", "exec")' || die 'Mode Buttons ASL exit helper syntax validation failed'
 
 BACKUP_DIR=/var/backups/dvswitch-mode-buttons
 backup(){
@@ -81,7 +64,6 @@ uninstall(){
   backup "$ENDPOINT"
   backup "$FAVORITES_JS"
   backup "$SUDOERS"
-  backup "$ASL_EXIT_HELPER"
   backup "$TUNE_HELPER"
   backup "$FAVORITES_HELPER"
   backup "$STATUS_TARGET"
@@ -164,7 +146,7 @@ BRIDGE_BLOCK_OLD = '''    if [ $# -eq 0 ]; then
         if [ -r /var/lib/dvswitch-mode-buttons/current-mode ]; then
             mode=$(tr -d '[:space:]' < /var/lib/dvswitch-mode-buttons/current-mode)
             case "$mode" in
-                BM|TGIF|STFU|YSF|P25|NXDN|DSTAR|ASL)
+                BM|TGIF|STFU|YSF|P25|NXDN|DSTAR)
                     /usr/local/sbin/dvswitch-mode-targets save "$mode" "$1" >/dev/null || true
                     ;;
             esac
@@ -177,14 +159,14 @@ BRIDGE_BLOCK_TEST13 = '''    if [ $# -eq 0 ]; then
         # DVSwitch-Mode-Buttons: per-mode target persistence v1
         mode=$(/opt/MMDVM_Bridge/dvswitch.sh mode 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
         case "$mode" in YSFN|YSFW) mode=YSF ;; esac
-        case "$mode" in DSTAR|YSF|P25|NXDN|ASL) ;; *)
+        case "$mode" in DSTAR|YSF|P25|NXDN) ;; *)
             if [ -r /var/lib/dvswitch-mode-buttons/current-mode ]; then
                 mode=$(tr -d '[:space:]' < /var/lib/dvswitch-mode-buttons/current-mode)
             fi
             ;;
         esac
         case "$mode" in
-            BM|TGIF|STFU|YSF|P25|NXDN|DSTAR|ASL)
+            BM|TGIF|STFU|YSF|P25|NXDN|DSTAR)
                 /usr/local/sbin/dvswitch-mode-targets save "$mode" "$1" >/dev/null || true
                 ;;
         esac
@@ -206,7 +188,7 @@ if files:
             value = str(value).strip().upper()
             if value in ('YSFN', 'YSFW'):
                 value = 'YSF'
-            if value in ('DSTAR', 'YSF', 'P25', 'NXDN', 'ASL'):
+            if value in ('DSTAR', 'YSF', 'P25', 'NXDN'):
                 print(value)
                 break
     except (OSError, ValueError, TypeError):
@@ -214,7 +196,7 @@ if files:
 ABINFO_MODE_PY
         )
         case "$mode" in
-            DSTAR|YSF|P25|NXDN|ASL) ;;
+            DSTAR|YSF|P25|NXDN) ;;
             *)
                 if [ -r /var/lib/dvswitch-mode-buttons/current-mode ]; then
                     mode=$(tr -d '[:space:]' < /var/lib/dvswitch-mode-buttons/current-mode)
@@ -222,7 +204,7 @@ ABINFO_MODE_PY
                 ;;
         esac
         case "$mode" in
-            BM|TGIF|STFU|YSF|P25|NXDN|DSTAR|ASL)
+            BM|TGIF|STFU|YSF|P25|NXDN|DSTAR)
                 /usr/local/sbin/dvswitch-mode-targets save "$mode" "$1" >/dev/null || true
                 ;;
         esac
@@ -232,8 +214,8 @@ BRIDGE_ORIGINAL = '''    if [ $# -eq 0 ]; then
     else
         remoteControlCommand "txTg=$1"
     fi'''
-INDEX_MARKER = '<!-- DVSwitch-Mode-Buttons 1.0.0-test73 -->'
-INDEX_MARKERS = re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|[1-5][0-9]|6[0-9]|70|71|72|73) -->')
+INDEX_MARKER = '<!-- DVSwitch-Mode-Buttons 1.0.0-test74 -->'
+INDEX_MARKERS = re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test[0-9]+ -->')
 
 
 class UnsafeStructure(RuntimeError):
@@ -396,7 +378,7 @@ if __name__ == "__main__":
     except (OSError, UnicodeError, UnsafeStructure) as error:
         raise SystemExit(f"ERROR: {error}; shared files were left unchanged")
 PY_BUTTONS_UNINSTALL
-  rm -f "$MODE_HELPER" "$DMR_HELPER" "$TARGET_HELPER" "$TUNE_HELPER" "$FAVORITES_HELPER" "$FAVORITES_JS" "$ENDPOINT" "$SUDOERS" "$ASL_EXIT_HELPER" "$DMR_HELPER".tmp.*
+  rm -f "$MODE_HELPER" "$DMR_HELPER" "$TARGET_HELPER" "$TUNE_HELPER" "$FAVORITES_HELPER" "$FAVORITES_JS" "$ENDPOINT" "$SUDOERS" "$DMR_HELPER".tmp.*
   python3 ./dvswitch-mode-layout-state restore "$LAYOUT_STATE"
   rm -rf "$PRESET_DIR" /var/lib/dvswitch-mode-buttons
   # Restore an older standalone helper when one was present before consolidation.
@@ -415,7 +397,6 @@ fi
 case ${1:-} in
   --check) mode="check" ;;
   --install) mode="install" ;;
-  --refresh-asl) mode="refresh_asl" ;;
   "")
     echo "DVSwitch Mode Buttons $VERSION"
     echo "1) Install / upgrade"
@@ -429,7 +410,7 @@ case ${1:-} in
       *) die "invalid menu choice" ;;
     esac
     ;;
-  *) die "usage: $0 [--check|--install|--refresh-asl|--uninstall]" ;;
+  *) die "usage: $0 [--check|--install|--uninstall]" ;;
 esac
 
 install_dashboard_components(){
@@ -442,8 +423,6 @@ install_dashboard_components(){
 declare(strict_types=1);
 $allowed = array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR');
 $targetModes = $allowed;
-$aslEnabled = is_executable('/usr/local/sbin/dvswitch-asl3-node-link');
-if ($aslEnabled) { $allowed[] = 'ASL'; $targetModes[] = 'ASL'; }
 if (isset($_GET['favorites'])) {
     $mode = strtoupper(trim((string)$_GET['favorites']));
     if (!in_array($mode, $targetModes, true)) { http_response_code(400); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Unsupported mode')); exit; }
@@ -459,23 +438,10 @@ if (isset($_GET['targetNames'])) {
         $file = ($mode === 'TGIF') ? '/var/lib/mmdvm/TGList_TGIF.txt' : '/var/lib/mmdvm/TGList_BM.txt';
     } elseif ($mode === 'STFU') {
         $file = '/var/lib/mmdvm/TGList_BM.txt';
-    } elseif ($mode === 'ASL') {
-        $file = is_readable('/var/lib/asterisk/astdb.txt') ? '/var/lib/asterisk/astdb.txt' : '/var/lib/asterisk/astdb';
     } else {
         $file = '';
     }
-    if ($mode === 'ASL' && is_readable($file)) {
-        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: array() as $line) {
-            $fields = explode('|', $line, 4);
-            if (count($fields) < 3) continue;
-            $target = trim($fields[0]);
-            $call = trim($fields[1]);
-            $description = trim($fields[2]);
-            $name = trim($call . ($description !== '' ? ' - ' . $description : ''));
-            $name = preg_replace('/\s+/u', ' ', $name);
-            if (preg_match('/^[0-9]{1,8}$/', $target) && $target !== '0' && is_string($name) && $name !== '') $names[$target] = substr($name, 0, 64);
-        }
-    } elseif ($file !== '' && is_readable($file)) {
+    if ($file !== '' && is_readable($file)) {
         foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: array() as $line) {
             if ($line === '' || $line[0] === '#') continue;
             $fields = explode(';', $line, 4);
@@ -529,7 +495,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && stripos((string)($_SERVER['CONTENT_
     if ($status !== 0) http_response_code(400);
     echo json_encode(array('ok' => $status === 0, 'message' => trim((string)$output), 'error' => trim((string)$error))); exit;
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['target']) && !isset($_POST['aslAction'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['target'])) {
     $target = trim((string)$_POST['target']);
     if (!preg_match('/^[A-Za-z0-9_-]{1,32}$/D', $target)) {
         http_response_code(400); header('Content-Type: application/json');
@@ -544,63 +510,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['target']) && !isset($
         if (is_array($liveInfo)) foreach (array($liveInfo['tlv']['ambe_mode'] ?? '', $liveInfo['ambe_mode'] ?? '') as $liveValue) {
             $liveValue = strtoupper(trim((string)$liveValue));
             if ($liveValue === 'YSFN' || $liveValue === 'YSFW') $liveValue = 'YSF';
-            if (in_array($liveValue, array('YSF', 'P25', 'NXDN', 'DSTAR', 'ASL'), true)) { $mode = $liveValue; break; }
+            if (in_array($liveValue, array('YSF', 'P25', 'NXDN', 'DSTAR'), true)) { $mode = $liveValue; break; }
         }
     }
     if (!in_array($mode, $allowed, true)) {
         http_response_code(409); header('Content-Type: application/json');
         echo json_encode(array('ok' => false, 'error' => 'Current mode is unavailable. Select a mode with the dashboard buttons first.')); exit;
     }
-    if ($mode === 'ASL' && (!preg_match('/^[0-9]{1,8}$/D', $target) || (int)$target < 1)) {
-        http_response_code(400); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Enter a numeric AllStar node number.')); exit;
-    }
-    if ($mode === 'ASL' && !is_executable('/usr/local/sbin/dvswitch-asl3-node-link')) {
-        http_response_code(409); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'ASL 3 support is not installed.')); exit;
-    }
     $pipes = array();
-    $tuneCommand = ($mode === 'ASL') ? '/usr/local/sbin/dvswitch-asl3-node-link' : '/usr/local/sbin/dvswitch-mode-tune';
-    $process = proc_open(array('/usr/bin/sudo', $tuneCommand),
+    $process = proc_open(array('/usr/bin/sudo', '/usr/local/sbin/dvswitch-mode-tune'),
         array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w')), $pipes);
     if (!is_resource($process)) {
         http_response_code(500); header('Content-Type: application/json');
         echo json_encode(array('ok' => false, 'error' => 'Unable to start tuning command.')); exit;
     }
-    fwrite($pipes[0], $mode === 'ASL' ? "CONNECT\t" . $target . "\n" : $target . "\n"); fclose($pipes[0]);
+    fwrite($pipes[0], $target . "\n"); fclose($pipes[0]);
     $output = stream_get_contents($pipes[1]); fclose($pipes[1]);
     $error = stream_get_contents($pipes[2]); fclose($pipes[2]);
     $status = proc_close($process);
     header('Content-Type: application/json');
     echo json_encode(array('ok' => $status === 0, 'mode' => $mode,
         'message' => trim((string)$output), 'error' => trim((string)$error), 'status' => $status)); exit;
-}
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aslAction'])) {
-    if (!is_executable('/usr/local/sbin/dvswitch-asl3-node-link')) {
-        http_response_code(409); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'ASL 3 support is not installed.')); exit;
-    }
-    $selected = is_readable('/var/lib/dvswitch-mode-buttons/current-mode') ? strtoupper(trim((string)file_get_contents('/var/lib/dvswitch-mode-buttons/current-mode'))) : '';
-    if ($selected !== 'ASL') {
-        http_response_code(409); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Select ASL mode first.')); exit;
-    }
-    $action = strtoupper(trim((string)$_POST['aslAction']));
-    $actions = array('CONNECT', 'DISCONNECT', 'MONITOR', 'LOCAL_MONITOR', 'DISCONNECT_ALL');
-    $target = trim((string)($_POST['target'] ?? ''));
-    // Default true for older cached dashboard scripts so Connect replaces the previous link safely.
-    $disconnectBeforeConnect = (string)($_POST['disconnectBeforeConnect'] ?? '1');
-    if (!in_array($action, $actions, true) || !in_array($disconnectBeforeConnect, array('0', '1'), true) || ($action === 'DISCONNECT_ALL' ? $target !== '' : (!preg_match('/^[0-9]{1,8}$/D', $target) || (int)$target < 1))) {
-        http_response_code(400); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Choose a link action and enter a numeric AllStar node when required.')); exit;
-    }
-    $pipes = array();
-    $process = proc_open(array('/usr/bin/sudo', '/usr/local/sbin/dvswitch-asl3-node-link'),
-        array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w')), $pipes);
-    if (!is_resource($process)) { http_response_code(500); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Unable to start ASL link command.')); exit; }
-    $request = $action . "\t" . $target;
-    if ($action === 'CONNECT' && $disconnectBeforeConnect === '1') { $request .= "\tDISCONNECT_BEFORE_CONNECT"; }
-    fwrite($pipes[0], $request . "\n"); fclose($pipes[0]);
-    $output = stream_get_contents($pipes[1]); fclose($pipes[1]);
-    $error = stream_get_contents($pipes[2]); fclose($pipes[2]);
-    $status = proc_close($process);
-    header('Content-Type: application/json');
-    echo json_encode(array('ok' => $status === 0, 'message' => trim((string)$output), 'error' => trim((string)$error), 'status' => $status)); exit;
 }
     if (isset($_GET['status'])) {
     $mode = '';
@@ -619,7 +549,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aslAction'])) {
     $selectedModeFile = '/var/lib/dvswitch-mode-buttons/current-mode';
     $selectedMode = is_readable($selectedModeFile) ? strtoupper(trim((string)file_get_contents($selectedModeFile))) : '';
     if ($mode === 'DMR' && $selectedMode === 'STFU') { $mode = 'STFU'; }
-    if ($mode === 'DMR' && $selectedMode === 'ASL') { $mode = 'ASL'; }
     $address = '';
     $ini = '/opt/MMDVM_Bridge/MMDVM_Bridge.ini';
     if (is_readable($ini)) {
@@ -648,9 +577,7 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons YSF
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons P25
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons NXDN
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons DSTAR
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons ASL
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-tune
-www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-asl3-node-link
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-favorites
 SUDO
   visudo -cf "$SUDOERS" >/dev/null || die 'sudoers validation failed'
@@ -658,8 +585,8 @@ SUDO
   python3 - "$TARGET" <<'PY'
 import os, re, shutil, sys, tempfile
 path=sys.argv[1]; text=open(path, encoding='utf-8').read()
-marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test73 -->'
-owned_marker=re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0.0-test(?:8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73) -->')
+marker='<!-- DVSwitch-Mode-Buttons 1.0.0-test74 -->'
+owned_marker=re.compile(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test[0-9]+ -->')
 owned_matches=list(owned_marker.finditer(text))
 if len(owned_matches) > 1: raise SystemExit('ERROR: duplicate owned mode-button markers found')
 if owned_matches:
@@ -669,16 +596,14 @@ if owned_matches:
     end += len('</script>')
     text=text[:start]+text[end:]
 if marker not in text:
-    asl_button_html = '<button type="button" class="button link" data-mode="ASL">ASL</button>' if os.path.isfile('/usr/local/sbin/dvswitch-asl3-node-link') and os.access('/usr/local/sbin/dvswitch-asl3-node-link', os.X_OK) else ''
-    block='''<!-- DVSwitch-Mode-Buttons 1.0.0-test73 -->
+    block='''<!-- DVSwitch-Mode-Buttons 1.0.0-test74 -->
 <div id="dvs-mode-buttons" aria-label="Select Mode"><div class="dvs-mode-buttons-title">Select Mode</div>
-<button type="button" class="button link" data-mode="BM">BM</button><button type="button" class="button link" data-mode="TGIF">TGIF</button><button type="button" class="button link" data-mode="STFU">STFU</button><button type="button" class="button link" data-mode="YSF">YSF</button><button type="button" class="button link" data-mode="P25">P25</button><button type="button" class="button link" data-mode="NXDN">NXDN</button><button type="button" class="button link" data-mode="DSTAR">D-Star</button>__ASL_BUTTON__</div>
+<button type="button" class="button link" data-mode="BM">BM</button><button type="button" class="button link" data-mode="TGIF">TGIF</button><button type="button" class="button link" data-mode="STFU">STFU</button><button type="button" class="button link" data-mode="YSF">YSF</button><button type="button" class="button link" data-mode="P25">P25</button><button type="button" class="button link" data-mode="NXDN">NXDN</button><button type="button" class="button link" data-mode="DSTAR">D-Star</button></div>
 <section id="dvs-favorites" hidden aria-label="Mode favorites"><div class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div><label class="dvs-favorites-select-label" for="dvs-favorites-select" hidden>Favorite</label><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="Active mode favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-edit">Edit</button>
 <form id="dvs-target-tuner" aria-label="Tune talkgroup or reflector"><input id="dvs-target-input" name="target" type="text" inputmode="numeric" maxlength="32" autocomplete="off" placeholder="Enter TG / reflector ID" aria-label="Talkgroup or reflector ID"><button id="dvs-target-submit" type="submit" class="button link">Tune</button><button type="button" class="button link dvs-favorites-add-current" aria-label="Add tuned ID to favorites for the current mode">+ Favorite</button><span id="dvs-target-message" role="status" aria-live="polite"></span></form></div>
 <div class="dvs-favorites-list-status" role="status" aria-live="polite"></div><dialog class="dvs-favorites-editor" aria-labelledby="dvs-favorites-editor-title"><div class="dvs-favorites-dialog-content"><h2 id="dvs-favorites-editor-title">Edit Favorites</h2><p class="dvs-favorites-help">Choose a mode, then edit the favorite name and talkgroup or reflector ID. Use <strong>Add Favorite</strong> for a new row or <strong>Delete</strong> to remove one. Select <strong>Save</strong> to keep your changes. <strong>Cancel or Esc</strong> closes this editor and discards unsaved changes. Changes apply only to the selected mode.</p><label class="dvs-favorites-mode-label">Mode <select class="dvs-favorites-mode"></select></label><div class="dvs-favorites-rows" aria-label="Favorite entries"></div><div class="dvs-favorites-dialog-actions"><button type="button" class="button link dvs-favorites-add">Add Favorite</button><button type="button" class="button link dvs-favorites-save">Save</button><button type="button" class="button link dvs-favorites-cancel">Cancel / Close</button></div><div class="dvs-favorites-status" role="status" aria-live="polite"></div></div></dialog></section>
 <style>#dvs-mode-buttons{text-align:center;margin:4px auto 5px}#dvs-mode-buttons .dvs-mode-buttons-title{font-weight:bold;margin-bottom:2px}#dvs-mode-buttons button{min-width:72px;height:32px;padding:4px 10px}#dvs-mode-buttons button.selected{background-color:#008000}#dvs-mode-buttons button:disabled{opacity:.65}#dvs-favorites{text-align:center;margin:0 auto 8px;max-width:100%}#dvs-favorites .dvs-favorites-control-line{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;gap:8px;margin:0 0 8px;min-height:34px;white-space:nowrap}#dvs-favorites .dvs-favorites-heading{font-weight:bold;white-space:nowrap}#dvs-target-tuner{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;gap:6px;margin:0;min-height:34px;white-space:nowrap}#dvs-target-input{box-sizing:border-box;width:12ch;height:32px;padding:4px 8px}#dvs-target-submit,#dvs-favorites .dvs-favorites-add-current{min-width:64px;height:32px;padding:4px 10px}#dvs-target-message{min-width:0;font-size:12px;text-align:left}#dvs-target-message.error{color:#d9534f}#dvs-favorites-select{box-sizing:border-box;width:min(260px,25vw);height:32px;padding:4px 8px}#dvs-favorites .dvs-favorites-editor{box-sizing:border-box;width:min(720px,calc(100vw - 24px));max-width:none;max-height:88vh;margin:auto;padding:0;border:1px solid #8795a8;border-radius:8px;background:#111827;color:inherit;box-shadow:0 12px 40px #0009}#dvs-favorites .dvs-favorites-editor::backdrop{background:#0009}#dvs-favorites .dvs-favorites-dialog-content{display:flex;flex-direction:column;max-height:88vh;padding:18px}#dvs-favorites-editor-title{margin:0 0 8px;font-size:1.2em}#dvs-favorites .dvs-favorites-help{margin:0 auto 12px;max-width:620px;text-align:left;line-height:1.45;white-space:normal}#dvs-favorites .dvs-favorites-mode-label{margin-bottom:8px}#dvs-favorites .dvs-favorites-rows{overflow-y:auto;overscroll-behavior:contain;max-height:45vh;padding:2px}#dvs-favorites .dvs-favorites-dialog-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:10px}#dvs-favorites .dvs-favorites-status{margin-top:8px}#dvs-favorites .dvs-favorites-list-status{font-size:12px;min-height:1em}.dvs-rx-monitor-inline{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;min-width:137px;height:34px;margin:0 8px 0 0;padding:4px 10px}.dvs-rx-monitor-inline img{vertical-align:middle}#dvs-favorites-mode{margin-left:5px;padding:4px}.dvs-favorite-edit-row{display:flex;gap:5px;justify-content:center;margin:4px}.dvs-favorite-edit-row input{box-sizing:border-box;width:min(220px,34vw);min-width:0;padding:4px}.dvs-favorites-status{font-size:12px;min-height:1em}@media(max-width:600px){#dvs-favorites .dvs-favorites-dialog-content{padding:12px}#dvs-favorites .dvs-favorites-rows{max-height:42vh}#dvs-favorites .dvs-favorites-control-line{gap:4px}#dvs-target-tuner{gap:4px}#dvs-favorites-select{width:22vw}#dvs-target-message{max-width:16vw;overflow-wrap:anywhere}.dvs-rx-monitor-inline{min-width:0;margin-right:4px;padding:4px}.dvs-favorite-edit-row input{width:38vw}.dvs-favorite-edit-row{gap:3px}}</style>
 <script src="/dvswitch/dvswitch-mode-favorites.js"></script>'''
-    block=block.replace('__ASL_BUTTON__', asl_button_html)
     rx_move_marker='// DVSwitch-Mods: RX Monitor left of status v1'
     if rx_move_marker in text:
         if text.count(rx_move_marker) != 1:
@@ -699,23 +624,8 @@ if marker not in text:
     with os.fdopen(fd,'w',encoding='utf-8',newline='') as f: f.write(text)
     os.chown(tmp,st.st_uid,st.st_gid); os.chmod(tmp,st.st_mode & 0o7777); os.replace(tmp,path)
 PY
-  grep -qF '<!-- DVSwitch-Mode-Buttons 1.0.0-test73 -->' "$TARGET" || die 'dashboard controls block was not installed'
+  grep -qF '<!-- DVSwitch-Mode-Buttons 1.0.0-test74 -->' "$TARGET" || die 'dashboard controls block was not installed'
 }
-
-if [[ $mode == refresh_asl ]]; then
-  [[ -x "$MODE_HELPER" && -x "$TARGET_HELPER" ]] || die 'Mode Buttons must be installed before refreshing its optional ASL dashboard controls.'
-  apply_asl_mode_repair --install
-  for target in "$TARGET" "$ENDPOINT" "$FAVORITES_JS" "$SUDOERS" "$TUNE_HELPER" "$FAVORITES_HELPER" "$MODE_HELPER" "$TARGET_HELPER" "$ASL_EXIT_HELPER"; do backup "$target"; done
-  install -o root -g root -m 755 ./dvswitch-mode-buttons "$MODE_HELPER"
-  install -o root -g root -m 755 ./dvswitch-mode-buttons-asl-exit "$ASL_EXIT_HELPER"
-  install -o root -g root -m 755 ./dvswitch-mode-targets "$TARGET_HELPER"
-  install_dashboard_components
-  php -l "$ENDPOINT" >/dev/null || die 'endpoint PHP validation failed during ASL dashboard refresh'
-  visudo -cf "$SUDOERS" >/dev/null || die 'sudoers validation failed during ASL dashboard refresh'
-  systemctl restart apache2 || die 'Apache restart failed during ASL dashboard refresh'
-  echo 'PASS: Mode Buttons refreshed for optional ASL 3 support.'
-  exit 0
-fi
 
 network="$(awk '
   /^\[DMR Network\]/{insec=1;next} /^\[/{insec=0}
@@ -747,14 +657,20 @@ install_favorites_starter(){
 }
 
 if [[ $mode == check ]]; then
-  apply_asl_mode_repair --check
   bash ./dvswitch-display-layout.sh check
+  # Detect an ASL button embedded by older Mode Buttons releases so upgrade can remove that legacy markup.
   python3 - "$TARGET" <<'PY_BUTTONS_CHECK'
-import re, sys
+import os, re, sys
 from pathlib import Path
 path = Path(sys.argv[1])
 text = path.read_text(encoding='utf-8')
-button_markers = list(re.finditer(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(?:8|9|[1-5][0-9]|6[0-9]|70|71|72|73) -->', text))
+button_markers = list(re.finditer(r'<!-- DVSwitch-Mode-Buttons 1\.0\.0-test[0-9]+ -->', text))
+legacy_asl_button = bool(re.search(r'<button[^>]*data-mode=\"ASL\"', text, re.I))
+full_asl_support = all(os.path.isfile(path) for path in (
+    '/usr/share/dvswitch/dvswitch-asl3-dashboard.js',
+    '/usr/share/dvswitch/dvswitch-asl3-control.php',
+    '/usr/local/sbin/dvswitch-asl3-node-link',
+))
 if len(button_markers) > 1:
     raise SystemExit('ERROR: duplicate Mode Buttons blocks found')
 if button_markers:
@@ -763,6 +679,10 @@ if button_markers:
     if end < 0:
         raise SystemExit('ERROR: existing Mode Buttons script end anchor not found')
     text = text[:start] + text[end + len('</script>'):]
+if legacy_asl_button and full_asl_support:
+    print('PASS: full ASL Support is installed; the old embedded button will be replaced by its ASL-owned dashboard button.')
+elif legacy_asl_button:
+    print('NOTICE: legacy ASL button is embedded in the old Buttons block; --install will remove it. ASL Support owns the replacement button.')
 rx_marker = '// DVSwitch-Mods: RX Monitor left of status v1'
 if rx_marker in text:
     moved_rx = re.compile(r'// DVSwitch-Mods: RX Monitor left of status v1\s*\n\s*echo \'<div style="margin-top:8px;text-align:center;">\';\s*\n\s*if \( RXMONITOR == "YES" \)')
@@ -817,10 +737,7 @@ PY_DMR_CARD_CHECK
   exit 0
 fi
 
-# Verify the optional repair before the installer changes dashboard or bridge files.
-apply_asl_mode_repair --check
-
-if [[ -e "$MODE_HELPER" || -e "$TARGET_HELPER" || -e "$FAVORITES_HELPER" || -e "$ENDPOINT" || -e "$SUDOERS" ]] || grep -Eq '<!-- DVSwitch-Mode-Buttons 1\.0\.0-test(8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73) -->' "$TARGET"; then
+if [[ -e "$MODE_HELPER" || -e "$TARGET_HELPER" || -e "$FAVORITES_HELPER" || -e "$ENDPOINT" || -e "$SUDOERS" ]] || grep -Eq '<!-- DVSwitch-Mode-Buttons 1\.0\.0-test[0-9]+ -->' "$TARGET"; then
   echo "Existing installation detected; applying the current upgrade."
 else
   echo "No existing installation detected; starting installation."
@@ -992,14 +909,14 @@ new_current_mode_function = r'''function dvsButtonsDmrCurrentMode($abinfo, $sele
         if ($mode === 'YSFN' || $mode === 'YSFW') { $mode = 'YSF'; }
         // STFU is DMR-based internally, so its selected button mode must take
         // precedence over Analog_Bridge's generic DMR ambe_mode value.
-        if (in_array($mode, array('STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'ASL'), true)) { return $mode; }
+        if (in_array($mode, array('STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'), true)) { return $mode; }
         if ($selectedModeFile === null) { $selectedModeFile = '/var/lib/dvswitch-mode-buttons/current-mode'; }
         $selectedMode = is_readable($selectedModeFile) ? strtoupper(trim((string)file_get_contents($selectedModeFile))) : '';
         if ($mode === 'DMR') {
                 if (in_array($selectedMode, array('BM', 'TGIF', 'STFU'), true)) { return $selectedMode; }
                 return 'DMR';
         }
-        return in_array($selectedMode, array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'ASL'), true) ? $selectedMode : $mode;
+        return in_array($selectedMode, array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'), true) ? $selectedMode : $mode;
 }'''
 current_mode_pattern = re.compile(r'(?ms)^function dvsButtonsDmrCurrentMode\([^\n]*\) \{\n.*?^\}')
 current_mode_matches = list(current_mode_pattern.finditer(text))
@@ -1162,9 +1079,6 @@ if ((repair_saved_dmr_card_mode)); then
 fi
 php -l "$STATUS_TARGET"
 install_favorites_starter
-# A direct Mode Buttons install applies the local repair only when ASL support
-# is detected; the helper is a no-op on nodes without ASL.
-apply_asl_mode_repair --install
 systemctl restart apache2
 echo "PASS: mode helpers, target persistence, standalone DMR card, and permissions installed."
 echo '!!!!!!!!   NOTICE !!!!!!!!'

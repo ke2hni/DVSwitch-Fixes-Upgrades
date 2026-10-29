@@ -4,7 +4,6 @@ set -Eeuo pipefail
 ROOT=/opt/MMDVM_Bridge
 SCRIPT=$ROOT/dvswitch.sh
 MODE_HELPER=/usr/local/sbin/dvswitch-mode-buttons
-ASL_EXIT_HELPER=/usr/local/sbin/dvswitch-mode-buttons-asl-exit
 DMR_HELPER=/usr/local/sbin/dvswitch-dmr-network
 TARGET_HELPER=/usr/local/sbin/dvswitch-mode-targets
 STATE_DIR=/var/lib/dvswitch-mode-buttons
@@ -16,7 +15,6 @@ die(){ echo "ERROR: $*" >&2; exit 1; }
 [[ -f $SCRIPT ]] || die "missing $SCRIPT"
 [[ -f dvswitch-mode-targets ]] || die 'run from the repository directory'
 [[ -f dvswitch-mode-buttons ]] || die 'missing repository dvswitch-mode-buttons'
-[[ -f dvswitch-mode-buttons-asl-exit ]] || die 'missing Mode Buttons ASL exit helper source'
 
 install -d "$STATE_DIR"
 chown root:root "$STATE_DIR"
@@ -27,13 +25,10 @@ if ! grep -qF 'ABINFO_MODE_PY' "$SCRIPT"; then
   cp -a "$SCRIPT" "$BACKUP_DIR/dvswitch.sh.$stamp"
 fi
 cp -a "$MODE_HELPER" "$BACKUP_DIR/dvswitch-mode-buttons.$stamp" 2>/dev/null || true
-cp -a "$ASL_EXIT_HELPER" "$BACKUP_DIR/dvswitch-mode-buttons-asl-exit.$stamp" 2>/dev/null || true
 cp -a "$DMR_HELPER" "$BACKUP_DIR/dvswitch-dmr-network.$stamp" 2>/dev/null || true
 install -o root -g root -m 755 dvswitch-mode-targets "$TARGET_HELPER"
 install -o root -g root -m 755 dvswitch-mode-buttons "$MODE_HELPER"
-# Install the Mode Buttons-owned cleanup helper so ASL mode exit is upgraded
-# with this repository without changing the separate ASL3 Support installation.
-install -o root -g root -m 755 dvswitch-mode-buttons-asl-exit "$ASL_EXIT_HELPER"
+# This installer manages only Buttons-owned helpers; ASL Support installs its own mode-exit repair.
 # Publish the retained STFU target for the independent dashboard card. The
 # canonical per-mode JSON remains root-only; this one value is read-only to PHP.
 saved_stfu_target=$("$TARGET_HELPER" get STFU)

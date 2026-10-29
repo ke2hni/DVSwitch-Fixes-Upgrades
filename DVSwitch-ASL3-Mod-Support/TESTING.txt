@@ -17,8 +17,8 @@ On a test node, check compatibility without changing installed files:
 
 sudo ./dvswitch-asl3-mod-support.sh --check
 
-If the check passes, install or upgrade the Mode Buttons integration on pi4test
-first:
+If the check passes, install ASL Support on pi4test. Mode Buttons is optional;
+this ASL installation provides its own button and node controls:
 
 sudo ./dvswitch-asl3-mod-support.sh --install
 
@@ -48,7 +48,7 @@ Then verify in the dashboard:
    remote link gone, refresh the page and confirm it returns to `Listening`.
    Confirm Gateway Activity keeps its `Src` header after refresh.
 4. Enter a numeric AllStar node in Tune; verify the connection is made through
-   the discovered local public node and the target is saved as an ASL Favorite.
+   the discovered local public node then use **+ Favorite** to save a named ASL Favorite. Confirm that name overrides the ASTDB name in the ASL activity card.
    Confirm `Disconnect before Connect` is checked by default. With node 55553
    connected, enter a different node and select Connect; confirm the old
    external link drops before the new one connects, while the private bridge
@@ -68,9 +68,10 @@ Then verify in the dashboard:
    report that the public node cannot be found or block the mode change.
    Also verify standard mode changes outside ASL (TGIF to STFU, STFU to NXDN,
    and NXDN to P25). Record click-to-Analog_Bridge and click-to-green timing.
-   The button reports the selected color only after its mode command finishes.
-   When exiting ASL, confirm the external peer is fully disconnected before
-   switching; the helper checks every 250ms and retains a ten-second timeout.
+   Each button reports its selected color only after its mode command finishes.
+   When exiting ASL, confirm the external peer is disconnected before the new
+   mode is applied; ASL Support performs this cleanup inside the repaired
+   `dvswitch.sh` path and preserves the private bridge.
 8. Keep external node 55553 connected. Confirm ASL Gateway Activity uses the
    same `Time`, `Mode`, `Node`, `Name`, `Target`, `Src`, `Dur(s)`, `Loss`, and
    `BER` columns as Gateway Activity, with Loss at `0%` and BER at `0.0%`.
@@ -83,15 +84,15 @@ Then verify in the dashboard:
    `wss://<dashboard-host>/dvswitch-audio/` and that audio plays. Also confirm
    non-ASL mode buttons, Tune/Favorites, and services still behave as before.
 
-The standalone repair was already validated on pi4test for ASL-to-P25, NXDN,
-DMR, D-Star, YSF, and STFU switching. ASL RX Monitor audio is currently
-unresolved; this update adds HTTPS-safe WebSocket routing and still requires
-live-node verification.
+Earlier versions were validated on pi4test for ASL-to-P25, NXDN, DMR, D-Star,
+YSF, and STFU switching, and ASL RX Monitor audio was confirmed working. This
+release changes ownership and adds an independently managed ASL dashboard
+button, so repeat the migration test on pi4test before proceeding.
 
 After pi4test passes, proceed to pi5test, then test3040. Do not install on
 production nodes without explicit authorization.
 
-The ASL support installer backs up dashboard files and rpt.conf under
+The ASL support installer backs up dashboard files, helpers, favorites, and rpt.conf under
 /var/backups/dvswitch-mods/asl3-support. The standalone dvswitch.sh repair keeps
 its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
 
@@ -106,3 +107,12 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     reports an error rather than changing its saved selection if Analog_Bridge
     remains in ASL; after a successful switch, confirm the selected mode and
     Analog_Bridge status agree without a browser refresh.
+
+13. With Mode Buttons installed but ASL Support absent, run its `--check` and
+    confirm it reports the legacy ASL button for removal. Install Mode Buttons
+    and confirm the embedded ASL button disappears while all seven standard
+    modes and their Favorites continue to work. Then install ASL Support and
+    confirm its ASL-owned button and node tuner appear beside the standard modes.
+14. Repeat the ASL Support install with Mode Buttons absent on a disposable test
+    image; confirm ASL still provides its own mode button, node controls, and
+    favorites without installing or invoking the Mode Buttons installer.

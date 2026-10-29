@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test73
+# Version: 1.0.0-test74
 set -u
 MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
 STATE_DIR=/var/lib/dvswitch-mode-buttons
@@ -7,8 +7,6 @@ STATE_FILE=$STATE_DIR/current-mode
 DMR_NETWORK_FILE=$STATE_DIR/last-dmr-network
 DMR_CARD_MODE_FILE=$STATE_DIR/last-dmr-card-mode
 TARGET_HELPER=/usr/local/sbin/dvswitch-mode-targets
-ASL_NODE_HELPER=/usr/local/sbin/dvswitch-asl3-node-link
-ASL_EXIT_HELPER=/usr/local/sbin/dvswitch-mode-buttons-asl-exit
 PRESET_DIR=/etc/dvswitch-mode-buttons/dmr-presets
 INI=/opt/MMDVM_Bridge/MMDVM_Bridge.ini
 ANALOG_INI=/opt/Analog_Bridge/Analog_Bridge.ini
@@ -135,7 +133,8 @@ PY
   echo "PASS: DMR network switched to $network ($address)."
 }
 [[ $EUID -eq 0 ]] || die 'run with sudo'
-[[ $# -eq 1 ]] || die 'usage: BM|TGIF|STFU|YSF|P25|NXDN|DSTAR|ASL'
+# Mode Buttons handles standard digital modes; ASL mode selection is owned by ASL 3 Support.
+[[ $# -eq 1 ]] || die 'usage: BM|TGIF|STFU|YSF|P25|NXDN|DSTAR'
 mode="${1^^}"
 install -d -m 755 -o root -g root "$STATE_DIR"
 previous_mode=''
@@ -169,64 +168,11 @@ else
   rm -f "$STATE_DIR/dmr-tune-pending"
 fi
 if [[ "$mode" != BM && "$mode" != TGIF ]]; then rm -f "$STATE_DIR/dmr-tune-pending"; fi
-if [[ "$mode" =~ ^(BM|TGIF|DSTAR|STFU|YSF|P25|NXDN)$ && -x "$ASL_NODE_HELPER" && -f "$STATE_FILE" ]] && [[ "$(<"$STATE_FILE")" == ASL ]]; then
-  [[ -x "$ASL_EXIT_HELPER" ]] || die 'Mode Buttons ASL exit helper is missing; reinstall Mode Buttons before leaving ASL mode'
-  "$ASL_EXIT_HELPER" || die 'could not disconnect external ASL nodes before changing mode'
-fi
 case "$mode" in
   BM|TGIF) switch_dmr_network "$mode" ;;
-  ASL) [[ -x "$ASL_NODE_HELPER" ]] || die 'ASL 3 support is not installed'; [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode ASL || exit 1; printf 'ENSURE_BRIDGE\n' | "$ASL_NODE_HELPER" || die 'could not establish the private-to-public ASL bridge' ;;
   DSTAR|STFU|YSF|P25|NXDN) [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode "$mode" || exit 1 ;;
   *) die "unsupported mode: $1" ;;
 esac
-# Do not record a mode change away from ASL until Analog_Bridge reports that
-# the ASL mode transition actually completed; dvswitch.sh can return after a
-# UDP send even when the command reached the wrong listener.
-if [[ "$previous_mode" == ASL && "$mode" != ASL ]]; then
-  read_live_mode() {
-    python3 - <<'PY_ASL_MODE_STATUS'
-import glob
-import json
-import os
-
-files = glob.glob(os.path.join(os.environ.get('ABINFO_DIR', '/tmp'), 'ABInfo_*.json'))
-if files:
-    path = max(files, key=os.path.getmtime)
-    try:
-        with open(path, encoding='utf-8') as source:
-            data = json.load(source)
-        for value in (data.get('tlv', {}).get('ambe_mode', ''), data.get('ambe_mode', '')):
-            value = str(value).strip().upper()
-            if value:
-                print(value)
-                break
-    except (OSError, ValueError, AttributeError):
-        pass
-PY_ASL_MODE_STATUS
-  }
-  mode_is_live() {
-    case "$mode:$1" in
-      BM:DMR|TGIF:DMR|STFU:DMR|STFU:STFU|YSF:YSF|YSF:YSFN|YSF:YSFW|P25:P25|NXDN:NXDN|DSTAR:DSTAR) return 0 ;;
-      *) return 1 ;;
-    esac
-  }
-  # The dashboard reads ABInfo directly; avoid launching multiple additional
-  # dvswitch.sh status commands while waiting for the bridge to change modes.
-  live_mode=$(read_live_mode)
-  if ! mode_is_live "$live_mode"; then
-    printf 'NOTICE: retrying the mode command after ASL link cleanup.\n'
-    case "$mode" in
-      BM|TGIF) "$MODE_CMD" mode DMR || die 'DVSwitch DMR mode retry failed' ;;
-      *) "$MODE_CMD" mode "$mode" || die 'DVSwitch mode retry failed' ;;
-    esac
-    for attempt in 1 2 3 4 5 6 7 8; do
-      live_mode=$(read_live_mode)
-      mode_is_live "$live_mode" && break
-      sleep 0.25
-    done
-  fi
-  mode_is_live "$live_mode" || die 'Analog_Bridge did not confirm the mode change; ASL remains selected.'
-fi
 printf '%s\n' "$mode" > "$STATE_FILE"
 chown root:root "$STATE_FILE"; chmod 644 "$STATE_FILE"
 if [[ "$mode" == BM || "$mode" == TGIF ]]; then
@@ -235,7 +181,7 @@ if [[ "$mode" == BM || "$mode" == TGIF ]]; then
   printf '%s\n' "$mode" > "$DMR_CARD_MODE_FILE"
   chown root:root "$DMR_CARD_MODE_FILE"; chmod 644 "$DMR_CARD_MODE_FILE"
 fi
-if [[ -x "$TARGET_HELPER" && "$mode" != ASL ]]; then
+if [[ -x "$TARGET_HELPER" ]]; then
   if [[ "$mode" != BM && "$mode" != TGIF ]]; then
     target=$($TARGET_HELPER get "$mode" 2>/dev/null || true)
   fi

@@ -9,6 +9,9 @@
   var activeMode = '';
   var connectedNodes = [];
   var activityStarted = Object.create(null);
+  // Names and favorites are ASL-owned so dashboard controls do not depend on Mode Buttons.
+  var nodeNames = {};
+  var favorites = [];
 
   function routeRxMonitorOverHttps() {
     var player = window.DVSwitchPlayer;
@@ -70,50 +73,89 @@
   }
 
   function addLinkControls() {
-    var root = document.getElementById('dvs-asl-links');
-    if (root || !document.getElementById('dvs-mode-buttons')) return;
-    root = document.createElement('fieldset');
-    root.id = 'dvs-asl-links';
-    root.hidden = true;
-    root.style.cssText = 'box-sizing:border-box;width:min(95%,600px);margin:2px auto 4px;padding:0 8px 3px;border:1px solid #aaa;text-align:center';
-    var legend = document.createElement('legend');
-    legend.textContent = 'ASL Node Link';
-    legend.style.cssText = 'padding:0 5px;font-size:12px;line-height:1';
-    root.appendChild(legend);
-    var actionContainer = document.createElement('div');
-    actionContainer.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2px 14px';
-    var actionOptions = [
-      ['CONNECT', 'Connect'], ['DISCONNECT', 'Disconnect'], ['MONITOR', 'Monitor'],
-      ['LOCAL_MONITOR', 'Local Monitor'], ['DISCONNECT_ALL', 'Disconnect All']
-    ];
-    actionOptions.forEach(function (entry) {
-      var label = document.createElement('label');
-      label.style.cssText = 'display:inline-flex;align-items:center;margin:0;white-space:nowrap;font-size:12px';
-      var checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.name = 'aslAction';
-      checkbox.value = entry[0];
-      checkbox.addEventListener('change', function () {
-        actionContainer.querySelectorAll('input[name="aslAction"]').forEach(function (other) { if (other !== checkbox) other.checked = false; });
-        var target = document.getElementById('dvs-target-input');
-        if (target) target.disabled = entry[0] === 'DISCONNECT_ALL' && checkbox.checked;
-      });
-      label.append(checkbox, document.createTextNode(' ' + entry[1]));
-      actionContainer.appendChild(label);
-    });
-    root.appendChild(actionContainer);
-    var replaceLabel = document.createElement('label');
-    replaceLabel.style.cssText = 'display:inline-flex;align-items:center;margin:1px 0 0;white-space:nowrap;font-size:12px';
-    var replaceCheckbox = document.createElement('input');
-    replaceCheckbox.type = 'checkbox';
-    replaceCheckbox.id = 'dvs-asl-disconnect-before-connect';
-    // Default to replacing prior external links whenever Connect is selected.
-    replaceCheckbox.checked = true;
-    replaceCheckbox.title = 'Disconnect existing external ASL links before connecting; the private bridge is preserved.';
-    replaceLabel.append(replaceCheckbox, document.createTextNode(' Disconnect before Connect'));
-    root.appendChild(replaceLabel);
+    // Keep the ASL mode control usable when the optional Mode Buttons repository is absent.
     var buttons = document.getElementById('dvs-mode-buttons');
+    if (!buttons) {
+      buttons = document.createElement('div');
+      buttons.id = 'dvs-asl-mode-buttons';
+      buttons.setAttribute('aria-label', 'Select Mode');
+      buttons.style.cssText = 'margin:4px auto;text-align:center';
+      var title = document.createElement('div'); title.textContent = 'Select Mode'; title.className = 'dvs-mode-buttons-title';
+      buttons.appendChild(title);
+      var rx = document.querySelector('#rxMonitor,button[onclick*="rxmon"],button[onclick*="RXMONITOR"]');
+      var anchor = rx && rx.closest('div');
+      (anchor || document.querySelector('.content center') || document.body).appendChild(buttons);
+    }
+    if (!buttons.querySelector('[data-mode="ASL"]')) {
+      var modeButton = document.createElement('button');
+      modeButton.type = 'button'; modeButton.className = 'button link'; modeButton.dataset.mode = 'ASL'; modeButton.textContent = 'ASL';
+      buttons.appendChild(modeButton);
+      modeButton.addEventListener('click', function () {
+        sendControl({ action: 'mode' }).then(function () { setMode('ASL'); }).catch(showError);
+      });
+    }
+    if (document.getElementById('dvs-asl-links')) return;
+    var root = document.createElement('fieldset'); root.id = 'dvs-asl-links'; root.hidden = true;
+    root.style.cssText = 'box-sizing:border-box;width:min(95%,600px);margin:2px auto 4px;padding:2px 8px 4px;border:1px solid #aaa;text-align:center';
+    var legend = document.createElement('legend'); legend.textContent = 'ASL Node Link'; legend.style.cssText = 'padding:0 5px;font-size:12px;line-height:1'; root.appendChild(legend);
+    var form = document.createElement('form'); form.id = 'dvs-asl-tuner'; form.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px';
+    var input = document.createElement('input'); input.id = 'dvs-asl-node'; input.inputMode = 'numeric'; input.maxLength = 8; input.placeholder = 'Enter AllStar node number'; input.setAttribute('aria-label', 'AllStar node number');
+    var favoriteSelect = document.createElement('select'); favoriteSelect.id = 'dvs-asl-favorites'; favoriteSelect.setAttribute('aria-label', 'ASL favorite'); favoriteSelect.innerHTML = '<option value="">Select favorite</option>';
+    var tune = document.createElement('button'); tune.type = 'submit'; tune.className = 'button link'; tune.textContent = 'Tune';
+    var save = document.createElement('button'); save.type = 'button'; save.className = 'button link'; save.textContent = '+ Favorite';
+    var status = document.createElement('span'); status.id = 'dvs-asl-control-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+    form.append(favoriteSelect, input, tune, save, status);
+    favoriteSelect.addEventListener('change', function () { if (favoriteSelect.value) input.value = favoriteSelect.value; favoriteSelect.value = ''; });
+    var actions = document.createElement('div'); actions.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:center;gap:2px 14px;width:100%';
+    [['CONNECT','Connect'],['DISCONNECT','Disconnect'],['MONITOR','Monitor'],['LOCAL_MONITOR','Local Monitor'],['DISCONNECT_ALL','Disconnect All']].forEach(function (entry) {
+      var label = document.createElement('label'); label.style.cssText = 'display:inline-flex;align-items:center;margin:0;white-space:nowrap;font-size:12px';
+      var checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.name = 'aslAction'; checkbox.value = entry[0];
+      checkbox.addEventListener('change', function () { actions.querySelectorAll('input').forEach(function (other) { if (other !== checkbox) other.checked = false; }); input.disabled = entry[0] === 'DISCONNECT_ALL' && checkbox.checked; });
+      label.append(checkbox, document.createTextNode(' ' + entry[1])); actions.appendChild(label);
+    });
+    form.appendChild(actions);
+    var replaceLabel = document.createElement('label'); replaceLabel.style.cssText = 'display:inline-flex;align-items:center;margin:1px 0 0;white-space:nowrap;font-size:12px';
+    var replace = document.createElement('input'); replace.type = 'checkbox'; replace.id = 'dvs-asl-disconnect-before-connect'; replace.checked = true;
+    replace.title = 'Disconnect existing external ASL links before connecting; the private bridge is preserved.';
+    replaceLabel.append(replace, document.createTextNode(' Disconnect before Connect')); form.appendChild(replaceLabel); root.appendChild(form);
     buttons.insertAdjacentElement('afterend', root);
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var selected = actions.querySelector('input:checked');
+      if (!selected) { status.textContent = 'Select an ASL link action.'; return; }
+      sendControl({ action:'link', linkAction:selected.value, node:input.value.trim(), disconnectBeforeConnect:replace.checked })
+        .then(function (result) { status.textContent = result.message || 'ASL link updated.'; selected.checked = false; input.disabled = false; refreshActivity(); })
+        .catch(showError);
+    });
+    save.addEventListener('click', function () {
+      var node = input.value.trim();
+      if (!/^[0-9]{1,8}$/.test(node) || /^0+$/.test(node)) { status.textContent = 'Enter a valid node number first.'; return; }
+      var name = window.prompt('Favorite name', nodeNames[node] || node);
+      if (name === null) return;
+      var next = favorites.filter(function (favorite) { return favorite.node !== node; });
+      next.push({ name:name.trim(), node:node });
+      sendControl({ action:'saveFavorites', favorites:next }).then(function () { favorites = next; loadFavorites(); status.textContent = 'Favorite saved.'; }).catch(showError);
+    });
+    loadFavorites(); loadNodeNames();
+  }
+
+  function sendControl(data) {
+    return fetch('/dvswitch/dvswitch-asl3-control.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data), cache:'no-store' })
+      .then(function (response) { return response.json().then(function (result) { if (!response.ok || !result.ok) throw new Error(result.error || 'ASL request failed.'); return result; }); });
+  }
+
+  function showError(error) { var status = document.getElementById('dvs-asl-control-status'); if (status) status.textContent = error.message; }
+  function loadFavorites() {
+    fetch('/dvswitch/dvswitch-asl3-control.php?favorites=1', {cache:'no-store'}).then(function (response) { return response.json(); }).then(function (result) {
+      if (!result.ok || !Array.isArray(result.favorites)) return;
+      favorites = result.favorites;
+      var select = document.getElementById('dvs-asl-favorites'); if (!select) return;
+      select.replaceChildren(new Option('Select favorite', ''));
+      favorites.forEach(function (favorite) { var option = new Option(favorite.name + ' (' + favorite.node + ')', favorite.node); select.appendChild(option); });
+    }).catch(function () {});
+  }
+  function loadNodeNames() {
+    fetch('/dvswitch/dvswitch-asl3-control.php?nodeNames=1', {cache:'no-store'}).then(function (response) { return response.json(); }).then(function (result) { if (result.ok && result.names) nodeNames = result.names; }).catch(function () {});
   }
 
   function addAslActivity() {
@@ -199,7 +241,11 @@
   }
 
   function setMode(mode) {
+    mode = String(mode || '').toUpperCase();
     setTargetLabel(mode);
+    document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]').forEach(function (button) {
+      button.classList.toggle('selected', button.dataset.mode === mode);
+    });
     var links = document.getElementById('dvs-asl-links');
     if (links) links.hidden = mode !== 'ASL';
     var activity = document.getElementById('dvs-asl-activity');
@@ -207,10 +253,12 @@
   }
 
   function refresh() {
-    fetch('/dvswitch/dvswitch-mode-buttons.php?status=1', { cache: 'no-store' })
-      .then(function (response) { return response.json(); })
-      .then(function (result) { if (result && result.ok) setMode(result.mode); })
-      .catch(function () {});
+    var info = document.getElementById('modeInfo');
+    if (!info) return;
+    info.querySelectorAll('tr').forEach(function (row) {
+      var heading = row.querySelector('th'), value = row.querySelector('td');
+      if (heading && value && normalizeHeader(heading.textContent) === 'Mode') setMode(normalizeHeader(value.textContent).toUpperCase());
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -227,12 +275,12 @@
       setTargetLabel(mode);
     }).observe(info, { childList: true, subtree: true });
     var themeStyle = document.createElement('style');
-    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
+    themeStyle.textContent = '#dvs-asl-mode-buttons button{min-width:72px;height:32px;padding:4px 10px}#dvs-asl-mode-buttons button.selected{background-color:#008000}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
     document.head.appendChild(themeStyle);
   });
-  document.addEventListener('dvswitch-mode-buttons-mode', function (event) {
-    var mode = event.detail && event.detail.mode;
-    setMode(mode);
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest('#dvs-mode-buttons [data-mode]');
+    if (button && button.dataset.mode !== 'ASL') setMode(button.dataset.mode);
   });
   window.setInterval(refresh, 5000);
   window.setInterval(refreshActivity, 5000);

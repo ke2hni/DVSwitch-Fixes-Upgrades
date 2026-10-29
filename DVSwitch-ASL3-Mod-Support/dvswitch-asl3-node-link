@@ -89,6 +89,6 @@ else
     if [[ "$action" == CONNECT && "${option:-}" == DISCONNECT_BEFORE_CONNECT ]]; then disconnect_external_links; fi
     result=$("$ASTERISK" -rx "rpt cmd $public_node ilink $ilink $target" 2>&1) || die "Asterisk rejected the link command: $result"
     printf '%s\n' "$result"
-    if [[ "$action" == CONNECT && -x /usr/local/sbin/dvswitch-mode-targets ]]; then /usr/local/sbin/dvswitch-mode-targets save ASL "$target" >/dev/null || true; fi
+    # ASL favorites are stored by the ASL-owned dashboard endpoint, not the optional Mode Buttons target helper.
     printf 'PASS: requested %s on local public ASL node %s for node %s.\n' "$action" "$public_node" "$target"
 fi

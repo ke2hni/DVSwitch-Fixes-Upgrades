@@ -60,6 +60,7 @@ for version in ("1.6.2", "1.6.3"):
     require(repaired.count(module.REMOTE_BLOCK) == 1, f"live-port routing missing for {version}")
     require(repaired.count(module.MODE_MARKER) == 1, f"ASL transition marker missing for {version}")
     require(repaired.count(module.MODE_BLOCK) == 1, f"ASL listener selection missing for {version}")
+    require(repaired.count(module.EXIT_MARKER) == 1 and repaired.count(module.EXIT_BLOCK) == 1, f"ASL exit cleanup missing for {version}")
     require(module.patch_text(repaired) == repaired, f"patch is not idempotent for {version}")
     with tempfile.NamedTemporaryFile("w", suffix=".sh", encoding="utf-8") as candidate:
         candidate.write(repaired)

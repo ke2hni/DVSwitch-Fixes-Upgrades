@@ -14,11 +14,12 @@ When DVSwitch-Mods is also installed, the BM/TGIF switch helper optionally
 records a timestamped network-selection event through
 `/usr/local/sbin/dvswitch-mods-record-dmr-network` for Gateway Activity
 labels. The recorder is checked only after a successful DMR switch; its
-absence does not affect Mode Buttons installation or switching. The optional
-ASL-aware `dvswitch.sh` repair is included in this repository: `--check` checks
-it and a normal install or ASL refresh applies it with its own timestamped
-backup when the ASL node helper is installed. Mode Buttons does not require the
-ASL support repository; when ASL is absent, the repair is skipped.
+absence does not affect Mode Buttons installation or switching.
+
+ASL 3 is a separate optional component owned by `DVSwitch-ASL3-Mod-Support`.
+Mode Buttons contains no ASL mode, tune, favorite, or link implementation. An
+upgrade replaces older Mode Buttons dashboard markup and removes its legacy
+embedded ASL button; ASL Support adds its own button and controls when installed.
 
 Seven-mode dashboard selection for DVSwitch: **BM · TGIF · STFU · YSF · P25 · NXDN · D-Star**.
 
@@ -61,7 +62,7 @@ Choose **1** to install the buttons or upgrade an existing installation to the c
 
 - BM/TGIF MMDVM Bridge and Analog Bridge preset switching through the unified mode helper.
 - Per-mode target persistence.
-- A single-line dashboard control for tuning the active mode to a talkgroup, reflector ID, or (when ASL 3 support is installed) an AllStar node number. ASL support is optional and appears only when its ASL helper is installed.
+- A single-line dashboard control for tuning the active digital mode to a talkgroup or reflector ID.
 - Mode-specific dashboard Favorites. Only the active mode's entries appear beside Tune; **Edit** opens a scrollable popup with a mode selector and instructions. Add a row for a new favorite, edit its name and TG/reflector ID, or select **Delete** to remove a row. Select **Save** to keep the changes for that mode; **Cancel / Close** or Esc closes the editor and discards unsaved changes. Up to 100 favorites can be saved per mode. Selecting a favorite sends its TG/ref through the same Tune control. **+ Favorite** opens the active mode's editor with the current target prefilled. It also looks up the matching friendly name from the source used by that mode's dashboard card. STFU targets use the BrandMeister talkgroup list, matching the STFU card behavior in DVSwitch-Mods, even if the separate DMR Master card currently shows TGIF. Favorites are stored in `/etc/dvswitch-mode-buttons/favorites.json` and remain available after uninstall/reinstall.
 - Standalone DMR Master card rendering for BM and TGIF; while STFU, YSF, P25, NXDN, or D-Star is active, it retains the last BM/TGIF talkgroup instead of displaying another mode’s tune ID.
 - Friendly-name wrapping inside the DMR card.
@@ -293,3 +294,6 @@ Version 1.0.0-test72 moves ASL external-link cleanup for mode changes into a hel
 
 
 Version 1.0.0-test73 fixes ASL node discovery for `rpt.conf` sections with parenthetical labels, such as `[123456](private bridge)`. This prevents the Mode Buttons exit helper from rejecting mode changes when it cannot parse that valid section format. The helper version is 1.0.1. Existing test45 through test72 dashboard controls upgrade in place.
+
+
+Version 1.0.0-test74 removes ASL button, tune, favorite, and link behavior from Mode Buttons. The ASL3 Support repository now owns the complete ASL dashboard integration. Upgrading replaces older Mode Buttons markup and removes an ASL button embedded by an earlier Button release. Standard digital buttons and favorites continue to work independently.

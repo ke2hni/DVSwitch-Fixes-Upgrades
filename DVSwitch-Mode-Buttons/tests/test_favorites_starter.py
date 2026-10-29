@@ -16,10 +16,9 @@ STARTER = ROOT / "favorites.json"
 class FavoritesStarterTests(unittest.TestCase):
     def test_starter_has_examples_for_each_supported_mode(self):
         data = json.loads(STARTER.read_text())
-        self.assertEqual(set(data), {"BM", "TGIF", "STFU", "YSF", "P25", "NXDN", "DSTAR", "ASL"})
-        self.assertTrue(all(data[mode] for mode in data if mode != "ASL"))
-        # ASL nodes are user-selected; the starter must not invent a default node.
-        self.assertEqual(data["ASL"], [], "ASL favorites must come from user-entered node numbers")
+        # ASL node favorites are user data owned by the separate ASL Support module.
+        self.assertEqual(set(data), {"BM", "TGIF", "STFU", "YSF", "P25", "NXDN", "DSTAR"})
+        self.assertTrue(all(data[mode] for mode in data))
         self.assertTrue(all(set(item) == {"name", "target"} for items in data.values() for item in items))
         for items in data.values():
             keys = [(item["name"].casefold(), item["target"].casefold()) for item in items]

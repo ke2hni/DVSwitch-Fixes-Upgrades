@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
-"""Patch the installed DVSwitch mode command to route around stale TLV ports."""
+"""Patch mode routing and disconnect external ASL peers before leaving ASL."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import re
 
 REMOTE_MARKER = "        # DVSwitch-Mods: ASL-aware TLV command routing v1"
 MODE_MARKER = "            # DVSwitch-Mods: ASL-aware mode transition routing v1"
+EXIT_MARKER = "            # DVSwitch-ASL3-Mod-Support: disconnect external links before leaving ASL v1"
 REMOTE_BLOCK = '''        if [ -z "${_ASL_TLV_CANDIDATES+x}" ]; then
             _ASL_TLV_CANDIDATES=$(python3 - "$DVSWITCH_INI" <<'PY_ASL_PORTS'
 import configparser, sys
@@ -64,6 +65,7 @@ PY_ASL_PORTS
         done
         case "$1" in rxport=*) unset _ASL_TLV_LISTENERS_VALID;; esac'''
 MODE_BLOCK = '''            if [ "$(getABInfoValue tlv ambe_mode)" = "ASL" ]; then if ss -lunp "sport = :30000" 2>/dev/null | grep -q "Analog_Bridge"; then TLV_PORT=30000; else TLV_PORT=$(parseIniFile "$DVSWITCH_INI" "ASL" "TXPort"); fi; fi'''
+EXIT_BLOCK = '''            if [ "$(getABInfoValue tlv ambe_mode)" = "ASL" ] && [ "$_MODE" != "ASL" ]; then printf 'DISCONNECT_ALL\\n' | /usr/local/sbin/dvswitch-asl3-node-link || return 1; fi'''
 REMOTE_ANCHOR = '    else\nPYTHON_ARG="$1" python3 - <<END'
 MODE_ANCHOR = '            ${DEBUG} setTLVRxPort 30000  # cause AB to stop listening'
 
@@ -86,11 +88,12 @@ def patch_text(text: str) -> str:
 
     remote_markers = text.count(REMOTE_MARKER)
     mode_markers = text.count(MODE_MARKER)
+    exit_markers = text.count(EXIT_MARKER)
     remote_blocks = text.count(REMOTE_BLOCK)
     legacy_remote_blocks = text.count(LEGACY_REMOTE_BLOCK)
     previous_remote_blocks = text.count(PREVIOUS_REMOTE_BLOCK)
     mode_blocks = text.count(MODE_BLOCK)
-    if (remote_markers > 1 or mode_markers > 1 or remote_blocks > 1
+    if (remote_markers > 1 or mode_markers > 1 or exit_markers > 1 or remote_blocks > 1
             or legacy_remote_blocks > 1 or previous_remote_blocks > 1
             or sum(bool(count) for count in (remote_blocks, legacy_remote_blocks, previous_remote_blocks)) > 1
             or mode_blocks > 1):
@@ -129,6 +132,10 @@ def patch_text(text: str) -> str:
         raise PatchError("remote command routing repair did not validate")
     if text.count(MODE_MARKER) != 1 or text.count(MODE_BLOCK) != 1:
         raise PatchError("ASL mode transition repair did not validate")
+    if not exit_markers:
+        text = _replace_once(text, MODE_ANCHOR, f"{EXIT_MARKER}\n            {EXIT_BLOCK}\n{MODE_ANCHOR}", "ASL exit-cleanup insertion point")
+    if text.count(EXIT_MARKER) != 1 or text.count(EXIT_BLOCK) != 1:
+        raise PatchError("ASL exit-cleanup repair did not validate")
     return text
 
 
