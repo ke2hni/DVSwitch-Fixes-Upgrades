@@ -48,7 +48,10 @@ Then verify in the dashboard:
    remote link gone, refresh the page and confirm it returns to `Listening`.
    Confirm Gateway Activity keeps its `Src` header after refresh.
 4. Enter a numeric AllStar node in Tune; verify the connection is made through
-   the discovered local public node then use **+ Favorite** to save a named ASL Favorite. Confirm that name overrides the ASTDB name in the ASL activity card.
+   the discovered local public node then use **+ Favorite** to save a named ASL
+   Favorite. Confirm that name overrides the ASTDB name in the activity card.
+   On pi4test, confirm parrot 55553 reaches `ESTABLISHED` in
+   `sudo asterisk -rx "rpt lstats 446901"`; private node 1970 remains the bridge.
    Confirm `Disconnect before Connect` is checked by default. With node 55553
    connected, enter a different node and select Connect; confirm the old
    external link drops before the new one connects, while the private bridge

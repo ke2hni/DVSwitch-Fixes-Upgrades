@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.4
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -64,6 +64,9 @@ require('ASL_NODE_HELPER' not in BUTTONS and 'mode ASL' not in BUTTONS and
         'Mode Buttons must have no ASL behavior and must identify the old embedded button for migration')
 require('DISCONNECT_ALL' in LINK and '$1 != keep { print $1 }' in LINK,
         'ASL external link cleanup must preserve the private bridge')
+require('wait_for_connection "$target"' in LINK and 'did not reach ESTABLISHED state' in LINK and
+        'external node %s is established on local public ASL node %s' in LINK,
+        'Connect must confirm the remote node on the public node instead of treating CLI acceptance as success')
 require('disconnect external links before leaving ASL' in PATCHER and
         'dvswitch-asl3-node-link || return 1' in PATCHER,
         'ASL-owned dvswitch.sh repair must remove external links on every ASL exit')

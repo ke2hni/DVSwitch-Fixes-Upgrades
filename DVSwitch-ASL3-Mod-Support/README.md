@@ -50,3 +50,8 @@ check the mode-switch repair and dashboard layout patch.
 Version 1.0.1 checks for link and private-bridge state every 250ms while
 preserving the existing ten-second verification limit. This reduces the delay
 between Asterisk clearing a link and DVSwitch continuing its mode change.
+
+The ASL node-link helper version 1.0.2 verifies Connect requests in
+`rpt lstats` on the discovered public node and reports success only when the
+requested external node reaches `ESTABLISHED`. It allows up to 30 seconds for
+the remote connection and reports an error if the link does not establish.

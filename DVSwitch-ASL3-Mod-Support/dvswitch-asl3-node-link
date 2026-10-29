@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.1
+# Version: 1.0.2
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -79,6 +79,20 @@ disconnect_external_links() {
     die 'An external ASL link remained established after the disconnect request.'
 }
 
+# Verify the remote link on the public node; rpt cmd can return before it is established.
+wait_for_connection() {
+    local target_node=$1 links attempt
+    for attempt in {1..120}; do
+        links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify connection on local public ASL node $public_node: $links"
+        if awk -v node="$target_node" '$1 == node && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
+            printf 'PASS: external node %s is established on local public ASL node %s.\n' "$target_node" "$public_node"
+            return 0
+        fi
+        sleep 0.25
+    done
+    die "Connect was sent to local public ASL node $public_node, but external node $target_node did not reach ESTABLISHED state within 30 seconds."
+}
+
 if [[ "$action" == ENSURE_BRIDGE ]]; then
     ensure_bridge
 elif [[ "$action" == DISCONNECT_ALL ]]; then
@@ -89,6 +103,8 @@ else
     if [[ "$action" == CONNECT && "${option:-}" == DISCONNECT_BEFORE_CONNECT ]]; then disconnect_external_links; fi
     result=$("$ASTERISK" -rx "rpt cmd $public_node ilink $ilink $target" 2>&1) || die "Asterisk rejected the link command: $result"
     printf '%s\n' "$result"
+    # Report Connect as successful only after the requested node is live on the public node.
+    if [[ "$action" == CONNECT ]]; then wait_for_connection "$target"; fi
     # ASL favorites are stored by the ASL-owned dashboard endpoint, not the optional Mode Buttons target helper.
-    printf 'PASS: requested %s on local public ASL node %s for node %s.\n' "$action" "$public_node" "$target"
+    if [[ "$action" != CONNECT ]]; then printf 'PASS: requested %s on local public ASL node %s for node %s.\n' "$action" "$public_node" "$target"; fi
 fi
