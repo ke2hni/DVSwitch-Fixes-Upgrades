@@ -24,7 +24,7 @@ Start the combined manager:
 sudo ./DVSwitch-Mods/manage-dvswitch-mods.sh
 ```
 
-Update Existing Repsoitory Folder
+Update Existing Local Repository Folder
 
 ```bash
 cd DVSwitch-Fixes-Upgrades && git pull --ff-only
