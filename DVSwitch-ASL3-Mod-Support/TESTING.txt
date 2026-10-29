@@ -103,3 +103,7 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
 11. Leave ASL selected and watch Analog Bridge Info through multiple status
     refreshes; the target label must remain `Node`. Confirm the ASL Node Link
     box is compact and stays usable at narrow browser widths.
+12. From ASL, select each supported digital mode once. Confirm the dashboard
+    reports an error rather than changing its saved selection if Analog_Bridge
+    remains in ASL; after a successful switch, confirm the selected mode and
+    Analog_Bridge status agree without a browser refresh.

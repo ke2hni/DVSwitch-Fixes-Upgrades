@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Version: 1.0.0-test68
 set -u
 MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
 STATE_DIR=/var/lib/dvswitch-mode-buttons
@@ -136,6 +137,8 @@ PY
 [[ $# -eq 1 ]] || die 'usage: BM|TGIF|STFU|YSF|P25|NXDN|DSTAR|ASL'
 mode="${1^^}"
 install -d -m 755 -o root -g root "$STATE_DIR"
+previous_mode=''
+[[ -r "$STATE_FILE" ]] && previous_mode=$(tr -d '[:space:]' < "$STATE_FILE")
 
 target=''
 if [[ ( "$mode" == BM || "$mode" == TGIF ) && -x "$TARGET_HELPER" ]]; then
@@ -174,6 +177,20 @@ case "$mode" in
   DSTAR|STFU|YSF|P25|NXDN) [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode "$mode" || exit 1 ;;
   *) die "unsupported mode: $1" ;;
 esac
+# Do not record a mode change away from ASL until Analog_Bridge reports that
+# the ASL mode transition actually completed; dvswitch.sh can return after a
+# UDP send even when the command reached the wrong listener.
+if [[ "$previous_mode" == ASL && "$mode" != ASL ]]; then
+  live_mode=''
+  for attempt in 1 2 3; do
+    live_mode=$("$MODE_CMD" mode 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+    case "$mode:$live_mode" in
+      BM:DMR|TGIF:DMR|STFU:DMR|STFU:STFU|YSF:YSF|YSF:YSFN|YSF:YSFW|P25:P25|NXDN:NXDN|DSTAR:DSTAR) break ;;
+      *) live_mode=''; sleep 0.5 ;;
+    esac
+  done
+  [[ -n "$live_mode" ]] || die 'Analog_Bridge did not confirm the mode change; ASL remains selected.'
+fi
 printf '%s\n' "$mode" > "$STATE_FILE"
 chown root:root "$STATE_FILE"; chmod 644 "$STATE_FILE"
 if [[ "$mode" == BM || "$mode" == TGIF ]]; then

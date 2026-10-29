@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.1
+# Version: 1.0.2
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -31,7 +31,7 @@ PY_ASL_PORTS
 )
         fi
         if [ -z "${_ASL_TLV_LISTENERS_VALID:-}" ]; then
-            _ASL_TLV_LISTENERS=$(ss -H -lun 2>/dev/null | awk '{port=$4; sub(/^.*:/, "", port); printf " %s ", port}')
+            _ASL_TLV_LISTENERS=$(ss -H -lunp 2>/dev/null | awk 'index($0, "Analog_Bridge") {port=$4; sub(/^.*:/, "", port); if (port ~ /^[0-9]+$/) printf " %s ", port}')
             _ASL_TLV_LISTENERS_VALID=1
         fi
         for _candidate in $_ASL_TLV_CANDIDATES; do
@@ -39,6 +39,30 @@ PY_ASL_PORTS
         done
         case "$1" in rxport=*) unset _ASL_TLV_LISTENERS_VALID;; esac'''
 LEGACY_REMOTE_BLOCK = '''        for _candidate in 30000 $(parseIniFile "$DVSWITCH_INI" ASL TXPort) $(parseIniFile "$DVSWITCH_INI" DMR TXPort) $(parseIniFile "$DVSWITCH_INI" DSTAR TXPort) $(parseIniFile "$DVSWITCH_INI" NXDN TXPort) $(parseIniFile "$DVSWITCH_INI" P25 TXPort) $(parseIniFile "$DVSWITCH_INI" YSF TXPort) $(parseIniFile "$DVSWITCH_INI" STFU TXPort); do if ss -H -lun "sport = :${_candidate}" 2>/dev/null | grep -q .; then TLV_PORT=$_candidate; break; fi; done'''
+PREVIOUS_REMOTE_BLOCK = '''        if [ -z "${_ASL_TLV_CANDIDATES+x}" ]; then
+            _ASL_TLV_CANDIDATES=$(python3 - "$DVSWITCH_INI" <<'PY_ASL_PORTS'
+import configparser, sys
+from pathlib import Path
+
+parser = configparser.RawConfigParser(inline_comment_prefixes=(";",))
+parser.read_string("[dummy_section]\\n" + Path(sys.argv[1]).read_text())
+print("30000", end=" ")
+for section in ("ASL", "DMR", "DSTAR", "NXDN", "P25", "YSF", "STFU"):
+    try:
+        print(parser.get(section, "TXPort"), end=" ")
+    except (configparser.Error, KeyError):
+        pass
+PY_ASL_PORTS
+)
+        fi
+        if [ -z "${_ASL_TLV_LISTENERS_VALID:-}" ]; then
+            _ASL_TLV_LISTENERS=$(ss -H -lun 2>/dev/null | awk '{port=$4; sub(/^.*:/, "", port); printf " %s ", port}')
+            _ASL_TLV_LISTENERS_VALID=1
+        fi
+        for _candidate in $_ASL_TLV_CANDIDATES; do
+            case "$_ASL_TLV_LISTENERS" in *" $_candidate "*) TLV_PORT=$_candidate; break;; esac
+        done
+        case "$1" in rxport=*) unset _ASL_TLV_LISTENERS_VALID;; esac'''
 MODE_BLOCK = '''            if [ "$(getABInfoValue tlv ambe_mode)" = "ASL" ]; then if ss -lunp "sport = :30000" 2>/dev/null | grep -q "Analog_Bridge"; then TLV_PORT=30000; else TLV_PORT=$(parseIniFile "$DVSWITCH_INI" "ASL" "TXPort"); fi; fi'''
 REMOTE_ANCHOR = '    else\nPYTHON_ARG="$1" python3 - <<END'
 MODE_ANCHOR = '            ${DEBUG} setTLVRxPort 30000  # cause AB to stop listening'
@@ -64,15 +88,19 @@ def patch_text(text: str) -> str:
     mode_markers = text.count(MODE_MARKER)
     remote_blocks = text.count(REMOTE_BLOCK)
     legacy_remote_blocks = text.count(LEGACY_REMOTE_BLOCK)
+    previous_remote_blocks = text.count(PREVIOUS_REMOTE_BLOCK)
     mode_blocks = text.count(MODE_BLOCK)
     if (remote_markers > 1 or mode_markers > 1 or remote_blocks > 1
-            or legacy_remote_blocks > 1 or (remote_blocks and legacy_remote_blocks)
+            or legacy_remote_blocks > 1 or previous_remote_blocks > 1
+            or sum(bool(count) for count in (remote_blocks, legacy_remote_blocks, previous_remote_blocks)) > 1
             or mode_blocks > 1):
         raise PatchError("duplicate ASL mode-switch marker or routing block")
-    if (remote_markers and not (remote_blocks or legacy_remote_blocks)) or (mode_markers and not mode_blocks):
+    if (remote_markers and not (remote_blocks or legacy_remote_blocks or previous_remote_blocks)) or (mode_markers and not mode_blocks):
         raise PatchError("incomplete or modified ASL mode-switch repair")
 
-    if legacy_remote_blocks:
+    if previous_remote_blocks:
+        text = _replace_once(text, PREVIOUS_REMOTE_BLOCK, REMOTE_BLOCK, "v67 cached routing block")
+    elif legacy_remote_blocks:
         text = _replace_once(text, LEGACY_REMOTE_BLOCK, REMOTE_BLOCK, "legacy live-port routing block")
         if not remote_markers:
             text = _replace_once(text, REMOTE_BLOCK, f"{REMOTE_MARKER}\n{REMOTE_BLOCK}", "legacy routing block")
@@ -97,7 +125,7 @@ def patch_text(text: str) -> str:
         text = _replace_once(text, MODE_BLOCK, f"{MODE_MARKER}\n{MODE_BLOCK}", "legacy mode-routing block")
 
     if (text.count(REMOTE_MARKER) != 1 or text.count(REMOTE_BLOCK) != 1
-            or LEGACY_REMOTE_BLOCK in text):
+            or LEGACY_REMOTE_BLOCK in text or PREVIOUS_REMOTE_BLOCK in text):
         raise PatchError("remote command routing repair did not validate")
     if text.count(MODE_MARKER) != 1 or text.count(MODE_BLOCK) != 1:
         raise PatchError("ASL mode transition repair did not validate")
