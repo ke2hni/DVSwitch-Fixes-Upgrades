@@ -116,9 +116,11 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     remains in ASL; after a successful switch, confirm the selected mode and
     Analog_Bridge status agree without a browser refresh.
     Also refresh the dashboard while ASL is selected: RX Monitor must remain
-    beside the ASL Favorites/Tune controls in the ASL Node Link card. Switch to
-    a digital mode and confirm RX Monitor returns beside the Mode Buttons
-    Favorites controls.
+    at the left of the ASL tuner row, outside the ASL Node Link card. The ASL
+    favorite selector stays left in that row; its node field follows, with Tune
+    and +Favorite at the right. The Node Link card should contain only the
+    compact link-action checkboxes. Switch to a digital mode and confirm RX
+    Monitor returns beside the Mode Buttons Favorites controls.
     When switching from ASL to a digital mode, click once. The ASL link box
     should remain steady while the command runs, then hide after the Mode Buttons
     command succeeds; it must not flicker back while Analog_Bridge reports stale

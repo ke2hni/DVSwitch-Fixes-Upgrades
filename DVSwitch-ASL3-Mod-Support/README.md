@@ -57,21 +57,14 @@ requested external node reaches `ESTABLISHED`. It allows up to 30 seconds for
 the remote connection and reports an error if the link does not establish.
 
 Dashboard script version 1.0.1 restores short action-based link messages, such
-as `Connected to Node 55553`. Its ASL selection clears digital highlights
-without clearing its own selected state, including when the button shares the
-Mode Buttons row. Version 1.0.2 keeps the RX Monitor button visible in ASL mode
-when Mode Buttons hides its Favorites row, and restores it to that row for
-digital modes. Version 1.0.4 follows the pre-move transition behavior: a digital
-button click does not hide the ASL panel early. The panel changes after the
-Mode Buttons command succeeds, and stale ASL status is ignored until the bridge
-reports the requested mode. Version 1.0.5 places RX Monitor beside ASL's
-Favorites/Tune controls and restores it beside the Mode Buttons controls in
-digital modes. Version 1.0.6 keeps a successful digital-mode selection
-authoritative while the Analog_Bridge status row still reports stale ASL; the
-old 30-second timeout no longer reverts the dashboard to ASL after a successful
-switch.
-Version 1.0.7 restores the pre-transfer mode source: when Mode Buttons is
-installed, ASL Support reads its completed-mode status endpoint instead of
-letting a stale Analog_Bridge `Mode` row overwrite the selected mode. If Mode
-Buttons is absent, ASL Support falls back to the dashboard row and remains
-standalone.
+as `Connected to Node 55553`. Version 1.0.2 keeps RX Monitor visible in ASL
+mode and restores its original Mode Buttons position for digital modes.
+Version 1.0.4 follows the working transition behavior: a digital button click
+does not hide the ASL panel early; the Mode Buttons success event changes the
+panel after the command completes. Version 1.0.8 restores that event-driven
+behavior from the pre-transfer code and removes the competing ASL mode poll,
+which had read stale Analog_Bridge status and caused the dashboard to revert.
+When Mode Buttons is absent, ASL Support reads the dashboard row instead. The
+ASL tuner now shares the RX Monitor line, with its favorite selector on the
+left and Tune/+Favorite at the right; the compact ASL Node Link card contains
+only the link-action checkboxes.
