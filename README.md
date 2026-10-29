@@ -27,7 +27,7 @@ sudo ./DVSwitch-Mods/manage-dvswitch-mods.sh
 Update Existing Repsoitory Folder
 
 ```bash
-cd DVSwitch-Fixes-Upgrades.git && git pull --ff-only
+cd DVSwitch-Fixes-Upgrades && git pull --ff-only
 ```
 
 The menu offers:
