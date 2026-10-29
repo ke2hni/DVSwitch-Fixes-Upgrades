@@ -133,6 +133,8 @@ assert 'apply_asl_mode_repair --install' in BUTTON_INSTALLER
 assert "../DVSwitch-ASL3-Mod-Support" not in BUTTON_INSTALLER
 assert 'patch_dvswitch_mode_buttons_asl_mode.py' in BUTTON_REPAIR
 assert 'BACKUP_ROOT="/var/backups/dvswitch-mode-buttons/asl-mode-switch"' in BUTTON_REPAIR
+assert '# Version: 1.0.0-test71' in MODE_HELPER
+assert 'VERSION="1.0.0-test71"' in BUTTON_INSTALLER
 assert 'Analog_Bridge did not confirm the mode change; ASL remains selected.' in MODE_HELPER
 assert 'NOTICE: retrying the mode command after ASL link cleanup.' in MODE_HELPER
 assert MODE_HELPER.index('Analog_Bridge did not confirm the mode change; ASL remains selected.') < MODE_HELPER.index('printf \'%s\\n\' "$mode" > "$STATE_FILE"')

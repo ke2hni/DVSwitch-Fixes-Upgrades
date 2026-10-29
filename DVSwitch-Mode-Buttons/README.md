@@ -284,3 +284,6 @@ Version 1.0.0-test69 retries the mode command once if Analog_Bridge remains in A
 
 
 Version 1.0.0-test70 speeds ASL exit confirmation by reading the live ABInfo mode used by the dashboard instead of launching repeated `dvswitch.sh mode` status commands. It retries once when the bridge still reports ASL and confirms the selected mode before updating button state. Existing test45 through test69 controls upgrade in place.
+
+
+Version 1.0.0-test71 includes the 250ms ASL link-state polling helper and the faster live-ABInfo confirmation for ASL exits. Existing test45 through test70 dashboard controls upgrade in place.
