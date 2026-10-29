@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.4
+# Version: 1.0.5
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -54,8 +54,14 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
 # The ASL poller must not overwrite standard mode highlights with raw values such as YSFN.
 set_mode = re.search(r'function setMode\(mode\) \{(.*?)\n  \}', DASHBOARD, re.S)
 require(set_mode is not None and "document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]')" not in set_mode.group(1) and
-        "#dvs-mode-buttons [data-mode=\"ASL\"], #dvs-asl-mode-buttons [data-mode=\"ASL\"]" in set_mode.group(1),
-        'ASL dashboard refresh must not clear or set standard-mode button highlights')
+        "#dvs-mode-buttons [data-mode=\"ASL\"], #dvs-asl-mode-buttons [data-mode=\"ASL\"]" in set_mode.group(1) and
+        "button.dataset.mode !== 'ASL'" in set_mode.group(1) and
+        "#dvs-mode-buttons [data-mode=\"ASL\"].selected" in DASHBOARD,
+        'ASL highlighting must survive digital-button clearing and be styled in the shared mode row')
+require("status.textContent = linkSuccessMessage(selected.value, input.value.trim())" in DASHBOARD and
+        "return action === 'DISCONNECT_ALL' ? 'Disconnected all nodes' : (messages[action] || 'ASL link updated') + node;" in DASHBOARD and
+        "status.textContent = result.message" not in DASHBOARD,
+        'successful ASL actions must show concise action and node text instead of raw helper diagnostics')
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')

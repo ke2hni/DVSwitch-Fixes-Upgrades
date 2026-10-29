@@ -1,4 +1,5 @@
 /* ASL link controls and Analog_Bridge target label. */
+// Version: 1.0.1
 (function () {
   'use strict';
 
@@ -124,7 +125,7 @@
       var selected = actions.querySelector('input:checked');
       if (!selected) { status.textContent = 'Select an ASL link action.'; return; }
       sendControl({ action:'link', linkAction:selected.value, node:input.value.trim(), disconnectBeforeConnect:replace.checked })
-        .then(function (result) { status.textContent = result.message || 'ASL link updated.'; selected.checked = false; input.disabled = false; refreshActivity(); })
+        .then(function () { status.textContent = linkSuccessMessage(selected.value, input.value.trim()); selected.checked = false; input.disabled = false; refreshActivity(); })
         .catch(showError);
     });
     save.addEventListener('click', function () {
@@ -145,6 +146,17 @@
   }
 
   function showError(error) { var status = document.getElementById('dvs-asl-control-status'); if (status) status.textContent = error.message; }
+  // Keep successful actions concise; detailed helper output remains available when an action fails.
+  function linkSuccessMessage(action, node) {
+    var messages = {
+      CONNECT: 'Connected to Node ',
+      DISCONNECT: 'Disconnected from Node ',
+      MONITOR: 'Monitoring Node ',
+      LOCAL_MONITOR: 'Local monitor on Node '
+    };
+    return action === 'DISCONNECT_ALL' ? 'Disconnected all nodes' : (messages[action] || 'ASL link updated') + node;
+  }
+
   function loadFavorites() {
     fetch('/dvswitch/dvswitch-asl3-control.php?favorites=1', {cache:'no-store'}).then(function (response) { return response.json(); }).then(function (result) {
       if (!result.ok || !Array.isArray(result.favorites)) return;
@@ -243,12 +255,15 @@
   function setMode(mode) {
     mode = String(mode || '').toUpperCase();
     setTargetLabel(mode);
+    if (mode === 'ASL') {
+      // ASL shares the mode-button row, so clear only digital selections before marking ASL.
+      document.querySelectorAll('#dvs-mode-buttons [data-mode]').forEach(function (button) {
+        if (button.dataset.mode !== 'ASL') button.classList.remove('selected');
+      });
+    }
     // Only ASL Support owns the ASL highlight; leave standard mode highlights to Mode Buttons.
     var aslButton = document.querySelector('#dvs-mode-buttons [data-mode="ASL"], #dvs-asl-mode-buttons [data-mode="ASL"]');
     if (aslButton) aslButton.classList.toggle('selected', mode === 'ASL');
-    if (mode === 'ASL') {
-      document.querySelectorAll('#dvs-mode-buttons [data-mode]').forEach(function (button) { button.classList.remove('selected'); });
-    }
     var links = document.getElementById('dvs-asl-links');
     if (links) links.hidden = mode !== 'ASL';
     var activity = document.getElementById('dvs-asl-activity');
@@ -278,7 +293,7 @@
       setTargetLabel(mode);
     }).observe(info, { childList: true, subtree: true });
     var themeStyle = document.createElement('style');
-    themeStyle.textContent = '#dvs-asl-mode-buttons button{min-width:72px;height:32px;padding:4px 10px}#dvs-asl-mode-buttons button.selected{background-color:#008000}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
+    themeStyle.textContent = '#dvs-asl-mode-buttons button{min-width:72px;height:32px;padding:4px 10px}#dvs-asl-mode-buttons button.selected,#dvs-mode-buttons [data-mode="ASL"].selected{background-color:#008000}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
     document.head.appendChild(themeStyle);
   });
   document.addEventListener('click', function (event) {

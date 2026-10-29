@@ -41,6 +41,7 @@ Then verify in the dashboard:
    the private-to-public bridge is established if it was down. Confirm mode
    selection does not connect an external node, even if an older ASL target is
    saved. External links require a node entry and Tune.
+   Refresh several times while ASL is active; the ASL button must stay green.
 2. Confirm the Analog_Bridge field label changes from `Tx TG/Ref` to `Node`.
 3. Confirm the ASL Net card appears in the left status column with the other
    network cards. With an ASL link active, confirm it shows the remote node and
@@ -52,6 +53,8 @@ Then verify in the dashboard:
    Favorite. Confirm that name overrides the ASTDB name in the activity card.
    On pi4test, confirm parrot 55553 reaches `ESTABLISHED` in
    `sudo asterisk -rx "rpt lstats 446901"`; private node 1970 remains the bridge.
+   Successful Connect should show only `Connected to Node 55553`, not the
+   bridge and disconnect diagnostics.
    Confirm `Disconnect before Connect` is checked by default. With node 55553
    connected, enter a different node and select Connect; confirm the old
    external link drops before the new one connects, while the private bridge

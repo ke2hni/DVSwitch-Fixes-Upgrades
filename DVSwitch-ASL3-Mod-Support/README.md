@@ -55,3 +55,8 @@ The ASL node-link helper version 1.0.2 verifies Connect requests in
 `rpt lstats` on the discovered public node and reports success only when the
 requested external node reaches `ESTABLISHED`. It allows up to 30 seconds for
 the remote connection and reports an error if the link does not establish.
+
+Dashboard script version 1.0.1 restores short action-based link messages, such
+as `Connected to Node 55553`. Its ASL selection clears digital highlights
+without clearing its own selected state, including when the button shares the
+Mode Buttons row.
