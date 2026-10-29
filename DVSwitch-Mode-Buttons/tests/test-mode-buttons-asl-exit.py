@@ -29,16 +29,20 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+require("# Version: 1.0.1" in HELPER.read_text(encoding="utf-8"),
+        "fixed Mode Buttons ASL exit helper version marker is missing")
+
+
 # Exercise the node discovery parser with different local IDs; no node number is fixed in code.
 private_node, public_node = module.local_nodes(
-    b"[123456]\nrxchannel = usrp/127.0.0.1:34001:32001\n[987654]\n"
+    b"[123456](private bridge)\nrxchannel = usrp/127.0.0.1:34001:32001\n[987654](public node)\n"
 )
 require((private_node, public_node) == ("123456", "987654"), "local node discovery used fixed IDs or selected the wrong pair")
 
 with tempfile.TemporaryDirectory(prefix="mode-buttons-asl-exit-") as directory:
     temp = Path(directory)
     rpt_conf = temp / "rpt.conf"
-    rpt_conf.write_text("[123456]\nrxchannel = usrp/127.0.0.1:34001:32001\n[987654]\n", encoding="utf-8")
+    rpt_conf.write_text("[123456](private bridge)\nrxchannel = usrp/127.0.0.1:34001:32001\n[987654](public node)\n", encoding="utf-8")
     fake_asterisk = temp / "asterisk"
     fake_asterisk.write_text(
         "#!/usr/bin/env python3\n"

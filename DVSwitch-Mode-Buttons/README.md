@@ -290,3 +290,6 @@ Version 1.0.0-test71 updated the Mode Buttons release and dashboard markers; it 
 
 
 Version 1.0.0-test72 moves ASL external-link cleanup for mode changes into a helper owned and installed by Mode Buttons. It discovers the local private and public node IDs from `rpt.conf`, disconnects external nodes while preserving the private bridge, and polls link state every 250ms for up to ten seconds. The Mode Buttons installer installs, upgrades, backs up, and removes this helper without requiring an ASL3 Support update. Existing test45 through test71 dashboard controls upgrade in place. Run `PYTHONDONTWRITEBYTECODE=1 python3 tests/test-mode-buttons-asl-exit.py` to verify node discovery and the disconnect sequence.
+
+
+Version 1.0.0-test73 fixes ASL node discovery for `rpt.conf` sections with parenthetical labels, such as `[123456](private bridge)`. This prevents the Mode Buttons exit helper from rejecting mode changes when it cannot parse that valid section format. The helper version is 1.0.1. Existing test45 through test72 dashboard controls upgrade in place.

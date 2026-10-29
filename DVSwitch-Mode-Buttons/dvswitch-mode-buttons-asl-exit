@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -19,6 +19,7 @@ ASTERISK = os.environ.get("DVS_BUTTONS_ASTERISK", "/usr/sbin/asterisk")
 POLL_SECONDS = 0.25
 TIMEOUT_SECONDS = 10.0
 NODE_HEADER = re.compile(rb"\[\s*(\d{1,8})\s*\]\s*(?:\([^)]*\))?\s*$")
+ANY_HEADER = re.compile(rb"\[.*\]")
 
 
 def clean_line(line: bytes) -> bytes:
@@ -32,7 +33,7 @@ def local_nodes(data: bytes) -> tuple[str, str]:
     current_lines: list[bytes] = []
     for raw in data.splitlines():
         line = clean_line(raw)
-        if line.startswith(b"[") and line.endswith(b"]"):
+        if ANY_HEADER.match(line):
             if current_node:
                 sections.append((current_node, current_lines))
             match = NODE_HEADER.fullmatch(line)

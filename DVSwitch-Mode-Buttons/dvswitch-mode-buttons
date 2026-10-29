@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test72
+# Version: 1.0.0-test73
 set -u
 MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
 STATE_DIR=/var/lib/dvswitch-mode-buttons
