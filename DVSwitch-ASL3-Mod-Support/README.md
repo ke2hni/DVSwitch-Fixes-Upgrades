@@ -43,3 +43,7 @@ one other configured node; it refuses ambiguous layouts. From the combined repos
 `python3 DVSwitch-ASL3-Mod-Support/tests/test-dvswitch-asl-mode-switch-patcher.py`
 and `python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py` to
 check the mode-switch repair and dashboard layout patch.
+
+Version 1.0.1 checks for link and private-bridge state every 250ms while
+preserving the existing ten-second verification limit. This reduces the delay
+between Asterisk clearing a link and DVSwitch continuing its mode change.

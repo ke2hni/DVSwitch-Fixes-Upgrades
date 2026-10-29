@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -43,13 +44,14 @@ ensure_bridge() {
     links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not list links on local public ASL node $public_node: $links"
     if ! awk -v node="$private_node" '$1 == node && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
         result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 3 $private_node" 2>&1) || die "Could not establish the private-to-public bridge: $result"
-        for attempt in {1..10}; do
+        # Poll at 250ms but keep the original ten-second bridge-establishment limit.
+        for attempt in {1..40}; do
             links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify the local ASL bridge: $links"
             if awk -v node="$private_node" '$1 == node && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
                 printf 'PASS: private bridge node %s is established on local public node %s.\n' "$private_node" "$public_node"
                 return 0
             fi
-            sleep 1
+            sleep 0.25
         done
         die "Private bridge node $private_node did not establish on local public node $public_node."
     fi
@@ -65,13 +67,14 @@ disconnect_external_links() {
         result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 1 $peer" 2>&1) || die "Could not disconnect external ASL node $peer: $result"
         printf '%s\n' "$result"
     done <<< "$peers"
-    for attempt in {1..10}; do
+    # Poll four times per second while preserving the ten-second safety limit.
+    for attempt in {1..40}; do
         links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify external ASL disconnections: $links"
         if ! awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { found=1 } END { exit found ? 0 : 1 }' <<< "$links"; then
             printf 'PASS: external ASL links are disconnected; private bridge node %s remains protected.\n' "$private_node"
             return 0
         fi
-        sleep 1
+        sleep 0.25
     done
     die 'An external ASL link remained established after the disconnect request.'
 }

@@ -67,11 +67,10 @@ Then verify in the dashboard:
    Repeat the mode switch with the private-to-public link down; it must not
    report that the public node cannot be found or block the mode change.
    Also verify standard mode changes outside ASL (TGIF to STFU, STFU to NXDN,
-   and NXDN to P25). Record click-to-Analog_Bridge and click-to-green timing;
-   both should complete promptly without waiting for ASL node-link operations.
+   and NXDN to P25). Record click-to-Analog_Bridge and click-to-green timing.
    The button reports the selected color only after its mode command finishes.
-   Disconnecting external peers is verified before switching and can wait up
-   to ten seconds if Asterisk takes time to clear a link.
+   When exiting ASL, confirm the external peer is fully disconnected before
+   switching; the helper checks every 250ms and retains a ten-second timeout.
 8. Keep external node 55553 connected. Confirm ASL Gateway Activity uses the
    same `Time`, `Mode`, `Node`, `Name`, `Target`, `Src`, `Dur(s)`, `Loss`, and
    `BER` columns as Gateway Activity, with Loss at `0%` and BER at `0.0%`.

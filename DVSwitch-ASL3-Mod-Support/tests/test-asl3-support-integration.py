@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 
 """Check ASL support stays optional and links through Mode Buttons safely."""
@@ -66,6 +67,8 @@ for action, code in (("CONNECT", "3"), ("DISCONNECT", "1"), ("MONITOR", "2"), ("
 require('rpt cmd $public_node ilink 1 $peer' in LINK and '$1 != keep { print $1 }' in LINK and
         'rpt lstats $public_node' in LINK and "ilink 6" not in LINK,
         "Disconnect All must individually remove public-node peers and preserve the private bridge")
+require(LINK.count('for attempt in {1..40}; do') == 2 and LINK.count('sleep 0.25') == 2,
+        "ASL link and bridge checks must poll at 250ms intervals without shortening their ten-second limits")
 require('printf \'DISCONNECT_ALL\\n\' | "$ASL_NODE_HELPER"' in BUTTON_HELPER and
         '"$(<"$STATE_FILE")" == ASL' in BUTTON_HELPER,
         "leaving ASL mode must disconnect external links before switching modes")
