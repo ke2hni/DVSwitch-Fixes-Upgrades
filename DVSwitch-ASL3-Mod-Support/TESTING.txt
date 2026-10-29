@@ -115,12 +115,13 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     reports an error rather than changing its saved selection if Analog_Bridge
     remains in ASL; after a successful switch, confirm the selected mode and
     Analog_Bridge status agree without a browser refresh.
-    Also refresh the dashboard while ASL is selected: RX Monitor must remain
-    at the left of the ASL tuner row, outside the ASL Node Link card. The ASL
-    favorite selector stays left in that row; its node field follows, with Tune
-    and +Favorite at the right. The Node Link card should contain only the
-    compact link-action checkboxes. Switch to a digital mode and confirm RX
-    Monitor returns beside the Mode Buttons Favorites controls.
+    Also refresh the dashboard while ASL is selected: the Analog_Bridge label
+    must read Node and show the connected node number. RX Monitor, Favorites,
+    the favorite selector, node field, Tune, and +Favorite must use one row.
+    The field must show `Enter Node #` in ASL and `Enter TG / Ref` in digital
+    modes without clipping. The Node Link card should contain only its compact
+    action checkboxes. Switch to a digital mode and confirm RX Monitor returns
+    to the left of the same Mode Buttons row.
     When switching from ASL to a digital mode, click once. The ASL link box
     should remain steady while the command runs, then hide after the Mode Buttons
     command succeeds; it must not flicker back while Analog_Bridge reports stale
@@ -135,5 +136,5 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     modes and their Favorites continue to work. Then install ASL Support and
     confirm its ASL-owned button and node tuner appear beside the standard modes.
 14. Repeat the ASL Support install with Mode Buttons absent on a disposable test
-    image; confirm ASL still provides its own mode button, node controls, and
-    favorites without installing or invoking the Mode Buttons installer.
+    image; confirm ASL still provides its own mode button and one compact node
+    controls/favorites row without installing or invoking Mode Buttons.

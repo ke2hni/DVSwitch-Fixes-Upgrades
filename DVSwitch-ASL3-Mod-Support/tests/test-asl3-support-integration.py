@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.8
+# Version: 1.0.9
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -59,18 +59,24 @@ require(set_mode is not None and "document.querySelectorAll('#dvs-mode-buttons [
         "button.dataset.mode !== 'ASL'" in set_mode.group(1) and
         "#dvs-mode-buttons [data-mode=\"ASL\"].selected" in DASHBOARD,
         'ASL highlighting must survive digital-button clearing and be styled in the shared mode row')
-require("status.textContent = linkSuccessMessage(selected.value, input.value.trim())" in DASHBOARD and
+require("setControlMessage(linkSuccessMessage(selected.value, node))" in DASHBOARD and
         "return action === 'DISCONNECT_ALL' ? 'Disconnected all nodes' : (messages[action] || 'ASL link updated') + node;" in DASHBOARD and
-        "status.textContent = result.message" not in DASHBOARD,
+        "status.textContent = result.message" not in DASHBOARD and
+        DASHBOARD.count("sendControl({ action:'saveFavorites', favorites:next })") == 1,
         'successful ASL actions must show concise action and node text instead of raw helper diagnostics')
 require('function placeRxMonitor(mode)' in DASHBOARD and
-        "document.getElementById('dvs-asl-controls-row')" in DASHBOARD and
-        "aslRow.insertBefore(rxButton, aslTuner)" in DASHBOARD and
-        "controlsRow.appendChild(form)" in DASHBOARD and
+        "document.getElementById('dvs-target-tuner')" in DASHBOARD and
+        "aslTuner.closest('.dvs-favorites-control-line, #dvs-asl-fallback-line')" in DASHBOARD and
+        "document.getElementById('dvs-asl-controls-row')" not in DASHBOARD and
+        "document.addEventListener('submit', function (event)" in DASHBOARD and
+        "event.target !== aslTuner" in DASHBOARD and
         "root.append(actions, replaceLabel)" in DASHBOARD and
+        "tunerRow.insertBefore(rxButton, tunerRow.firstChild)" in DASHBOARD and
         "favoritesRow.insertBefore(rxButton, favoritesRow.firstChild)" in DASHBOARD and
-        "document.addEventListener('dvswitch-mode-buttons-mode'" in DASHBOARD,
-        'ASL mode must keep RX Monitor beside the ASL tune row, outside the compact action card, and restore its Mode Buttons position for digital modes')
+        "document.addEventListener('dvswitch-mode-buttons-mode'" in DASHBOARD and
+        "aslNodeInput.placeholder = mode === 'ASL' ? 'Enter Node #' : 'Enter TG / Ref';" in DASHBOARD and
+        "#dvs-target-input{box-sizing:border-box;width:min(18ch,55vw)}" in DASHBOARD,
+        'ASL must reuse one Mode Buttons tuner line, preserve RX Monitor placement, switch the placeholder, and keep the target label readable')
 transition = re.search(r'function beginModeTransition\(mode\) \{(.*?)\n  \}', DASHBOARD, re.S)
 mode_event = re.search(r'function acceptModeUpdate\(mode\) \{(.*?)\n  \}', DASHBOARD, re.S)
 require(transition is not None and
@@ -78,17 +84,18 @@ require(transition is not None and
         'staleModeDuringTransition = activeMode;' in transition.group(1) and
         'setMode(mode)' not in transition.group(1) and
         mode_event is not None and
-        'if (pendingMode && mode !== pendingMode) return;' in DASHBOARD and
-        'if (confirmedMode && mode === staleModeDuringTransition) return;' in mode_event.group(1) and
+        "if (pendingMode && mode !== pendingMode) { setMode(activeMode); return; }" in mode_event.group(1) and
+        "if (confirmedMode && mode === staleModeDuringTransition) { setMode(confirmedMode); return; }" in mode_event.group(1) and
         'confirmedMode = mode;' in mode_event.group(1) and
         'pendingModeTimer' not in DASHBOARD and
         "document.addEventListener('dvswitch-mode-buttons-mode', function (event)" in DASHBOARD,
         'Mode Buttons success events must control mode changes, ignore late stale status, and avoid timed rollbacks')
 require("beginModeTransition('ASL');" in DASHBOARD and
         "acceptModeUpdate('ASL');" in DASHBOARD and
-        "if (document.getElementById('dvs-mode-buttons')) return;" in DASHBOARD and
-        'setTargetLabel(mode);' not in re.search(r'new MutationObserver\(function \(\) \{(.*?)\}\)\.observe\(info', DASHBOARD, re.S).group(1),
-        'ASL selection must guard against delayed old-mode events and the Analog_Bridge row must not override Mode Buttons state')
+        "if (document.getElementById('dvs-mode-buttons')) {" in DASHBOARD and
+        "if (activeMode) setTargetLabel(activeMode);" in DASHBOARD and
+        "if (mode === 'ASL' && favoritesRoot) favoritesRoot.hidden = false;" in DASHBOARD,
+        'ASL selection must guard against delayed old-mode events, reapply Node after live card refresh, and show the shared line')
 require("if (document.getElementById('dvs-mode-buttons')) return;" in DASHBOARD and
         "function refreshStandaloneMode()" in DASHBOARD and
         "fetch('/dvswitch/dvswitch-mode-buttons.php?status=1'" not in DASHBOARD,
