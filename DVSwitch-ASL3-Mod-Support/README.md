@@ -61,6 +61,17 @@ as `Connected to Node 55553`. Its ASL selection clears digital highlights
 without clearing its own selected state, including when the button shares the
 Mode Buttons row. Version 1.0.2 keeps the RX Monitor button visible in ASL mode
 when Mode Buttons hides its Favorites row, and restores it to that row for
-digital modes. Version 1.0.3 holds the chosen digital-mode display while
-Analog_Bridge is still reporting ASL, then clears that transition state when
-the bridge reports the new mode.
+digital modes. Version 1.0.4 follows the pre-move transition behavior: a digital
+button click does not hide the ASL panel early. The panel changes after the
+Mode Buttons command succeeds, and stale ASL status is ignored until the bridge
+reports the requested mode. Version 1.0.5 places RX Monitor beside ASL's
+Favorites/Tune controls and restores it beside the Mode Buttons controls in
+digital modes. Version 1.0.6 keeps a successful digital-mode selection
+authoritative while the Analog_Bridge status row still reports stale ASL; the
+old 30-second timeout no longer reverts the dashboard to ASL after a successful
+switch.
+Version 1.0.7 restores the pre-transfer mode source: when Mode Buttons is
+installed, ASL Support reads its completed-mode status endpoint instead of
+letting a stale Analog_Bridge `Mode` row overwrite the selected mode. If Mode
+Buttons is absent, ASL Support falls back to the dashboard row and remains
+standalone.

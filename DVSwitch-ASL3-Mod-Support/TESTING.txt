@@ -116,11 +116,16 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     remains in ASL; after a successful switch, confirm the selected mode and
     Analog_Bridge status agree without a browser refresh.
     Also refresh the dashboard while ASL is selected: RX Monitor must remain
-    visible outside the hidden Mode Buttons Favorites row. Switch to a digital
-    mode and confirm RX Monitor returns to the Favorites control row.
-    When switching from ASL to a digital mode, click once and confirm the ASL
-    link box and selection do not flicker back while Analog_Bridge still reports
-    ASL. The selected mode should settle when Analog_Bridge reports the new mode.
+    beside the ASL Favorites/Tune controls in the ASL Node Link card. Switch to
+    a digital mode and confirm RX Monitor returns beside the Mode Buttons
+    Favorites controls.
+    When switching from ASL to a digital mode, click once. The ASL link box
+    should remain steady while the command runs, then hide after the Mode Buttons
+    command succeeds; it must not flicker back while Analog_Bridge reports stale
+    ASL status. Leave the dashboard open for at least 45 seconds after selecting
+    STFU; the STFU highlight and Favorites row must remain, even if the Mode row
+    still temporarily reports ASL. Confirm the new mode is selected after
+    Analog_Bridge updates.
 
 13. With Mode Buttons installed but ASL Support absent, run its `--check` and
     confirm it reports the legacy ASL button for removal. Install Mode Buttons

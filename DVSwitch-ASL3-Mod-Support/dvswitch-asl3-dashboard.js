@@ -1,5 +1,5 @@
 /* ASL link controls and Analog_Bridge target label. */
-// Version: 1.0.3
+// Version: 1.0.7
 (function () {
   'use strict';
 
@@ -10,6 +10,8 @@
   var activeMode = '';
   var pendingMode = '';
   var pendingModeTimer = null;
+  var confirmedMode = '';
+  var staleModeDuringTransition = '';
   var connectedNodes = [];
   var activityStarted = Object.create(null);
   // Names and favorites are ASL-owned so dashboard controls do not depend on Mode Buttons.
@@ -94,7 +96,11 @@
       modeButton.type = 'button'; modeButton.className = 'button link'; modeButton.dataset.mode = 'ASL'; modeButton.textContent = 'ASL';
       buttons.appendChild(modeButton);
       modeButton.addEventListener('click', function () {
-        sendControl({ action: 'mode' }).then(function () { setMode('ASL'); }).catch(showError);
+        sendControl({ action: 'mode' }).then(function () {
+          clearModeTransition();
+          confirmedMode = 'ASL';
+          setMode('ASL');
+        }).catch(showError);
       });
     }
     if (document.getElementById('dvs-asl-links')) return;
@@ -167,36 +173,66 @@
     });
     if (!rxButton) return;
     var favoritesRow = document.querySelector('#dvs-favorites .dvs-favorites-control-line');
-    var aslLinks = document.getElementById('dvs-asl-links');
-    if (mode === 'ASL' && favoritesRow && favoritesRow.contains(rxButton) && aslLinks) {
-      aslLinks.insertAdjacentElement('beforebegin', rxButton);
+    var aslTuner = document.getElementById('dvs-asl-tuner');
+    var aslFavorite = document.getElementById('dvs-asl-favorites');
+    if (mode === 'ASL' && aslTuner && aslFavorite && rxButton.parentElement !== aslTuner) {
+      // Keep RX Monitor alongside ASL's own Favorites/Tune controls, outside the hidden Buttons row.
+      rxButton.classList.add('dvs-rx-monitor-inline');
+      aslTuner.insertBefore(rxButton, aslFavorite);
     } else if (mode !== 'ASL' && favoritesRow && !favoritesRow.contains(rxButton)) {
       favoritesRow.insertBefore(rxButton, favoritesRow.firstChild);
     }
   }
 
-  // Ignore stale ASL status briefly after a digital-mode click while the bridge changes modes.
+  // Hold the requested mode across refreshes until the bridge's status row catches up.
   function beginModeTransition(mode) {
     pendingMode = mode;
+    staleModeDuringTransition = activeMode;
     if (pendingModeTimer) window.clearTimeout(pendingModeTimer);
     pendingModeTimer = window.setTimeout(function () {
       pendingMode = '';
       pendingModeTimer = null;
+      staleModeDuringTransition = '';
       refresh();
     }, 30000);
-    setMode(mode);
+    // Wait for the Mode Buttons success event before changing the visible ASL panel.
   }
 
   function acceptModeUpdate(mode) {
     mode = String(mode || '').toUpperCase();
     if (pendingMode && mode !== pendingMode) return;
-    // The button request confirms command acceptance; modeInfo confirms bridge completion.
+    if (confirmedMode && mode === staleModeDuringTransition) return;
+    if (confirmedMode && mode !== confirmedMode) {
+      confirmedMode = '';
+      staleModeDuringTransition = '';
+    }
+    // A successful Mode Buttons response outranks the stale ASL row until that row catches up.
+    if (pendingMode === mode) {
+      confirmedMode = mode;
+      if (pendingModeTimer) window.clearTimeout(pendingModeTimer);
+      pendingMode = '';
+      pendingModeTimer = null;
+    }
     setMode(mode);
   }
 
   function confirmModeTransition(mode) {
-    if (pendingMode !== mode) return;
+    if (pendingMode === mode) {
+      confirmedMode = mode;
+      pendingMode = '';
+      if (pendingModeTimer) window.clearTimeout(pendingModeTimer);
+      pendingModeTimer = null;
+    }
+    if (confirmedMode === mode) {
+      confirmedMode = '';
+      staleModeDuringTransition = '';
+    }
+  }
+
+  function clearModeTransition() {
     pendingMode = '';
+    confirmedMode = '';
+    staleModeDuringTransition = '';
     if (pendingModeTimer) window.clearTimeout(pendingModeTimer);
     pendingModeTimer = null;
   }
@@ -315,18 +351,42 @@
     placeRxMonitor(mode);
   }
 
-  function refresh() {
+  function applyModeStatus(mode) {
+    mode = String(mode || '').toUpperCase();
+    if (pendingMode && mode !== pendingMode) return;
+    if (confirmedMode && mode === staleModeDuringTransition) return;
+    if (confirmedMode && mode !== confirmedMode) {
+      confirmedMode = '';
+      staleModeDuringTransition = '';
+    }
+    confirmModeTransition(mode);
+    setMode(mode);
+  }
+
+  // Prefer the Mode Buttons status endpoint, which tracks the completed mode command;
+  // read Analog_Bridge's row only when the optional Mode Buttons mod is absent.
+  function refreshFromDashboardRow() {
     var info = document.getElementById('modeInfo');
     if (!info) return;
     info.querySelectorAll('tr').forEach(function (row) {
       var heading = row.querySelector('th'), value = row.querySelector('td');
       if (heading && value && normalizeHeader(heading.textContent) === 'Mode') {
-        var mode = normalizeHeader(value.textContent).toUpperCase();
-        if (pendingMode && mode !== pendingMode) return;
-        confirmModeTransition(mode);
-        setMode(mode);
+        applyModeStatus(normalizeHeader(value.textContent));
       }
     });
+  }
+
+  function refresh() {
+    fetch('/dvswitch/dvswitch-mode-buttons.php?status=1', { cache: 'no-store' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('Mode Buttons status is unavailable.');
+        return response.json();
+      })
+      .then(function (result) {
+        if (!result || !result.ok || !result.mode) throw new Error('Mode Buttons status is unavailable.');
+        applyModeStatus(result.mode);
+      })
+      .catch(refreshFromDashboardRow);
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -343,14 +403,14 @@
       setTargetLabel(mode);
     }).observe(info, { childList: true, subtree: true });
     var themeStyle = document.createElement('style');
-    themeStyle.textContent = '#dvs-asl-mode-buttons button{min-width:72px;height:32px;padding:4px 10px}#dvs-asl-mode-buttons button.selected,#dvs-mode-buttons [data-mode="ASL"].selected{background-color:#008000}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
+    themeStyle.textContent = '#dvs-asl-mode-buttons button{min-width:72px;height:32px;padding:4px 10px}#dvs-asl-mode-buttons button.selected,#dvs-mode-buttons [data-mode="ASL"].selected{background-color:#008000}#dvs-asl-tuner .dvs-rx-monitor-inline{min-width:137px;height:34px;margin:0 4px 0 0;padding:4px 10px}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}';
     document.head.appendChild(themeStyle);
   });
   document.addEventListener('click', function (event) {
     var button = event.target.closest('#dvs-mode-buttons [data-mode]');
     if (button && button.dataset.mode !== 'ASL') {
+      // Track the requested destination, but let Mode Buttons confirm it before changing the UI.
       if (activeMode === 'ASL') beginModeTransition(button.dataset.mode);
-      else setMode(button.dataset.mode);
     }
   });
   document.addEventListener('dvswitch-mode-buttons-mode', function (event) {

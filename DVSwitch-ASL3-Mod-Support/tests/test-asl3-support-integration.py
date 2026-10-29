@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.7
+# Version: 1.0.6
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -63,18 +63,29 @@ require("status.textContent = linkSuccessMessage(selected.value, input.value.tri
         "status.textContent = result.message" not in DASHBOARD,
         'successful ASL actions must show concise action and node text instead of raw helper diagnostics')
 require('function placeRxMonitor(mode)' in DASHBOARD and
-        "favoritesRow.contains(rxButton)" in DASHBOARD and
-        "aslLinks.insertAdjacentElement('beforebegin', rxButton)" in DASHBOARD and
+        "document.getElementById('dvs-asl-tuner')" in DASHBOARD and
+        "aslTuner.insertBefore(rxButton, aslFavorite)" in DASHBOARD and
         "favoritesRow.insertBefore(rxButton, favoritesRow.firstChild)" in DASHBOARD and
         "document.addEventListener('dvswitch-mode-buttons-mode'" in DASHBOARD,
-        'ASL mode must keep RX Monitor visible when the Mode Buttons Favorites row is hidden and restore its normal position for digital modes')
-require('function beginModeTransition(mode)' in DASHBOARD and
-        'pendingMode = mode;' in DASHBOARD and
+        'ASL mode must place RX Monitor beside its own favorite controls and restore its Mode Buttons position for digital modes')
+transition = re.search(r'function beginModeTransition\(mode\) \{(.*?)\n  \}', DASHBOARD, re.S)
+require(transition is not None and
+        'pendingMode = mode;' in transition.group(1) and
+        'staleModeDuringTransition = activeMode;' in transition.group(1) and
+        'setMode(mode)' not in transition.group(1) and
         'if (pendingMode && mode !== pendingMode) return;' in DASHBOARD and
         'function confirmModeTransition(mode)' in DASHBOARD and
-        'The button request confirms command acceptance; modeInfo confirms bridge completion.' in DASHBOARD and
-        'if (pendingMode && mode !== pendingMode) return;' in DASHBOARD,
-        'stale ASL status must not reverse the selected digital mode while the bridge completes the transition')
+        'confirmedMode = mode;' in DASHBOARD and
+        'if (confirmedMode && mode === staleModeDuringTransition) return;' in DASHBOARD and
+        'if (confirmedMode && mode !== confirmedMode) {' in DASHBOARD and
+        'if (pendingModeTimer) window.clearTimeout(pendingModeTimer);' in DASHBOARD and
+        "document.addEventListener('dvswitch-mode-buttons-mode', function (event)" in DASHBOARD,
+        'digital-mode clicks must preserve the ASL panel while pending and prevent stale ASL status from undoing a successful selection')
+require("function applyModeStatus(mode)" in DASHBOARD and
+        "fetch('/dvswitch/dvswitch-mode-buttons.php?status=1'" in DASHBOARD and
+        "function refreshFromDashboardRow()" in DASHBOARD and
+        ".catch(refreshFromDashboardRow)" in DASHBOARD,
+        'ASL must use Mode Buttons completed-mode status when available and fall back to the dashboard row without Mode Buttons')
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')
