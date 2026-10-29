@@ -281,3 +281,6 @@ Version 1.0.0-test68 restricts the cached listener snapshot to sockets owned by 
 
 
 Version 1.0.0-test69 retries the mode command once if Analog_Bridge remains in ASL after external ASL link cleanup. The selected mode is saved only after live status confirms the transition. Existing test45 through test68 controls upgrade in place.
+
+
+Version 1.0.0-test70 speeds ASL exit confirmation by reading the live ABInfo mode used by the dashboard instead of launching repeated `dvswitch.sh mode` status commands. It retries once when the bridge still reports ASL and confirms the selected mode before updating button state. Existing test45 through test69 controls upgrade in place.

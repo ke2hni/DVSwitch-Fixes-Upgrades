@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.4
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -148,27 +148,29 @@ with tempfile.TemporaryDirectory(prefix="mode-buttons-asl-retry-") as directory:
     live_state = temporary / "live-mode"
     fake_mode.write_text(
         '#!/bin/bash\n'
-        'if [[ "$1" == mode && $# -eq 2 && "${IGNORE_MODE_COMMAND:-0}" != 1 ]]; then printf "%s\\n" "$2" > "$LIVE_MODE_FILE"; fi\n'
-        'cat "$LIVE_MODE_FILE"\n'
+        'if [[ "$1" == mode && $# -eq 2 && "${IGNORE_MODE_COMMAND:-0}" != 1 ]]; then printf \'{"tlv":{"ambe_mode":"%s"}}\\n\' "$2" > "$ABINFO_DIR/ABInfo_test.json"; fi\n'
     )
     fake_mode.chmod(0o755)
     prelude = (
-        f'MODE_CMD={fake_mode}; LIVE_MODE_FILE={live_state}; export LIVE_MODE_FILE; previous_mode=ASL; mode=P25; '
+        f'MODE_CMD={fake_mode}; export ABINFO_DIR={live_state}; previous_mode=ASL; mode=P25; '
         'die(){ echo "ERROR: $*" >&2; exit 1; }; sleep(){ :; }\n'
     )
-    live_state.write_text("ASL\n")
+    live_state.mkdir()
+    (live_state / "ABInfo_test.json").write_text('{"tlv":{"ambe_mode":"ASL"}}\n')
     recovered = subprocess.run(
         ["bash", "-c", prelude + mode_guard + 'printf "STATE_WRITE\\n"'],
         text=True, capture_output=True, check=False,
     )
     require(recovered.returncode == 0 and "STATE_WRITE" in recovered.stdout,
             "one retry did not recover a delayed ASL-to-digital transition")
-    require(live_state.read_text().strip() == "P25", "retry did not issue the selected mode")
-    live_state.write_text("ASL\n")
+    require('"P25"' in (live_state / "ABInfo_test.json").read_text(), "retry did not issue the selected mode")
+    (live_state / "ABInfo_test.json").write_text('{"tlv":{"ambe_mode":"ASL"}}\n')
     not_recovered = subprocess.run(
         ["bash", "-c", prelude + mode_guard + 'printf "STATE_WRITE\\n"'],
         env={**os.environ, "IGNORE_MODE_COMMAND": "1"}, text=True, capture_output=True, check=False,
     )
     require(not_recovered.returncode != 0 and "STATE_WRITE" not in not_recovered.stdout,
             "a failed retry incorrectly allowed the saved mode to leave ASL")
+    require("ASL remains selected" in not_recovered.stderr,
+            "a non-matching live mode incorrectly passed transition confirmation")
 print("PASS: self-contained Mode Buttons ASL repair supports 1.6.2/1.6.3, checks idempotently, adopts tested patches, and rejects unsupported structures")
