@@ -50,25 +50,3 @@ check the mode-switch repair and dashboard layout patch.
 Version 1.0.1 checks for link and private-bridge state every 250ms while
 preserving the existing ten-second verification limit. This reduces the delay
 between Asterisk clearing a link and DVSwitch continuing its mode change.
-
-The ASL node-link helper version 1.0.2 verifies Connect requests in
-`rpt lstats` on the discovered public node and reports success only when the
-requested external node reaches `ESTABLISHED`. It allows up to 30 seconds for
-the remote connection and reports an error if the link does not establish.
-
-Dashboard script version 1.0.1 restores short action-based link messages, such
-as `Connected to Node 55553`. Version 1.0.2 keeps RX Monitor visible in ASL
-mode and restores its original Mode Buttons position for digital modes.
-Version 1.0.4 follows the working transition behavior: a digital button click
-does not hide the ASL panel early; the Mode Buttons success event changes the
-panel after the command completes. Version 1.0.8 restores that event-driven
-behavior from the pre-transfer code and removes the competing ASL mode poll,
-which had read stale Analog_Bridge status and caused the dashboard to revert.
-When Mode Buttons is absent, ASL Support reads the dashboard row instead. The
-ASL transition guard also covers entry into ASL, and delayed status responses
-cannot override the selected mode. Version 1.0.9 reuses Mode Buttons' existing
-favorites and tuner line instead of creating a duplicate. In ASL mode, that
-line shows the ASL favorite list, `Enter Node #`, Tune, and +Favorite; in
-other modes it restores `Enter TG / Ref`. The input is wide enough to show
-either prompt, the Node label is reapplied whenever Analog_Bridge refreshes,
-and the compact ASL Node Link card contains only its action checkboxes.
