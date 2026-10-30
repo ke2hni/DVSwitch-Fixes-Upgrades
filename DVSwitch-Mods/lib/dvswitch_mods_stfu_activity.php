@@ -1,10 +1,10 @@
 <?php
-// Version: 1.0.1
+// Version: 1.0.3
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Jeff Milne, KE2HNI
-// DVSwitch-Mods: STFU activity feed v9
+// DVSwitch-Mods: STFU activity feed v11
 
-/** Parse recent STFU ODMR traffic into DVSwitch's activity-row structure. */
+/** Parse recent STFU ODMR traffic and local MMDVM PTT records into activity rows. */
 function dvsModsStfuActivityRows($paths = null)
 {
     if ($paths === null) {
@@ -15,6 +15,7 @@ function dvsModsStfuActivityRows($paths = null)
     }
     $events = array();
     $open = array();
+    $localTxOpen = array();
     $sequence = 0;
     foreach ($paths as $path) {
         if (!is_readable($path) || is_link($path)) { continue; }
@@ -35,6 +36,24 @@ function dvsModsStfuActivityRows($paths = null)
         foreach ($lines as $line) {
             if (!preg_match('/^[A-Z]: (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}) (.*)$/', $line, $match)) { continue; }
             $message = $match[2];
+            // STFU records local PTT as standard MMDVM TX lines, separate from ODMR network events.
+            if (preg_match('/^DMR, Begin TX:.*?\bsrc\s*=\s*([0-9]+).*?\bdst\s*=\s*([0-9]+).*?metadata\s*=\s*([^,\s]+)/i', $message, $localTx)) {
+                $row = array($match[1], 'STFU', trim($localTx[3]), '', 'TG '.$localTx[2], 'LNet', null, '0%', '0.0%', '', '');
+                $events[] = array('row' => $row, 'direction' => 'LOCAL_TX', 'sequence' => $sequence++);
+                $localTxOpen[] = count($events) - 1;
+                continue;
+            }
+            if (preg_match('/^DMR, TX state = OFF,.*?frame count was\s+([0-9]+)\s+frames/i', $message, $localTxEnd)) {
+                for ($index = count($localTxOpen) - 1; $index >= 0; $index--) {
+                    $eventIndex = $localTxOpen[$index];
+                    if (isset($events[$eventIndex]) && $events[$eventIndex]['row'][6] === null) {
+                        $events[$eventIndex]['row'][6] = number_format(((int)$localTxEnd[1]) * 0.059, 1, '.', '');
+                        array_splice($localTxOpen, $index, 1);
+                        break;
+                    }
+                }
+                continue;
+            }
             if (preg_match('/^DMR, ODMR Begin (Tx|Rx):\s*src\s*=\s*([0-9]+),\s*dst\s*=\s*([0-9]+)\s*\((GROUP|PRIVATE)\)/i', $message, $call)) {
                 $direction = strtoupper($call[1]);
                 // STFU.log has no Loss/BER fields; display cosmetic zero placeholders only.
@@ -53,6 +72,12 @@ function dvsModsStfuActivityRows($paths = null)
             }
         }
     }
+    // Keep an active local transmission visible with elapsed duration until its end record arrives.
+    foreach ($localTxOpen as $index) {
+        if (isset($events[$index]) && $events[$index]['row'][6] === null) {
+            $events[$index]['row'][6] = dvsModsStfuElapsedDuration($events[$index]['row'][0]);
+        }
+    }
     usort($events, function ($left, $right) {
         $time = strcmp($right['row'][0], $left['row'][0]);
         return $time !== 0 ? $time : ($right['sequence'] <=> $left['sequence']);
@@ -60,65 +85,21 @@ function dvsModsStfuActivityRows($paths = null)
     return array_map(function ($event) { return $event['row']; }, $events);
 }
 
-/** Convert an MMDVM UTC log timestamp to milliseconds for mode-history matching. */
-function dvsModsStfuTimestampMs($timestamp)
+/** Calculate elapsed duration for a currently active local STFU transmission. */
+function dvsModsStfuElapsedDuration($timestamp)
 {
-    if (!preg_match('/^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)(?:\.(\d{1,6}))?$/D', (string)$timestamp, $match)) { return null; }
-    $fraction = isset($match[2]) ? str_pad($match[2], 6, '0') : '000000';
-    $date = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s.u', $match[1].'.'.$fraction, new DateTimeZone('UTC'));
-    if ($date === false) { return null; }
-    $errors = DateTimeImmutable::getLastErrors();
-    if (is_array($errors) && ($errors['warning_count'] !== 0 || $errors['error_count'] !== 0)) { return null; }
-    return ((int)$date->format('U') * 1000) + intdiv((int)$date->format('u'), 1000);
-}
-
-/** Label local DMR bridge transmissions as STFU only when mode history says they occurred in STFU mode. */
-function dvsModsStfuLabelLocalPtts($rows, $modeHistoryPath = null, $currentModePath = null)
-{
-    if ($modeHistoryPath === null) { $modeHistoryPath = '/var/lib/dvswitch-mods/activity-mode-history.tsv'; }
-    if ($currentModePath === null) { $currentModePath = '/var/lib/dvswitch-mode-buttons/current-mode'; }
-    $history = array();
-    if (is_readable($modeHistoryPath)) {
-        foreach ((array)file($modeHistoryPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $parts = explode("\t", $line, 2);
-            if (count($parts) === 2 && ctype_digit($parts[0]) && in_array($parts[1], array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'), true)) {
-                $history[] = array((int)$parts[0], $parts[1]);
-            }
-        }
-    }
-    $fallbackMode = '';
-    $fallbackAt = null;
-    if (!$history && is_readable($currentModePath)) {
-        $fallbackMode = strtoupper(trim((string)@file_get_contents($currentModePath)));
-        $fallbackAt = @filemtime($currentModePath);
-    }
-    foreach ((array)$rows as $index => $row) {
-        if (!is_array($row) || !isset($row[1], $row[5]) || $row[5] !== 'LNet'
-            || !in_array($row[1], array('DMR', 'DMR Slot 1', 'DMR Slot 2'), true)) { continue; }
-        $eventAt = dvsModsStfuTimestampMs($row[0] ?? '');
-        if ($eventAt === null) { continue; }
-        $mode = '';
-        $activeAt = -1;
-        foreach ($history as $transition) {
-            if ($transition[0] <= $eventAt && $transition[0] >= $activeAt) {
-                $mode = $transition[1];
-                $activeAt = $transition[0];
-            }
-        }
-        if (!$history && $fallbackMode === 'STFU' && $fallbackAt !== false && $fallbackAt !== null && $eventAt >= ($fallbackAt * 1000)) {
-            $mode = 'STFU';
-        }
-        if ($mode === 'STFU') { $rows[$index][1] = 'STFU'; }
-    }
-    return $rows;
+    $utc = new DateTimeZone('UTC');
+    $start = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s.v', (string)$timestamp, $utc);
+    if ($start === false) { return '0.0'; }
+    $seconds = (float)(new DateTimeImmutable('now', $utc))->format('U.u') - (float)$start->format('U.u');
+    return number_format(max(0, $seconds), 1, '.', '');
 }
 
 /** Merge STFU events while keeping one latest row per DVSwitch caller key. */
-function dvsModsStfuMergeActivity($rows, $paths = null, $modeHistoryPath = null, $currentModePath = null)
+function dvsModsStfuMergeActivity($rows, $paths = null)
 {
-    // MMDVM_Bridge logs local STFU PTT as ordinary DMR; mode history restores its selected dashboard label.
-    $rows = dvsModsStfuLabelLocalPtts(is_array($rows) ? $rows : array(), $modeHistoryPath, $currentModePath);
-    $combined = array_merge($rows, dvsModsStfuActivityRows($paths));
+    // Use STFU.log's own PTT records so labels do not depend on separate mode history.
+    $combined = array_merge(is_array($rows) ? $rows : array(), dvsModsStfuActivityRows($paths));
     usort($combined, function ($left, $right) {
         $time = strcmp((string)($right[0] ?? ''), (string)($left[0] ?? ''));
         return $time !== 0 ? $time : 0;

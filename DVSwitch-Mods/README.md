@@ -1,4 +1,4 @@
-<!-- Version: 1.0.5 --><div align="center">
+<!-- Version: 1.0.7 --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -39,7 +39,9 @@ DVSwitch-Mods provides two types of changes:
   activity targets. The separate STFU activity component reads STFU's own log
   and adds its RX/TX events to the Gateway Activity, Local Activity, and TRX
   views. STFU is displayed on its own status card rather than the DMR Master
-  card. Its target comes from the saved STFU mode target, then `[STFU] StartTG`
+  card. Local PTT rows come from STFU.log's standard `DMR, Begin TX` and
+  `DMR, TX state = OFF` records, with the metadata callsign and DMR frame count.
+  Its target comes from the saved STFU mode target, then `[STFU] StartTG`
   in `/opt/MMDVM_Bridge/DVSwitch.ini`, with the STFU log as a standalone fallback.
   It does not use the shared Analog_Bridge `last_tune` value, which can change
   with BM/TGIF tuning. STFU rows display `0%` Loss and `0.0%` BER as cosmetic placeholders,
@@ -48,8 +50,8 @@ DVSwitch-Mods provides two types of changes:
   timestamps to calculate Dur(s) in every mode. DMR keeps its frame-count
   duration when the log provides it; an active transmission shows elapsed time.
   Local Loss and BER display `0%` and `0.0%` because the local transmit records
-  do not provide measurements. Local DMR PTT rows are labeled STFU only when
-  timestamped mode history shows that STFU was selected for that transmission.
+  do not provide measurements. STFU-local Loss and BER likewise use cosmetic
+  zero placeholders because the STFU log does not provide measurements.
 
 Standard component installers check compatibility before changing anything,
 create protected backups, install atomically, validate the result, and roll

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Version: 1.0.1
+# Version: 1.0.3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
-# Add STFU's independent ODMR log to Gateway Activity, Local Activity, and TRX Info.
+# Add STFU ODMR events and local PTT records to Gateway Activity, Local Activity, and TRX Info.
 set -Eeuo pipefail
 umask 077
 
@@ -38,7 +38,8 @@ preflight() {
     command -v php >/dev/null || die 'php is required.'
     for path in "$FUNCTIONS" "$LH" "$LOCALTX" "$STATUS" "$PATCHER" "$HELPER_SOURCE" "$TRANSACTION_LIBRARY"; do require_regular "$path"; done
     for path in "$HELPER"; do [[ ! -e "$path" || -f "$path" && ! -L "$path" ]] || die "Refusing unsupported target: $path"; done
-    if [[ -e "$HELPER" ]] && ! grep -Eq 'DVSwitch-Mods: STFU activity feed v[123456789]$' "$HELPER"; then
+    # Accept each recognized earlier helper so the direct STFU-log parser upgrades cleanly.
+    if [[ -e "$HELPER" ]] && ! grep -Eq 'DVSwitch-Mods: STFU activity feed v([1-9]|10|11)$' "$HELPER"; then
         die "Refusing to replace an unrecognized helper: $HELPER"
     fi
 }

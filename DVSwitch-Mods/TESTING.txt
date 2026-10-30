@@ -1,4 +1,4 @@
-Version: 1.0.1
+Version: 1.0.3
 DVSwitch-Mods dashboard-targets 1.2.0 event-time test package
 
 STFU logrotate restart repair (run on pi4test first):
@@ -80,7 +80,7 @@ If the check passes, install the updated component. Existing STFU history entrie
 
 sudo ./mod-dashboard-activity-modes.sh --install && sudo tail -n 8 /var/lib/dvswitch-mods/dmr-network-history.tsv
 
-Then, key up once in D-Star, DMR, YSF, P25, and NXDN. Confirm each local PTT row has a duration; DMR should retain its frame-count duration and other modes should use the Begin TX/TX OFF timestamps. Local rows display 0% Loss and 0.0% BER because those values are not in the local transmit records. Select STFU, key up, and confirm the local DMR log row is labeled STFU in both activity tables using its event-time mode history. Then, while the bridge is set to TGIF, select STFU and confirm a network DMR row remains labeled TGIF. Confirm STFU-log activity rows display cosmetic 0% Loss and 0.0% BER values (not measured data). Switch the bridge to BM or TGIF and verify subsequent DMR rows use that bridge network while older rows retain their event-time labels. Do not install on production node68425 until test nodes pass and Jeff explicitly authorizes it.
+Then, key up once in D-Star, DMR, YSF, P25, and NXDN. Confirm each local PTT row has a duration; DMR should retain its frame-count duration and other modes should use the Begin TX/TX OFF timestamps. Local rows display 0% Loss and 0.0% BER because those values are not in the local transmit records. Select STFU, key up, and confirm the local KE2HNI row from STFU.log's standard DMR Begin TX/TX state OFF records appears in Gateway and Local Activity with its frame-count duration. STFU Loss and BER display cosmetic 0% and 0.0% placeholders (not measured data). Then, while the bridge is set to TGIF, select STFU and confirm a network DMR row remains labeled TGIF. Switch the bridge to BM or TGIF and verify subsequent DMR rows use that bridge network while older rows retain their event-time labels. Do not install on production node68425 until test nodes pass and Jeff explicitly authorizes it.
 
 STFU log activity integration and Target-wrapper compatibility (run on pi4test first):
 
