@@ -132,3 +132,5 @@ Version 1.1.0 dashboard and exit checks:
 
 
 Version 1.1.1 check: while the dashboard remains in ASL, wait through multiple `status.php` refreshes. Verify the Analog Bridge row stays `Node`, shows the active external node ID, and changes to `-` after disconnecting the last external node.
+
+Version 1.1.2 check: switch from a digital mode to ASL and immediately open Favorites. Verify only ASL favorites appear without a page refresh. Confirm digital modes show `Enter TG/Reflector` and the target input width is unchanged.

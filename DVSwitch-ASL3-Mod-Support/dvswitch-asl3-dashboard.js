@@ -1,4 +1,4 @@
-/* Version: 1.1.1 — retain the ASL node target across status refreshes. */
+/* Version: 1.1.2 — retain the ASL node target and refresh ASL favorites cleanly. */
 (function () {
   'use strict';
 
@@ -74,7 +74,8 @@
     updateAnalogBridgeTarget(activeMode);
     var input = document.getElementById('dvs-target-input');
     if (input) {
-      input.placeholder = activeMode === 'ASL' ? 'Enter Node #' : 'Enter TG / Ref';
+      // Keep the shared field hint compact enough to fit its existing width.
+      input.placeholder = activeMode === 'ASL' ? 'Enter Node #' : 'Enter TG/Reflector';
       input.setAttribute('aria-label', activeMode === 'ASL' ? 'AllStar node number' : 'Talkgroup or reflector');
       input.style.width = activeMode === 'ASL' ? '14ch' : '18ch';
     }
@@ -216,6 +217,8 @@
   function loadAslFavorites() {
     var select = document.getElementById('dvs-favorites-select');
     if (!select || activeMode !== 'ASL') return;
+    // Remove the previous mode's options while the ASL favorites request is in flight.
+    select.replaceChildren(new Option('Select favorite', ''));
     endpointJson(controlEndpoint + '?favorites=1').then(function (result) {
       if (activeMode !== 'ASL') return;
       select.replaceChildren(new Option('Select favorite', ''));

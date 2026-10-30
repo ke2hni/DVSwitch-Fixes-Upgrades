@@ -1,4 +1,4 @@
-"""Check standard-mode Favorites and clean ownership of ASL controls."""
+"""Version: 1.0.1. Check Favorites loading and clean ownership of ASL controls."""
 
 from pathlib import Path
 import re
@@ -15,7 +15,7 @@ ENDPOINT = INSTALLER.split('install -o root -g root -m 644 /dev/stdin "$ENDPOINT
 
 class FavoritesDashboardTests(unittest.TestCase):
     def test_dashboard_loads_favorites_for_supported_modes(self):
-        self.assertIn('load(activeMode)', SCRIPT)
+        self.assertIn('load(requestedMode)', SCRIPT)
         self.assertIn("selector.addEventListener('change', loadEditorMode)", SCRIPT)
         self.assertIn('editor.showModal()', SCRIPT)
         self.assertIn('addCurrentTargetToFavorites', SCRIPT)
@@ -23,6 +23,12 @@ class FavoritesDashboardTests(unittest.TestCase):
         for mode in ('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'):
             self.assertIn('value="%s"' % mode, SCRIPT)
         self.assertNotIn('ASL', SCRIPT)
+
+    def test_favorites_responses_are_ignored_after_mode_changes(self):
+        self.assertIn("input.placeholder = 'Enter TG/Reflector'", SCRIPT)
+        self.assertIn('const requestedMode = activeMode;', SCRIPT)
+        self.assertIn('if (activeMode !== requestedMode || !Array.from(modeButtons).some(function (button)', SCRIPT)
+        self.assertIn("button.classList.contains('selected')", SCRIPT)
 
     def test_target_name_endpoint_uses_network_databases(self):
         self.assertIn("'/var/lib/mmdvm/TGList_BM.txt'", ENDPOINT)

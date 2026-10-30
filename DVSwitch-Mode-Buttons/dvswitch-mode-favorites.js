@@ -1,3 +1,4 @@
+/* Version: 1.0.1 — prevent stale mode favorites from replacing the active list. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -71,7 +72,8 @@
         button.classList.toggle('selected', button.dataset.mode === activeMode);
       });
       root.hidden = !validMode(activeMode);
-      input.placeholder = 'Enter TG / reflector ID';
+      // Keep the shared target hint within its existing input width.
+      input.placeholder = 'Enter TG/Reflector';
       input.setAttribute('aria-label', 'Talkgroup or reflector ID');
       document.dispatchEvent(new CustomEvent('dvswitch-mode-buttons-mode', { detail: { mode: activeMode } }));
       if (editor.open) return;
@@ -82,8 +84,13 @@
       favoriteSelect.replaceChildren(new Option('Select favorite', ''));
       listStatus.textContent = '';
       if (!validMode(activeMode)) return;
+      const requestedMode = activeMode;
       try {
-        const favorites = await load(activeMode);
+        const favorites = await load(requestedMode);
+        // Discard a slow response if another mode became active while it was loading.
+        if (activeMode !== requestedMode || !Array.from(modeButtons).some(function (button) {
+          return button.dataset.mode === requestedMode && button.classList.contains('selected');
+        })) return;
         favorites.forEach(function (favorite) {
           if (!favorite || typeof favorite.name !== 'string' || typeof favorite.target !== 'string') return;
           const option = document.createElement('option');

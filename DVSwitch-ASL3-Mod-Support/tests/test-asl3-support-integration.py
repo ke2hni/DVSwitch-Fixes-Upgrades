@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.6
+# Version: 1.0.7
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -50,8 +50,12 @@ require("'/usr/local/sbin/dvswitch-asl3-node-link'" in CONTROL and
 require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         "button.dataset.mode = 'ASL'" in DASHBOARD and "body: JSON.stringify({ action: 'mode' })" in DASHBOARD and
         "getElementById('dvs-target-input')" in DASHBOARD and "'Enter Node #'" in DASHBOARD and
-        "'Enter TG / Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
+        "'Enter TG/Reflector'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
         'ASL dashboard must own its mode button and reuse the shared target form')
+require("select.replaceChildren(new Option('Select favorite', ''));" in DASHBOARD and
+        DASHBOARD.index("select.replaceChildren(new Option('Select favorite', ''));", DASHBOARD.index('function loadAslFavorites')) <
+        DASHBOARD.index("endpointJson(controlEndpoint + '?favorites=1')", DASHBOARD.index('function loadAslFavorites')),
+        'ASL favorites must clear the previous mode before loading ASL entries')
 require("linkAction: action" in DASHBOARD and "action: 'link'" in DASHBOARD and
         "action: 'saveFavorites'" in DASHBOARD and "controlEndpoint + '?nodeNames=1'" in DASHBOARD,
         'ASL Tune and Favorites must use the ASL-owned link and ASTDB endpoints')
