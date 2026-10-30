@@ -36,14 +36,6 @@ END
 function setMode() {{
             ${{DEBUG}} setTLVRxPort 30000  # cause AB to stop listening
             _MBTX=`parseIniFile "$DVSWITCH_INI" "$_MODE" "TXPort"`
-            if [ ! -z $_MBTX ]; then
-                ${{DEBUG}} setAmbeMode $_MODE
-                ${{DEBUG}} setTLVTxPort ${{_MBRX}}
-                ${{DEBUG}} setTLVRxPort ${{_MBTX}}
-                ${{DEBUG}} getInfo
-            else
-                echo "Error"
-            fi
 }}
 '''
 
@@ -69,7 +61,7 @@ for version in ("1.6.2", "1.6.3"):
     require(repaired.count(module.MODE_MARKER) == 1, f"ASL transition marker missing for {version}")
     require(repaired.count(module.MODE_BLOCK) == 1, f"ASL listener selection missing for {version}")
     require(repaired.count(module.EXIT_MARKER) == 1 and repaired.count(module.EXIT_BLOCK) == 1, f"ASL exit cleanup missing for {version}")
-    require(repaired.count(module.VERIFY_MARKER) == 1 and repaired.count(module.VERIFY_BLOCK) == 1, f"ASL mode-exit retry/confirmation missing for {version}")
+    require(repaired.index(module.EXIT_BLOCK) < repaired.index(module.MODE_ANCHOR), f"ASL exit cleanup must run before the requested mode command for {version}")
     require(module.patch_text(repaired) == repaired, f"patch is not idempotent for {version}")
     with tempfile.NamedTemporaryFile("w", suffix=".sh", encoding="utf-8") as candidate:
         candidate.write(repaired)
@@ -113,52 +105,6 @@ upgraded = module.patch_text(old_repair)
 require(upgraded.count(module.REMOTE_BLOCK) == 1, "slow marked routing block was not upgraded")
 require(module.LEGACY_REMOTE_BLOCK not in upgraded, "slow marked routing block remains after upgrade")
 require(module.patch_text(upgraded) == upgraded, "upgraded repair is not idempotent")
-
-prior_exit_repair = fixture("1.6.3").replace(
-    '    else\nPYTHON_ARG="$1" python3 - <<END',
-    f'    else\n{module.REMOTE_MARKER}\n{module.REMOTE_BLOCK}\nPYTHON_ARG="$1" python3 - <<END',
-).replace(
-    module.MODE_ANCHOR,
-    f'{module.MODE_MARKER}\n{module.MODE_BLOCK}\n{module.LEGACY_EXIT_MARKER}\n{module.LEGACY_EXIT_BLOCK}\n{module.MODE_ANCHOR}',
-)
-upgraded_exit = module.patch_text(prior_exit_repair)
-require(module.LEGACY_EXIT_MARKER not in upgraded_exit and module.LEGACY_EXIT_BLOCK not in upgraded_exit,
-        "prior ASL exit repair was not upgraded in place")
-require(upgraded_exit.count(module.VERIFY_BLOCK) == 1 and module.patch_text(upgraded_exit) == upgraded_exit,
-        "mode-exit retry/confirmation upgrade is missing or not idempotent")
-
-mode_retry_harness = '''DEBUG=""
-ERROR_INVALID_ARGUMENT=2
-_ERRORCODE=0
-_ASL_EXIT_MODE=1
-_MODE=P25
-_MBTX=31103
-_MBRX=31100
-live_mode=ASL
-mode_commands=0
-getABInfoValue() { printf '%s\\n' "$live_mode"; }
-setAmbeMode() { mode_commands=$((mode_commands + 1)); live_mode="$1"; }
-setTLVTxPort() { :; }
-setTLVRxPort() { :; }
-getInfo() { :; }
-sleep() { :; }
-check_transition() {
-''' + module.VERIFY_BLOCK + '''
-}
-check_transition || exit $?
-printf 'confirmed=%s retries=%s\\n' "$live_mode" "$mode_commands"
-'''
-retry_result = subprocess.run(["bash", "-c", mode_retry_harness], text=True, capture_output=True, check=False)
-require(retry_result.returncode == 0 and "confirmed=P25 retries=1" in retry_result.stdout,
-        "ASL exit did not retry and confirm the requested mode")
-
-mode_failure_harness = mode_retry_harness.replace(
-    'setAmbeMode() { mode_commands=$((mode_commands + 1)); live_mode="$1"; }',
-    'setAmbeMode() { mode_commands=$((mode_commands + 1)); }',
-)
-failure_result = subprocess.run(["bash", "-c", mode_failure_harness], text=True, capture_output=True, check=False)
-require(failure_result.returncode != 0 and "Analog_Bridge did not leave ASL mode" in failure_result.stdout,
-        "ASL exit reported success while live mode remained ASL")
 
 v67_repair = fixture("1.6.3").replace(
     '    else\nPYTHON_ARG="$1" python3 - <<END',

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.5
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -48,36 +48,32 @@ require("'/usr/local/sbin/dvswitch-asl3-node-link'" in CONTROL and
         'DISCONNECT_BEFORE_CONNECT' in CONTROL,
         'ASL endpoint must call only its own link and favorites helpers')
 require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
-        'dvs-target-input' in DASHBOARD and 'dvs-asl-favorites' in DASHBOARD and
-        "dataset.mode = 'ASL'" in DASHBOARD,
-        'ASL dashboard must use the shared numeric tuner and its own database-backed favorites')
-require("'Enter Node #' : 'Enter TG / Ref'" in DASHBOARD and
-        "target.style.width = mode === 'ASL' ? '14ch' : '18ch'" in DASHBOARD and
-        "id = 'dvs-asl-tuner'" not in DASHBOARD and
-        "tuner.addEventListener('submit'" in DASHBOARD,
-        'ASL must reuse the single shared tuner row, widen its target box, and dispatch link actions from Tune')
-# The ASL poller must not overwrite standard mode highlights with raw values such as YSFN.
-set_mode = re.search(r'function setMode\(mode\) \{(.*?)\n  \}', DASHBOARD, re.S)
-require(set_mode is not None and "document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]')" not in set_mode.group(1) and
-        "#dvs-mode-buttons [data-mode=\"ASL\"], #dvs-asl-mode-buttons [data-mode=\"ASL\"]" in set_mode.group(1),
-        'ASL dashboard refresh must not clear or set standard-mode button highlights')
-require("document.addEventListener('dvswitch-mode-buttons-mode', function (event)" in DASHBOARD and
-        "if (mode) setMode(mode);" in DASHBOARD and
-        "event.target.closest('#dvs-mode-buttons [data-mode]')" not in DASHBOARD,
-        'ASL dashboard must update mode-dependent UI after the confirmed Mode Buttons event, not optimistically on click')
+        "button.dataset.mode = 'ASL'" in DASHBOARD and "body: JSON.stringify({ action: 'mode' })" in DASHBOARD and
+        "getElementById('dvs-target-input')" in DASHBOARD and "'Enter Node #'" in DASHBOARD and
+        "'Enter TG / Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
+        'ASL dashboard must own its mode button and reuse the shared target form')
+require("linkAction: action" in DASHBOARD and "action: 'link'" in DASHBOARD and
+        "action: 'saveFavorites'" in DASHBOARD and "controlEndpoint + '?nodeNames=1'" in DASHBOARD,
+        'ASL Tune and Favorites must use the ASL-owned link and ASTDB endpoints')
+require("window.setInterval(refreshActivity, 5000)" in DASHBOARD and
+        "setInterval(refresh," not in DASHBOARD and "dvswitch-mode-buttons.php?status=1" not in DASHBOARD and
+        'digitalModePending' in DASHBOARD and "if (activeMode === 'ASL') setTargetLabel('ASL')" in DASHBOARD,
+        'ASL mode selection must not poll stale digital-button state or let it hide the shared tuner')
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')
 require('ASL_NODE_HELPER' not in BUTTONS and 'mode ASL' not in BUTTONS and
         'ASL' not in BUTTON_JS and 'legacy_asl_button' in BUTTONS and '--install will remove it' in BUTTONS,
         'Mode Buttons must have no ASL behavior and must identify the old embedded button for migration')
-require('DISCONNECT_ALL' in LINK and '$1 != keep { print $1 }' in LINK,
-        'ASL external link cleanup must preserve the private bridge')
+require('DISCONNECT_ALL' in LINK and '$1 != keep { print $1 }' in LINK and
+        'for attempt in {1..21}; do' in LINK and 'at most five seconds' in LINK,
+        'ASL external link cleanup must preserve the private bridge and verify disconnects within five seconds')
+require('wait_for_connection "$target"' in LINK and 'did not reach ESTABLISHED state' in LINK and
+        'external node %s is established on local public ASL node %s' in LINK,
+        'Connect must confirm the remote node on the public node instead of treating CLI acceptance as success')
 require('disconnect external links before leaving ASL' in PATCHER and
-        'dvswitch-asl3-node-link || return 1' in PATCHER and
-        'retry and confirm ASL mode exit' in PATCHER and
-        'Analog_Bridge did not leave ASL mode' in PATCHER,
-        'ASL-owned dvswitch.sh repair must clean up links, retry once, and confirm every ASL exit')
+        'dvswitch-asl3-node-link || return 1' in PATCHER,
+        'ASL-owned dvswitch.sh repair must remove external links on every ASL exit')
 match = re.search(r"python3 - \"\$FAVORITES_FILE\" <<'PY_ASL_FAVORITES_MIGRATE'\n(.*?)^PY_ASL_FAVORITES_MIGRATE$", SUPPORT, re.M | re.S)
 require(match is not None, 'ASL installer must migrate prior user-saved ASL favorites')
 with tempfile.TemporaryDirectory() as directory:
