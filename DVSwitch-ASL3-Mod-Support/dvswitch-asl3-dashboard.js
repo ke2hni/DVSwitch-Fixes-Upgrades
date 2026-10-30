@@ -1,4 +1,4 @@
-/* Version: 1.1.0 — ASL-owned button and shared Tune/Favorites controls. */
+/* Version: 1.1.1 — retain the ASL node target across status refreshes. */
 (function () {
   'use strict';
 
@@ -31,20 +31,47 @@
       var heading = row.querySelector('th');
       var value = row.querySelector('td');
       if (heading && value && normalizeHeader(heading.textContent) === 'Node') {
-        var nodeText = connectedNodes.length ? connectedNodes.join(', ') : '—';
+        var nodeText = connectedNodes.length ? connectedNodes.join(', ') : '-';
         if (value.textContent !== nodeText) value.textContent = nodeText;
       }
     });
   }
 
+  // status.php reloads this table every second, so keep its target row tied to the live mode.
+  function updateAnalogBridgeTarget(mode) {
+    var info = document.getElementById('modeInfo');
+    mode = String(mode || '').toUpperCase();
+    if (!info || !mode) return;
+    activeMode = mode;
+    var label = mode === 'ASL' ? 'Node' : 'Tx TG/Ref';
+    info.querySelectorAll('tr').forEach(function (row) {
+      var heading = row.querySelector('th');
+      var value = row.querySelector('td');
+      var current = heading ? normalizeHeader(heading.textContent) : '';
+      if (heading && value && (current === 'Tx TG/Ref' || current === 'Node')) {
+        if (current !== label) heading.textContent = label;
+        if (mode === 'ASL') {
+          var nodeText = connectedNodes.length ? connectedNodes.join(', ') : '-';
+          if (value.textContent !== nodeText) value.textContent = nodeText;
+        }
+      }
+    });
+    updateAnalogBridgeNode();
+  }
+
+  function watchAnalogBridgeInfo() {
+    var info = document.getElementById('modeInfo');
+    if (!info) return;
+    // Reapply only the target label/value after DVSwitch replaces the status table.
+    new MutationObserver(function () {
+      var mode = modeFromAnalogBridge();
+      if (mode) updateAnalogBridgeTarget(mode);
+    }).observe(info, { childList: true, subtree: true });
+  }
+
   function setTargetLabel(mode) {
     activeMode = String(mode || '').toUpperCase();
-    var label = activeMode === 'ASL' ? 'Node' : 'Tx TG/Ref';
-    var info = document.getElementById('modeInfo');
-    if (info) info.querySelectorAll('th').forEach(function (cell) {
-      var heading = normalizeHeader(cell.textContent);
-      if ((heading === 'Tx TG/Ref' || heading === 'Node') && heading !== label) cell.textContent = label;
-    });
+    updateAnalogBridgeTarget(activeMode);
     var input = document.getElementById('dvs-target-input');
     if (input) {
       input.placeholder = activeMode === 'ASL' ? 'Enter Node #' : 'Enter TG / Ref';
@@ -412,6 +439,7 @@
     installSharedActions();
     var initialMode = modeFromAnalogBridge();
     if (initialMode) setTargetLabel(initialMode);
+    watchAnalogBridgeInfo();
     var themeStyle = document.createElement('style');
     themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}#dvs-asl-mode-buttons button.selected{background-color:#008000}';
     document.head.appendChild(themeStyle);

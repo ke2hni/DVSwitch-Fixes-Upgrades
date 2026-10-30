@@ -106,7 +106,8 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     node ID appears in Analog Bridge Info and the ASL Gateway Activity card.
     Confirm the card matches Gateway Activity styling in light and dark modes.
 11. Leave ASL selected and watch Analog Bridge Info through multiple status
-    refreshes; the target label must remain `Node`. Confirm the ASL Node Link
+    refreshes; the target label must remain `Node` and show the connected node
+    number, or `-` when no external node is connected. Confirm the ASL Node Link
     box is compact and stays usable at narrow browser widths.
 12. From ASL, select each supported digital mode once. Confirm the dashboard
     reports an error rather than changing its saved selection if Analog_Bridge
@@ -128,3 +129,6 @@ Version 1.1.0 dashboard and exit checks:
 2. Select Connect and Tune with node 55553; confirm the UI reports `Connected to Node 55553` and `rpt lstats` on the discovered public node lists it. Leave every action unchecked and press Tune; confirm no link command runs. Confirm favorites use ASTDB names by default and allow a custom name.
 3. From ASL with 55553 connected, click one digital mode once. Confirm external peers are removed from the public node while the private bridge remains, then the requested digital mode command runs once. Record click-to-mode time; it should complete within six seconds. Repeat for each digital mode. The dashboard must not return to ASL or flicker after status refreshes.
 4. Reload the page in ASL. Confirm the ASL button and Node label reflect current Analog_Bridge status and the Tune/Favorites row remains singular. Repeat with Mode Buttons absent on a disposable image; ASL Support must still provide its ASL button, node action row, and favorites.
+
+
+Version 1.1.1 check: while the dashboard remains in ASL, wait through multiple `status.php` refreshes. Verify the Analog Bridge row stays `Node`, shows the active external node ID, and changes to `-` after disconnecting the last external node.

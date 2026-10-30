@@ -59,3 +59,6 @@ the remote connection and reports an error if the link does not establish.
 
 
 Version 1.1.0 restores the ASL-owned mode button and shared Tune/Favorites workflow. Selecting ASL runs `sudo /opt/MMDVM_Bridge/dvswitch.sh mode ASL`; Tune runs only the checked ASL link action. The target placeholder is `Enter Node #` in ASL and `Enter TG / Ref` in digital modes. Leaving ASL disconnects external links on the discovered public node, verifies they are gone within five seconds, preserves the private bridge, and then lets the one requested `dvswitch.sh mode <MODE>` command continue. Stale Mode Buttons status polls no longer change ASL's selected state.
+
+
+Version 1.1.1 keeps the Analog_Bridge target row synchronized after DVSwitch refreshes `status.php`: ASL shows `Node` and the connected node number, or `-` when no external node is connected.

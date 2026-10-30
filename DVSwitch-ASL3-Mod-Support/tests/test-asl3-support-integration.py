@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.5
+# Version: 1.0.6
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -59,6 +59,10 @@ require("window.setInterval(refreshActivity, 5000)" in DASHBOARD and
         "setInterval(refresh," not in DASHBOARD and "dvswitch-mode-buttons.php?status=1" not in DASHBOARD and
         'digitalModePending' in DASHBOARD and "if (activeMode === 'ASL') setTargetLabel('ASL')" in DASHBOARD,
         'ASL mode selection must not poll stale digital-button state or let it hide the shared tuner')
+require('watchAnalogBridgeInfo()' in DASHBOARD and 'new MutationObserver' in DASHBOARD and
+        "mode === 'ASL' ? 'Node' : 'Tx TG/Ref'" in DASHBOARD and
+        "connectedNodes.join(', ') : '-'" in DASHBOARD,
+        'the Analog_Bridge target row must survive status refreshes and show connected ASL nodes or a hyphen')
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')
