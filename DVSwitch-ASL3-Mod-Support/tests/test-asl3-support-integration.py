@@ -48,9 +48,14 @@ require("'/usr/local/sbin/dvswitch-asl3-node-link'" in CONTROL and
         'DISCONNECT_BEFORE_CONNECT' in CONTROL,
         'ASL endpoint must call only its own link and favorites helpers')
 require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
-        'dvs-asl-node' in DASHBOARD and 'dvs-asl-favorites' in DASHBOARD and
+        'dvs-target-input' in DASHBOARD and 'dvs-asl-favorites' in DASHBOARD and
         "dataset.mode = 'ASL'" in DASHBOARD,
-        'ASL dashboard must own the button, numeric tuner, and database-backed favorites')
+        'ASL dashboard must use the shared numeric tuner and its own database-backed favorites')
+require("'Enter Node #' : 'Enter TG / Ref'" in DASHBOARD and
+        "target.style.width = mode === 'ASL' ? '14ch' : '18ch'" in DASHBOARD and
+        "id = 'dvs-asl-tuner'" not in DASHBOARD and
+        "tuner.addEventListener('submit'" in DASHBOARD,
+        'ASL must reuse the single shared tuner row, widen its target box, and dispatch link actions from Tune')
 # The ASL poller must not overwrite standard mode highlights with raw values such as YSFN.
 set_mode = re.search(r'function setMode\(mode\) \{(.*?)\n  \}', DASHBOARD, re.S)
 require(set_mode is not None and "document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]')" not in set_mode.group(1) and
@@ -69,8 +74,10 @@ require('ASL_NODE_HELPER' not in BUTTONS and 'mode ASL' not in BUTTONS and
 require('DISCONNECT_ALL' in LINK and '$1 != keep { print $1 }' in LINK,
         'ASL external link cleanup must preserve the private bridge')
 require('disconnect external links before leaving ASL' in PATCHER and
-        'dvswitch-asl3-node-link || return 1' in PATCHER,
-        'ASL-owned dvswitch.sh repair must remove external links on every ASL exit')
+        'dvswitch-asl3-node-link || return 1' in PATCHER and
+        'retry and confirm ASL mode exit' in PATCHER and
+        'Analog_Bridge did not leave ASL mode' in PATCHER,
+        'ASL-owned dvswitch.sh repair must clean up links, retry once, and confirm every ASL exit')
 match = re.search(r"python3 - \"\$FAVORITES_FILE\" <<'PY_ASL_FAVORITES_MIGRATE'\n(.*?)^PY_ASL_FAVORITES_MIGRATE$", SUPPORT, re.M | re.S)
 require(match is not None, 'ASL installer must migrate prior user-saved ASL favorites')
 with tempfile.TemporaryDirectory() as directory:

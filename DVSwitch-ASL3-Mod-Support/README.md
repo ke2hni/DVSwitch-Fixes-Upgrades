@@ -6,7 +6,7 @@ This optional component adds ASL 3 support to the combined DVSwitch repository. 
 
 It adds its own ASL mode button alongside Mode Buttons when present, or as a standalone ASL control when Mode Buttons is absent. Its numeric node tuner and ASL favorites are owned and stored by ASL Support. The Analog_Bridge target label changes to `Node` while ASL is selected, and an **ASL Net** card to the dashboard's left status column alongside the other network cards. The card reads live established peers from the configured local public node and shows friendly names from `/var/lib/asterisk/astdb.txt` (falling back to `/var/lib/asterisk/astdb`). A saved favorite name overrides the database label, so users can set a short or custom name. Stale event records do not keep a remote node displayed after reboot. When no remote node is connected, it shows `Listening`.
 
-The ASL dashboard script manages only the ASL button's selected state. Standard-mode selection remains with Mode Buttons, so Analog_Bridge's internal `YSFN`/`YSFW` labels cannot clear the `YSF` button highlight.
+The ASL dashboard script manages only the ASL button's selected state. Standard-mode selection remains with Mode Buttons, so Analog_Bridge's internal `YSFN`/`YSFW` labels cannot clear the `YSF` button highlight. ASL reuses the existing Tune/Favorites row: the target field reads `Enter Node #` and widens in ASL mode, then returns to `Enter TG / Ref` for digital modes. The ASL Node Link box contains only its link-action checkboxes; it does not add a second tuner or Favorites row.
 
 The **ASL Gateway Activity** section uses the same nine columns as Gateway Activity and lists only currently established external nodes. Its third heading is `Node`. It reads the public node's `XStat` and `SawStat` AMI status, following Allmon3's keying detection for RX, TX, and connected-node PTT. It uses local dashboard time, node IDs and ASTDB friendly names; duration comes from the keyed-link timer or the dashboard's observed keying interval. ASL does not provide the Gateway Activity Loss/BER measurements, so those cells show `0%` and `0.0%`. Keying status uses the local public node's manager credentials from `/etc/allmon3/allmon3.ini`. If that local Allmon3 entry is unavailable, the card still lists live links and marks keying status unavailable.
 
@@ -14,7 +14,7 @@ For HTTPS dashboards, RX Monitor uses a same-origin secure WebSocket route throu
 
 The ASL receive-audio path is internet node → local public ASL node → private ASL node → Asterisk USRP channel → Analog_Bridge `[USRP]` `rxPort` → Web Proxy PCM on `pcmPort` → dashboard RX Monitor. When Mode Buttons is installed, its BM/TGIF network presets update the Analog_Bridge network settings while preserving its live USRP `txPort`/`rxPort` pair, so a DMR network change cannot undo the ASL audio pairing.
 
-ASL link commands use the local public node discovered from `rpt.conf`; selecting ASL establishes and verifies the private-to-public ASL link if it is down. Disconnect All and leaving ASL disconnect external peers individually while preserving that bridge when present. Node IDs and USRP ports are read from each unit's configuration, never fixed values. The installer checks the private node's `USRP/address:remote-port:local-port` channel against `/opt/Analog_Bridge/Analog_Bridge.ini`; when they differ, it backs up the file, sets Analog_Bridge `rxPort` to the Asterisk remote port and `txPort` to its local port, then restarts Analog_Bridge to apply the pairing. When ASL is selected, the ASL-owned node tuner and five checkbox link actions appear in a compact box sized to fit: Connect, Disconnect, Monitor, Local Monitor, and Disconnect All. A separate **Disconnect before Connect** checkbox is checked by default. When enabled, Connect disconnects each external peer on the public node, waits for those links to clear, preserves the private-to-public bridge, and then connects the entered node. The option affects Connect only. Tune requires one link action to be checked; with none checked it sends no link command. The Analog Bridge `Node` label remains in place during the dashboard status refresh, and its value follows the currently connected external node IDs. The installer refuses ambiguous node layouts or existing custom hooks and restores `rpt.conf` and Analog_Bridge.ini if installation fails. It repairs ASL-to-digital mode changes in `dvswitch.sh` versions
+ASL link commands use the local public node discovered from `rpt.conf`; selecting ASL establishes and verifies the private-to-public ASL link if it is down. Disconnect All and leaving ASL disconnect external peers individually while preserving that bridge when present. Node IDs and USRP ports are read from each unit's configuration, never fixed values. The installer checks the private node's `USRP/address:remote-port:local-port` channel against `/opt/Analog_Bridge/Analog_Bridge.ini`; when they differ, it backs up the file, sets Analog_Bridge `rxPort` to the Asterisk remote port and `txPort` to its local port, then restarts Analog_Bridge to apply the pairing. When ASL is selected, the ASL Node Link box shows Connect, Disconnect, Monitor, Local Monitor, and Disconnect All. **Disconnect before Connect** is checked by default. Tune connects to the entered node when no action is selected; selecting a link action makes Tune run that action instead. Connect waits for existing external peers to clear, preserves the private-to-public bridge, then connects the entered node. The Analog Bridge `Node` label remains in place during dashboard status refresh, and its value follows the currently connected external node IDs. The installer refuses ambiguous node layouts or existing custom hooks and restores `rpt.conf` and Analog_Bridge.ini if installation fails. It repairs ASL-to-digital mode changes in `dvswitch.sh` versions
 1.6.2 and 1.6.3. The patch routes Analog_Bridge remote-control commands to a
 live TLV UDP listener, which avoids using stale listener-port information.
 
@@ -33,12 +33,17 @@ sudo ./dvswitch-asl3-mod-support.sh --install
 keeps its own backups under `/var/backups/dvswitch-mods/asl-mode-switch/` and
 supports `--restore BACKUP-NAME`.
 
-The 1.0.3 mode-switch repair reads candidate TLV ports once per `dvswitch.sh`
+The mode-switch repair reads candidate TLV ports once per `dvswitch.sh`
 command and caches a live listener snapshot owned by Analog_Bridge. It ignores
 same-port sockets owned by MMDVM_Bridge and refreshes the snapshot after an
-`rxport` change. It also disconnects external ASL peers before any mode change
-leaves ASL, preserving the private-to-public bridge and blocking the change if
-external links could not be cleared.
+`rxport` change. When leaving ASL, it disconnects external peers, retries the
+mode command once if Analog_Bridge still reports ASL, and confirms the new mode
+before returning success. The private-to-public bridge is preserved.
+
+The current dashboard update reuses the Mode Buttons Tune/Favorites row, makes
+the target field wide enough for its mode-specific placeholder, and keeps the
+ASL link-action card to its checkbox controls. It does not change Mode Buttons
+files or require Mode Buttons to be installed for ASL Support to run.
 
 The patchers reject unsupported versions and dashboard structures without
 changing installed files. The ASL node check requires one USRP private node and
@@ -50,3 +55,8 @@ check the mode-switch repair and dashboard layout patch.
 Version 1.0.1 checks for link and private-bridge state every 250ms while
 preserving the existing ten-second verification limit. This reduces the delay
 between Asterisk clearing a link and DVSwitch continuing its mode change.
+
+Version 1.0.4 keeps the ASL mode-exit retry and live-mode confirmation in the
+ASL-owned `dvswitch.sh` repair. It also restores the single shared Tune/Favorites
+row and switches its target label and width between ASL nodes and digital
+talkgroups/reflectors.

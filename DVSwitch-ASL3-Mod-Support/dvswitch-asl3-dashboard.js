@@ -94,48 +94,91 @@
         sendControl({ action: 'mode' }).then(function () { setMode('ASL'); }).catch(showError);
       });
     }
-    if (document.getElementById('dvs-asl-links')) return;
-    var root = document.createElement('fieldset'); root.id = 'dvs-asl-links'; root.hidden = true;
-    root.style.cssText = 'box-sizing:border-box;width:min(95%,600px);margin:2px auto 4px;padding:2px 8px 4px;border:1px solid #aaa;text-align:center';
-    var legend = document.createElement('legend'); legend.textContent = 'ASL Node Link'; legend.style.cssText = 'padding:0 5px;font-size:12px;line-height:1'; root.appendChild(legend);
-    var form = document.createElement('form'); form.id = 'dvs-asl-tuner'; form.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px';
-    var input = document.createElement('input'); input.id = 'dvs-asl-node'; input.inputMode = 'numeric'; input.maxLength = 8; input.placeholder = 'Enter AllStar node number'; input.setAttribute('aria-label', 'AllStar node number');
-    var favoriteSelect = document.createElement('select'); favoriteSelect.id = 'dvs-asl-favorites'; favoriteSelect.setAttribute('aria-label', 'ASL favorite'); favoriteSelect.innerHTML = '<option value="">Select favorite</option>';
-    var tune = document.createElement('button'); tune.type = 'submit'; tune.className = 'button link'; tune.textContent = 'Tune';
-    var save = document.createElement('button'); save.type = 'button'; save.className = 'button link'; save.textContent = '+ Favorite';
-    var status = document.createElement('span'); status.id = 'dvs-asl-control-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-    form.append(favoriteSelect, input, tune, save, status);
-    favoriteSelect.addEventListener('change', function () { if (favoriteSelect.value) input.value = favoriteSelect.value; favoriteSelect.value = ''; });
-    var actions = document.createElement('div'); actions.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:center;gap:2px 14px;width:100%';
-    [['CONNECT','Connect'],['DISCONNECT','Disconnect'],['MONITOR','Monitor'],['LOCAL_MONITOR','Local Monitor'],['DISCONNECT_ALL','Disconnect All']].forEach(function (entry) {
-      var label = document.createElement('label'); label.style.cssText = 'display:inline-flex;align-items:center;margin:0;white-space:nowrap;font-size:12px';
-      var checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.name = 'aslAction'; checkbox.value = entry[0];
-      checkbox.addEventListener('change', function () { actions.querySelectorAll('input').forEach(function (other) { if (other !== checkbox) other.checked = false; }); input.disabled = entry[0] === 'DISCONNECT_ALL' && checkbox.checked; });
-      label.append(checkbox, document.createTextNode(' ' + entry[1])); actions.appendChild(label);
-    });
-    form.appendChild(actions);
-    var replaceLabel = document.createElement('label'); replaceLabel.style.cssText = 'display:inline-flex;align-items:center;margin:1px 0 0;white-space:nowrap;font-size:12px';
-    var replace = document.createElement('input'); replace.type = 'checkbox'; replace.id = 'dvs-asl-disconnect-before-connect'; replace.checked = true;
-    replace.title = 'Disconnect existing external ASL links before connecting; the private bridge is preserved.';
-    replaceLabel.append(replace, document.createTextNode(' Disconnect before Connect')); form.appendChild(replaceLabel); root.appendChild(form);
-    buttons.insertAdjacentElement('afterend', root);
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
-      var selected = actions.querySelector('input:checked');
-      if (!selected) { status.textContent = 'Select an ASL link action.'; return; }
-      sendControl({ action:'link', linkAction:selected.value, node:input.value.trim(), disconnectBeforeConnect:replace.checked })
-        .then(function (result) { status.textContent = result.message || 'ASL link updated.'; selected.checked = false; input.disabled = false; refreshActivity(); })
-        .catch(showError);
-    });
-    save.addEventListener('click', function () {
-      var node = input.value.trim();
-      if (!/^[0-9]{1,8}$/.test(node) || /^0+$/.test(node)) { status.textContent = 'Enter a valid node number first.'; return; }
-      var name = window.prompt('Favorite name', nodeNames[node] || node);
-      if (name === null) return;
-      var next = favorites.filter(function (favorite) { return favorite.node !== node; });
-      next.push({ name:name.trim(), node:node });
-      sendControl({ action:'saveFavorites', favorites:next }).then(function () { favorites = next; loadFavorites(); status.textContent = 'Favorite saved.'; }).catch(showError);
-    });
+    var tuner = document.getElementById('dvs-target-tuner');
+    if (!tuner) {
+      var fallback = document.createElement('div');
+      fallback.id = 'dvs-asl-fallback-tuner';
+      fallback.hidden = true;
+      fallback.style.cssText = 'margin:4px auto;text-align:center';
+      fallback.innerHTML = '<select id="dvs-asl-favorites" aria-label="ASL favorite"><option value="">Select favorite</option></select> <input id="dvs-target-input" inputmode="numeric" maxlength="8" placeholder="Enter Node #" aria-label="AllStar node number"> <button id="dvs-target-submit" type="button" class="button link">Tune</button> <button type="button" class="button link" id="dvs-asl-save-favorite">+ Favorite</button>';
+      buttons.insertAdjacentElement('afterend', fallback);
+    }
+    var tunerInput = document.getElementById('dvs-target-input');
+    var tunerButton = document.getElementById('dvs-target-submit');
+    var standardFavorites = document.querySelector('#dvs-favorites .dvs-favorites-select');
+    var standardEdit = document.querySelector('#dvs-favorites .dvs-favorites-edit');
+    var favoriteSelect = document.getElementById('dvs-asl-favorites');
+    if (!favoriteSelect) {
+      favoriteSelect = document.createElement('select');
+      favoriteSelect.id = 'dvs-asl-favorites';
+      favoriteSelect.setAttribute('aria-label', 'ASL favorite');
+      favoriteSelect.innerHTML = '<option value="">Select favorite</option>';
+      if (tunerInput) tunerInput.parentNode.insertBefore(favoriteSelect, tunerInput);
+    }
+    if (standardFavorites) standardFavorites.hidden = true;
+    if (standardEdit) standardEdit.hidden = true;
+
+    var root = document.getElementById('dvs-asl-links');
+    if (!root) {
+      root = document.createElement('fieldset'); root.id = 'dvs-asl-links'; root.hidden = true;
+      root.style.cssText = 'box-sizing:border-box;width:fit-content;max-width:95%;margin:2px auto 4px;padding:2px 8px 4px;border:1px solid #aaa;text-align:center';
+      var legend = document.createElement('legend'); legend.textContent = 'ASL Node Link'; legend.style.cssText = 'padding:0 5px;font-size:12px;line-height:1'; root.appendChild(legend);
+      var actions = document.createElement('div'); actions.id = 'dvs-asl-actions';
+      actions.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2px 14px';
+      [['CONNECT','Connect'],['DISCONNECT','Disconnect'],['MONITOR','Monitor'],['LOCAL_MONITOR','Local Monitor'],['DISCONNECT_ALL','Disconnect All']].forEach(function (entry) {
+        var label = document.createElement('label'); label.style.cssText = 'display:inline-flex;align-items:center;margin:0;white-space:nowrap;font-size:12px';
+        var checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.name = 'aslAction'; checkbox.value = entry[0];
+        checkbox.addEventListener('change', function () { actions.querySelectorAll('input').forEach(function (other) { if (other !== checkbox) other.checked = false; }); if (tunerInput) tunerInput.disabled = entry[0] === 'DISCONNECT_ALL' && checkbox.checked; });
+        label.append(checkbox, document.createTextNode(' ' + entry[1])); actions.appendChild(label);
+      });
+      root.appendChild(actions);
+      var replaceLabel = document.createElement('label'); replaceLabel.style.cssText = 'display:inline-flex;align-items:center;margin:1px 0 0;white-space:nowrap;font-size:12px';
+      var replace = document.createElement('input'); replace.type = 'checkbox'; replace.id = 'dvs-asl-disconnect-before-connect'; replace.checked = true;
+      replace.title = 'Disconnect existing external ASL links before connecting; the private bridge is preserved.';
+      replaceLabel.append(replace, document.createTextNode(' Disconnect before Connect')); root.appendChild(replaceLabel);
+      var status = document.createElement('span'); status.id = 'dvs-asl-control-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+      status.style.cssText = 'display:block;min-height:1em;font-size:12px'; root.appendChild(status);
+      buttons.insertAdjacentElement('afterend', root);
+    }
+    if (tuner && !tuner.dataset.aslSubmitHandler) {
+      tuner.dataset.aslSubmitHandler = '1';
+      tuner.addEventListener('submit', function (event) {
+        if (activeMode !== 'ASL') return;
+        event.preventDefault(); event.stopImmediatePropagation();
+        var selected = root.querySelector('#dvs-asl-actions input:checked');
+        var node = tunerInput ? tunerInput.value.trim() : '';
+        var action = selected ? selected.value : 'CONNECT';
+        if (action !== 'DISCONNECT_ALL' && (!/^[0-9]{1,8}$/.test(node) || /^0+$/.test(node))) { showError(new Error('Enter a valid node number.')); return; }
+        sendControl({ action:'link', linkAction:action, node:node, disconnectBeforeConnect:document.getElementById('dvs-asl-disconnect-before-connect').checked })
+          .then(function () { var status = document.getElementById('dvs-asl-control-status'); if (status) status.textContent = action === 'CONNECT' ? 'Connected to Node ' + node : action.replace(/_/g, ' ') + (node ? ' Node ' + node : '') + ' complete.'; if (selected) selected.checked = false; if (tunerInput) tunerInput.disabled = false; refreshActivity(); })
+          .catch(showError);
+      }, true);
+    }
+    if (tunerButton && !tunerButton.dataset.aslSubmitHandler) {
+      tunerButton.dataset.aslSubmitHandler = '1';
+      tunerButton.addEventListener('click', function (event) {
+        if (activeMode !== 'ASL' || tuner) return;
+        event.preventDefault();
+        if (tunerInput && tunerInput.value.trim()) sendControl({ action:'link', linkAction:'CONNECT', node:tunerInput.value.trim(), disconnectBeforeConnect:true })
+          .then(function () { var status = document.getElementById('dvs-asl-control-status'); if (status) status.textContent = 'Connected to Node ' + tunerInput.value.trim(); refreshActivity(); }).catch(showError);
+      }, true);
+    }
+    favoriteSelect.addEventListener('change', function () { if (favoriteSelect.value && tunerInput) { tunerInput.value = favoriteSelect.value; if (activeMode === 'ASL' && tuner) tuner.requestSubmit(); } favoriteSelect.value = ''; });
+    var addFavorite = document.querySelector('#dvs-target-tuner .dvs-favorites-add-current') || document.getElementById('dvs-asl-save-favorite');
+    if (addFavorite && !addFavorite.dataset.aslSaveHandler) {
+      addFavorite.dataset.aslSaveHandler = '1';
+      addFavorite.addEventListener('click', function (event) {
+        if (activeMode !== 'ASL') return;
+        event.preventDefault(); event.stopImmediatePropagation();
+        var node = tunerInput ? tunerInput.value.trim() : '';
+        if (!/^[0-9]{1,8}$/.test(node) || /^0+$/.test(node)) { showError(new Error('Enter a valid node number first.')); return; }
+        var name = window.prompt('Favorite name', nodeNames[node] || node);
+        if (name === null) return;
+        var next = favorites.filter(function (favorite) { return favorite.node !== node; });
+        next.push({ name:name.trim() || node, node:node });
+        sendControl({ action:'saveFavorites', favorites:next }).then(function () { favorites = next; loadFavorites(); var status = document.getElementById('dvs-asl-control-status'); if (status) status.textContent = 'Favorite saved.'; }).catch(showError);
+      }, true);
+    }
     loadFavorites(); loadNodeNames();
   }
 
@@ -251,6 +294,24 @@
     }
     var links = document.getElementById('dvs-asl-links');
     if (links) links.hidden = mode !== 'ASL';
+    var favoritesRoot = document.getElementById('dvs-favorites');
+    if (favoritesRoot) favoritesRoot.hidden = mode !== 'ASL' && !['BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'].includes(mode);
+    var standardFavorites = document.querySelector('#dvs-favorites .dvs-favorites-select');
+    var standardEdit = document.querySelector('#dvs-favorites .dvs-favorites-edit');
+    var aslFavorites = document.getElementById('dvs-asl-favorites');
+    if (standardFavorites) standardFavorites.hidden = mode === 'ASL';
+    if (standardEdit) standardEdit.hidden = mode === 'ASL';
+    if (aslFavorites) aslFavorites.hidden = mode !== 'ASL';
+    var target = document.getElementById('dvs-target-input');
+    if (target) {
+      target.placeholder = mode === 'ASL' ? 'Enter Node #' : 'Enter TG / Ref';
+      target.setAttribute('aria-label', mode === 'ASL' ? 'AllStar node number' : 'Talkgroup or reflector ID');
+      target.style.width = mode === 'ASL' ? '14ch' : '18ch';
+      target.inputMode = mode === 'ASL' ? 'numeric' : 'text';
+      target.maxLength = mode === 'ASL' ? 8 : 32;
+    }
+    var fallbackTuner = document.getElementById('dvs-asl-fallback-tuner');
+    if (fallbackTuner) fallbackTuner.hidden = mode !== 'ASL';
     var activity = document.getElementById('dvs-asl-activity');
     if (activity) activity.hidden = mode !== 'ASL';
   }

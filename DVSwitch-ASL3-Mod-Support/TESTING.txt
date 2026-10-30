@@ -104,10 +104,14 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
     Confirm the card matches Gateway Activity styling in light and dark modes.
 11. Leave ASL selected and watch Analog Bridge Info through multiple status
     refreshes; the target label must remain `Node`. Confirm the ASL Node Link
-    box is compact and stays usable at narrow browser widths.
+    box contains only the link-action checkboxes and is compact. Confirm the
+    shared target field reads `Enter Node #` and is wide enough to show the
+    complete placeholder. In a digital mode it must read `Enter TG / Ref` and
+    still show all of the placeholder.
 12. From ASL, click each supported digital mode once. Confirm one click
-    completes the switch without a second click or browser refresh. If
-    Analog_Bridge remains in ASL, the dashboard must report an error rather
+    completes the switch without a second click or browser refresh. Confirm
+    the selected mode stays highlighted through repeated dashboard refreshes.
+    If Analog_Bridge remains in ASL, the dashboard must report an error rather
     than changing its saved selection; after a successful switch, confirm the
     selected mode and Analog_Bridge status agree.
 
