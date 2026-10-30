@@ -44,6 +44,12 @@ DVSwitch-Mods provides two types of changes:
   It does not use the shared Analog_Bridge `last_tune` value, which can change
   with BM/TGIF tuning. STFU rows display `0%` Loss and `0.0%` BER as cosmetic placeholders,
   not measured values, because STFU does not provide those measurements.
+- Local PTT activity uses the MMDVM_Bridge `Begin TX` and `TX state = OFF`
+  timestamps to calculate Dur(s) in every mode. DMR keeps its frame-count
+  duration when the log provides it; an active transmission shows elapsed time.
+  Local Loss and BER display `0%` and `0.0%` because the local transmit records
+  do not provide measurements. Local DMR PTT rows are labeled STFU only when
+  timestamped mode history shows that STFU was selected for that transmission.
 
 Standard component installers check compatibility before changing anything,
 create protected backups, install atomically, validate the result, and roll

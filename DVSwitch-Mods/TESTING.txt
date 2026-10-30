@@ -80,7 +80,7 @@ If the check passes, install the updated component. Existing STFU history entrie
 
 sudo ./mod-dashboard-activity-modes.sh --install && sudo tail -n 8 /var/lib/dvswitch-mods/dmr-network-history.tsv
 
-Then, while the bridge is set to TGIF, select STFU and confirm a new MMDVM DMR Net row remains labeled TGIF. Confirm STFU-log activity rows are labeled STFU and display cosmetic 0% Loss and 0.0% BER values (not measured data). Switch the bridge to BM or TGIF and verify subsequent DMR rows use that bridge network while older rows retain their event-time labels. Do not install on production node68425 until test nodes pass and Jeff explicitly authorizes it.
+Then, key up once in D-Star, DMR, YSF, P25, and NXDN. Confirm each local PTT row has a duration; DMR should retain its frame-count duration and other modes should use the Begin TX/TX OFF timestamps. Local rows display 0% Loss and 0.0% BER because those values are not in the local transmit records. Select STFU, key up, and confirm the local DMR log row is labeled STFU in both activity tables using its event-time mode history. Then, while the bridge is set to TGIF, select STFU and confirm a network DMR row remains labeled TGIF. Confirm STFU-log activity rows display cosmetic 0% Loss and 0.0% BER values (not measured data). Switch the bridge to BM or TGIF and verify subsequent DMR rows use that bridge network while older rows retain their event-time labels. Do not install on production node68425 until test nodes pass and Jeff explicitly authorizes it.
 
 STFU log activity integration and Target-wrapper compatibility (run on pi4test first):
 
@@ -90,8 +90,10 @@ If the check passes, install the separate STFU activity component:
 
 sudo ./manage-dvswitch-mods.sh --install dashboard-stfu-activity
 
-Then verify Gateway Activity receives STFU traffic, Local Activity records
-local STFU transmissions, the TRX Info card shows RX STFU, and the separate
+Then key up in STFU and verify Gateway Activity and Local Activity show the
+KE2HNI transmission with its duration and 0% Loss / 0.0% BER placeholders.
+Also verify Gateway Activity receives STFU network traffic, the TRX Info card
+shows RX STFU, and the separate
 STFU Net card remains visible in other modes, uses the dashboard's orange
 target color, and displays the friendly talkgroup name with (TG number) below
 it. TRX Info should show Listening DMR after selecting BM/TGIF with no current

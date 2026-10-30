@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 
 """Regression tests for the separate STFU log activity integration."""
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 import subprocess
@@ -96,6 +97,9 @@ if shutil.which("php"):
         log_path.write_text(log + "I: 2026-10-07 03:23:30.438 DMR, ODMR Begin Rx: src = 1234567, dst = 93 (GROUP)\nI: 2026-10-07 03:23:35.438 DMR, ODMR End Rx:DMR frame count was 50 frames\n", encoding="utf-8")
         empty_log_path = Path(directory) / "STFU-empty.log"
         empty_log_path.write_text("", encoding="utf-8")
+        history_path = Path(directory) / "activity-mode-history.tsv"
+        ptt_at_ms = int(datetime(2026, 10, 30, 19, 34, 9, 112000, tzinfo=timezone.utc).timestamp() * 1000)
+        history_path.write_text(f"{ptt_at_ms - 1000}\tSTFU\n", encoding="ascii")
         talkgroup_path = Path(directory) / "TGList_BM.txt"
         talkgroup_path.write_text("3100;0;USA-BRIDGE;TG3100\n93;0;NORTH_AMERICA;TG93\n", encoding="utf-8")
         program = f'''<?php
@@ -127,6 +131,16 @@ echo json_encode(dvsModsStfuMergeActivity($mmdvm, array({str(log_path)!r})));
                 "STFU RX and MMDVM RX for the same resolved caller were not deduplicated")
         require(merged[0][2] == "1234567" and merged[0][4] == "TG 93",
                 "newest STFU receive did not replace the older cross-mode receive")
+        local_program = f'''<?php
+require {str(HELPER)!r};
+$local = array(array('2026-10-30 19:34:09.112', 'DMR', 'KE2HNI', '', 'TG 93', 'LNet', '2.0', '0%', '0.0%', '', ''));
+$rows = dvsModsStfuMergeActivity($local, array({str(empty_log_path)!r}), {str(history_path)!r});
+echo json_encode($rows);
+'''
+        local_rows = json.loads(subprocess.run(["php"], input=local_program, text=True, capture_output=True, check=True).stdout)
+        require(local_rows[0][1] == "STFU" and local_rows[0][2] == "KE2HNI" and local_rows[0][5] == "LNet",
+                "local DMR PTT inside an STFU mode-history interval was not shown as STFU")
+        require(local_rows[0][6:9] == ["2.0", "0%", "0.0%"], "local STFU PTT lost its duration or unavailable metric placeholders")
         require(all(row[7:9] == ["0%", "0.0%"] for row in rows), "STFU Loss and BER do not use the requested cosmetic placeholders")
         require("STFU Net" in card_output, "STFU card header is not consistent with the other mode cards")
         require('Room<br/><span style="color:#b5651d;' in card_output,
@@ -175,8 +189,8 @@ require("null, '0%', '0.0%'" in HELPER.read_text(), "STFU rows do not use the re
 require("STFU Net</th>" in HELPER.read_text(), "STFU Net card label was regressed")
 require("$abinfo['last_tune']" not in HELPER.read_text(), "STFU card incorrectly uses the shared live target field")
 require("/var/lib/dvswitch-mode-buttons/stfu-target" in HELPER.read_text(), "STFU card does not read the optional saved-target snapshot")
-require("STFU activity feed v8" in HELPER.read_text(), "repo-root STFU helper is not the intended v8 helper")
-require("STFU activity feed v[12345678]" in installer_text, "installer does not accept the current helper during upgrade")
+require("STFU activity feed v9" in HELPER.read_text(), "repo-root STFU helper is not the intended v9 helper")
+require("STFU activity feed v[123456789]" in installer_text, "installer does not accept the current helper during upgrade")
 require(r"\](?:\s*[;#].*)?$/" in HELPER.read_text(), "STFU INI parser does not accept comments after section names")
 require("if ($mode !== 'STFU') { return; }" not in HELPER.read_text(), "STFU card is hidden outside STFU mode")
 dmr_source = DMR_PATCHER.read_text()

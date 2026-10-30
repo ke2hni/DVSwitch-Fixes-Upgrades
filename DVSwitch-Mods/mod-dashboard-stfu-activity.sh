@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.0
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -38,7 +38,7 @@ preflight() {
     command -v php >/dev/null || die 'php is required.'
     for path in "$FUNCTIONS" "$LH" "$LOCALTX" "$STATUS" "$PATCHER" "$HELPER_SOURCE" "$TRANSACTION_LIBRARY"; do require_regular "$path"; done
     for path in "$HELPER"; do [[ ! -e "$path" || -f "$path" && ! -L "$path" ]] || die "Refusing unsupported target: $path"; done
-    if [[ -e "$HELPER" ]] && ! grep -Eq 'DVSwitch-Mods: STFU activity feed v[12345678]$' "$HELPER"; then
+    if [[ -e "$HELPER" ]] && ! grep -Eq 'DVSwitch-Mods: STFU activity feed v[123456789]$' "$HELPER"; then
         die "Refusing to replace an unrecognized helper: $HELPER"
     fi
 }

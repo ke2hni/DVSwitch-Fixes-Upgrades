@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 
 """Tests for timestamped BM/TGIF bridge-network Gateway Activity labels."""
@@ -42,8 +42,21 @@ with tempfile.TemporaryDirectory() as directory:
     localtx = base / "localtx.php"
     functions.write_text("""<?php
 function getHeardList($logLines) {
-    $timestamp = substr($logLines, 3, 19);
-    $timestamp = substr($logLines, 3, 19);
+	if (strpos($logLines, "from")) { $timestamp = substr($logLines, 3, 19); }
+	if (strpos($logLines, "to")) { $timestamp = substr($logLines, 3, 19); }
+	foreach ($logLines as $logLine) {
+		if (strpos($logLine,"TX state = OFF")){
+			$dvsm=substr($logLine, 27, strpos($logLine,",") - 27);
+			$duration = "---";
+			$ber = "---";
+			$loss = "---";
+		}
+		if (strpos($logLine,"Begin TX")) {
+		$mode = substr($logLine, 27, strpos($logLine,",") - 27);
+		$source = "LNet";
+		}
+		// Callsign or ID should be less than 11 chars long, otherwise it could be errorneous
+	}
 }
 function getLastHeard() {}
 ?>
@@ -59,7 +72,8 @@ function getLastHeard() {}
     patcher.patch_file(lh, patcher.patch_lh)
     patcher.patch_file(localtx, patcher.clean_localtx)
     require(first == (functions.read_bytes(), lh.read_bytes(), localtx.read_bytes()), "patcher is not idempotent")
-    require(functions.read_text().count("substr($logLines, 3, 23)") == 2, "millisecond timestamps were not retained")
+    require(functions.read_text().count("substr($logLine, 3, 23)") >= 2, "millisecond timestamps were not retained")
+    require("dvsModsLocalTxDuration" in functions.read_text() and '"0%"' in functions.read_text() and '"0.0%"' in functions.read_text(), "local TX duration and zero metric values were not added")
     require("$listElem[5]" in lh.read_text(), "Gateway Activity patch does not pass the traffic source")
     require("dvsModsActivityModeLabel(" not in localtx.read_text(), "Local Activity still has the previous relabel wrapper")
     for path in (functions, lh, localtx):

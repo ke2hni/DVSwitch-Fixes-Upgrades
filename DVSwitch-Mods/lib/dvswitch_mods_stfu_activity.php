@@ -1,8 +1,8 @@
 <?php
-// Version: 1.0.0
+// Version: 1.0.1
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Jeff Milne, KE2HNI
-// DVSwitch-Mods: STFU activity feed v8
+// DVSwitch-Mods: STFU activity feed v9
 
 /** Parse recent STFU ODMR traffic into DVSwitch's activity-row structure. */
 function dvsModsStfuActivityRows($paths = null)
@@ -60,10 +60,65 @@ function dvsModsStfuActivityRows($paths = null)
     return array_map(function ($event) { return $event['row']; }, $events);
 }
 
-/** Merge STFU events while keeping one latest row per DVSwitch caller key. */
-function dvsModsStfuMergeActivity($rows, $paths = null)
+/** Convert an MMDVM UTC log timestamp to milliseconds for mode-history matching. */
+function dvsModsStfuTimestampMs($timestamp)
 {
-    $combined = array_merge(is_array($rows) ? $rows : array(), dvsModsStfuActivityRows($paths));
+    if (!preg_match('/^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)(?:\.(\d{1,6}))?$/D', (string)$timestamp, $match)) { return null; }
+    $fraction = isset($match[2]) ? str_pad($match[2], 6, '0') : '000000';
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s.u', $match[1].'.'.$fraction, new DateTimeZone('UTC'));
+    if ($date === false) { return null; }
+    $errors = DateTimeImmutable::getLastErrors();
+    if (is_array($errors) && ($errors['warning_count'] !== 0 || $errors['error_count'] !== 0)) { return null; }
+    return ((int)$date->format('U') * 1000) + intdiv((int)$date->format('u'), 1000);
+}
+
+/** Label local DMR bridge transmissions as STFU only when mode history says they occurred in STFU mode. */
+function dvsModsStfuLabelLocalPtts($rows, $modeHistoryPath = null, $currentModePath = null)
+{
+    if ($modeHistoryPath === null) { $modeHistoryPath = '/var/lib/dvswitch-mods/activity-mode-history.tsv'; }
+    if ($currentModePath === null) { $currentModePath = '/var/lib/dvswitch-mode-buttons/current-mode'; }
+    $history = array();
+    if (is_readable($modeHistoryPath)) {
+        foreach ((array)file($modeHistoryPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $parts = explode("\t", $line, 2);
+            if (count($parts) === 2 && ctype_digit($parts[0]) && in_array($parts[1], array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'), true)) {
+                $history[] = array((int)$parts[0], $parts[1]);
+            }
+        }
+    }
+    $fallbackMode = '';
+    $fallbackAt = null;
+    if (!$history && is_readable($currentModePath)) {
+        $fallbackMode = strtoupper(trim((string)@file_get_contents($currentModePath)));
+        $fallbackAt = @filemtime($currentModePath);
+    }
+    foreach ((array)$rows as $index => $row) {
+        if (!is_array($row) || !isset($row[1], $row[5]) || $row[5] !== 'LNet'
+            || !in_array($row[1], array('DMR', 'DMR Slot 1', 'DMR Slot 2'), true)) { continue; }
+        $eventAt = dvsModsStfuTimestampMs($row[0] ?? '');
+        if ($eventAt === null) { continue; }
+        $mode = '';
+        $activeAt = -1;
+        foreach ($history as $transition) {
+            if ($transition[0] <= $eventAt && $transition[0] >= $activeAt) {
+                $mode = $transition[1];
+                $activeAt = $transition[0];
+            }
+        }
+        if (!$history && $fallbackMode === 'STFU' && $fallbackAt !== false && $fallbackAt !== null && $eventAt >= ($fallbackAt * 1000)) {
+            $mode = 'STFU';
+        }
+        if ($mode === 'STFU') { $rows[$index][1] = 'STFU'; }
+    }
+    return $rows;
+}
+
+/** Merge STFU events while keeping one latest row per DVSwitch caller key. */
+function dvsModsStfuMergeActivity($rows, $paths = null, $modeHistoryPath = null, $currentModePath = null)
+{
+    // MMDVM_Bridge logs local STFU PTT as ordinary DMR; mode history restores its selected dashboard label.
+    $rows = dvsModsStfuLabelLocalPtts(is_array($rows) ? $rows : array(), $modeHistoryPath, $currentModePath);
+    $combined = array_merge($rows, dvsModsStfuActivityRows($paths));
     usort($combined, function ($left, $right) {
         $time = strcmp((string)($right[0] ?? ''), (string)($left[0] ?? ''));
         return $time !== 0 ? $time : 0;
