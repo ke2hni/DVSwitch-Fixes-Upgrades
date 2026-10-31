@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.1
+# Version: 1.0.3
 # SPDX-License-Identifier: MIT
 
 """Preserve MMDVM milliseconds and label Gateway DMR rows from BM/TGIF events."""
@@ -12,6 +12,7 @@ import re
 
 FUNCTIONS_MARKER = "// DVSwitch-Mods: retain MMDVM log millisecond timestamps v1"
 LOCAL_TX_MARKER = "// DVSwitch-Mods: local TX duration and unavailable metrics v1"
+LOCAL_DSTAR_TARGET_MARKER = "// DVSwitch-Mods: local D-Star PTT reflector target v1"
 OLD_MARKER = "// DVSwitch-Mods: dashboard activity network labels v1"
 LH_MARKER = "// DVSwitch-Mods: Gateway Activity DMR network labels v1"
 INCLUDE = "include_once dirname(dirname(__FILE__)).'/include/dvswitch_mods_activity_mode.php';"
@@ -58,10 +59,10 @@ def patch_functions(text: str) -> str:
     if text.count(LOCAL_TX_MARKER) == 1:
         if "dvsModsLocalTxDuration" not in region or "$dvsModsLocalTxEndByMode" not in region:
             raise PatchError("partial local transmission duration modification in functions.php")
-        return text
-    if text.count(LOCAL_TX_MARKER) > 0:
+    elif text.count(LOCAL_TX_MARKER) > 0:
         raise PatchError("duplicate local transmission duration marker in functions.php")
-    helper = '''// DVSwitch-Mods: local TX duration helper v1
+    else:
+        helper = '''// DVSwitch-Mods: local TX duration helper v1
 function dvsModsLocalTxDuration($start, $end = null) {
     $utc = new DateTimeZone('UTC');
     $parse = function ($value) use ($utc) {
@@ -76,21 +77,25 @@ function dvsModsLocalTxDuration($start, $end = null) {
     return number_format(max(0, $seconds), 1, '.', '');
 }
 '''
-    if "function dvsModsLocalTxDuration(" not in text:
-        text = text.replace("function getHeardList(", LOCAL_TX_MARKER + "\n" + helper + "\nfunction getHeardList(", 1)
-    elif "// DVSwitch-Mods: local TX duration helper v1" not in text:
-        raise PatchError("unmarked local transmission duration helper in functions.php")
+        if "function dvsModsLocalTxDuration(" not in text:
+            text = text.replace("function getHeardList(", LOCAL_TX_MARKER + "\n" + helper + "\nfunction getHeardList(", 1)
+        elif "// DVSwitch-Mods: local TX duration helper v1" not in text:
+            raise PatchError("unmarked local transmission duration helper in functions.php")
     start = text.find("function getHeardList(")
     end = text.find("function getLastHeard(", start + 1)
     region = text[start:end]
     loop_anchor = "\tforeach ($logLines as $logLine) {"
     if region.count(loop_anchor) != 1:
         raise PatchError("could not locate the unique getHeardList() log loop")
-    region = region.replace(loop_anchor, "\t$dvsModsLocalTxEndByMode = array();\n" + loop_anchor, 1)
+    if "$dvsModsLocalTxEndByMode = array();" not in region:
+        region = region.replace(loop_anchor, "\t$dvsModsLocalTxEndByMode = array();\n" + loop_anchor, 1)
     loop_init = loop_anchor + "\n"
     if region.count(loop_init) != 1:
         raise PatchError("could not locate the unique log-loop initialization point")
-    region = region.replace(loop_init, loop_init + "\t\t$dvsModsLocalTxDuration = null;\n", 1)
+    if region.count("$dvsModsLocalTxDuration = null;") == 0:
+        region = region.replace(loop_init, loop_init + "\t\t$dvsModsLocalTxDuration = null;\n", 1)
+    elif region.count("$dvsModsLocalTxDuration = null;") != 1:
+        raise PatchError("duplicate local TX duration initialization in functions.php")
     off_anchor = '\t\tif (strpos($logLine,"TX state = OFF")){\n\t\t\t$dvsm=substr($logLine, 27, strpos($logLine,",") - 27);'
     off_new = off_anchor + '''
             $dvsModsTxFrameDuration = null;
@@ -132,6 +137,23 @@ function dvsModsLocalTxDuration($start, $end = null) {
         if region.count(row_anchor) != 1:
             raise PatchError("activity row insertion point is missing or ambiguous in functions.php")
         region = region.replace(row_anchor, row_new, 1)
+    # D-Star local TX logs use dst=0; CQCQCQ lets the Target helper show the live D-Star Net card reflector.
+    dstar_target = '\t\t$target = "TG ".substr($logLine,strpos($logLine,"dst=")+4,strpos($logLine,"slot=") - strpos($logLine,"dst=")-4);'
+    dstar_target_new = "\t\t// DVSwitch-Mods: local D-Star PTT reflector target v1\n\t\tif ($mode === \"D-Star\") {\n\t\t\t$target = \"CQCQCQ\";\n\t\t} else {\n\t\t\t$target = \"TG \".substr($logLine,strpos($logLine,\"dst=\")+4,strpos($logLine,\"slot=\") - strpos($logLine,\"dst=\")-4);\n\t\t}"
+
+    if region.count(LOCAL_DSTAR_TARGET_MARKER) == 1:
+        if (
+            region.count('if ($mode === "D-Star")') != 1
+            or region.count('$target = "CQCQCQ";') != 1
+            or region.count(dstar_target) != 1
+        ):
+            raise PatchError("partial local D-Star PTT target modification in functions.php")
+    elif region.count(LOCAL_DSTAR_TARGET_MARKER) > 1:
+        raise PatchError("duplicate local D-Star PTT target marker in functions.php")
+    else:
+        if region.count(dstar_target) != 1:
+            raise PatchError("could not locate the unique local TX target parser in functions.php")
+        region = region.replace(dstar_target, dstar_target_new, 1)
     return text[:start] + region + text[end:]
 
 

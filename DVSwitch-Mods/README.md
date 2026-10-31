@@ -1,4 +1,4 @@
-<!-- Version: 1.0.7 --><div align="center">
+<!-- Version: 1.0.9 --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -49,6 +49,9 @@ DVSwitch-Mods provides two types of changes:
 - Local PTT activity uses the MMDVM_Bridge `Begin TX` and `TX state = OFF`
   timestamps to calculate Dur(s) in every mode. DMR keeps its frame-count
   duration when the log provides it; an active transmission shows elapsed time.
+  D-Star PTT rows use `CQCQCQ` instead of the logged destination `0`; Target
+  reads the same live link state as the D-Star Net card and shows the connected
+  reflector and module.
   Local Loss and BER display `0%` and `0.0%` because the local transmit records
   do not provide measurements. STFU-local Loss and BER likewise use cosmetic
   zero placeholders because the STFU log does not provide measurements.
@@ -427,9 +430,9 @@ generic activity label. D-Star `CQCQCQ via REF030 C` rows display as `REF030 C`
 without a redundant `(Ref 030)` suffix; a bare `CQCQCQ` remains `General Call`.
 If no friendly DMR talkgroup name is available, the target displays as `TG ###`
 without repeating the same number in parentheses. For D-Star rows with a bare
-`CQCQCQ` target, the reflector is resolved from ircDDBGateway link history at
-the activity event time, so older rows keep the reflector linked when they
-were received. Rows with no linked reflector remain `General Call`.
+`CQCQCQ` target, the connected reflector and module are read from the same live
+link state shown in the D-Star Net card. If no reflector is linked, the row
+shows `General Call`.
 The target checker also recognizes the separate STFU activity component's
 BrandMeister-name wrapper, so rerunning or upgrading `dashboard-targets` keeps
 both components working together.

@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 # Clean the DVSwitch Gateway and Local Activity Target columns.
-# v1.2.0: resolves D-Star reflector labels from event-time gateway link history.
+# v1.2.2: resolves bare D-Star PTT targets from the current D-Star Net card link.
 
 set -euo pipefail
 
-readonly SCRIPT_VERSION="1.2.1"
+readonly SCRIPT_VERSION="1.2.2"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly LH_TARGET="/usr/share/dvswitch/include/lh.php"
 readonly LOCALTX_TARGET="/usr/share/dvswitch/include/localtx.php"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.1
+# Version: 1.0.3
 # SPDX-License-Identifier: MIT
 
 """Tests for timestamped BM/TGIF bridge-network Gateway Activity labels."""
@@ -53,6 +53,7 @@ function getHeardList($logLines) {
 		}
 		if (strpos($logLine,"Begin TX")) {
 		$mode = substr($logLine, 27, strpos($logLine,",") - 27);
+		$target = "TG ".substr($logLine,strpos($logLine,"dst=")+4,strpos($logLine,"slot=") - strpos($logLine,"dst=")-4);
 		$source = "LNet";
 		}
 		// Callsign or ID should be less than 11 chars long, otherwise it could be errorneous
@@ -74,6 +75,7 @@ function getLastHeard() {}
     require(first == (functions.read_bytes(), lh.read_bytes(), localtx.read_bytes()), "patcher is not idempotent")
     require(functions.read_text().count("substr($logLine, 3, 23)") >= 2, "millisecond timestamps were not retained")
     require("dvsModsLocalTxDuration" in functions.read_text() and '"0%"' in functions.read_text() and '"0.0%"' in functions.read_text(), "local TX duration and zero metric values were not added")
+    require(patcher.LOCAL_DSTAR_TARGET_MARKER in functions.read_text() and '$target = "CQCQCQ";' in functions.read_text(), "local D-Star PTT destination does not use CQCQCQ")
     require("$listElem[5]" in lh.read_text(), "Gateway Activity patch does not pass the traffic source")
     require("dvsModsActivityModeLabel(" not in localtx.read_text(), "Local Activity still has the previous relabel wrapper")
     for path in (functions, lh, localtx):
