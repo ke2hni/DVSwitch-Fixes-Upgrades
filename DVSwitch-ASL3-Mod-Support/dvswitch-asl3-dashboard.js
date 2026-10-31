@@ -1,4 +1,4 @@
-/* Version: 1.1.2 — retain the ASL node target and refresh ASL favorites cleanly. */
+/* Version: 1.1.3 — check Connect by default in the ASL link actions. */
 (function () {
   'use strict';
 
@@ -186,6 +186,8 @@
       label.style.cssText = 'display:inline-flex;align-items:center;margin:0;white-space:nowrap;font-size:12px';
       var checkbox = document.createElement('input');
       checkbox.type = 'checkbox'; checkbox.name = 'aslAction'; checkbox.value = entry[0];
+      // Start with Connect selected; changing actions keeps the existing one-at-a-time behavior.
+      checkbox.checked = entry[0] === 'CONNECT';
       checkbox.addEventListener('change', function () {
         actionContainer.querySelectorAll('input[name="aslAction"]').forEach(function (other) { if (other !== checkbox) other.checked = false; });
         var input = document.getElementById('dvs-target-input');
