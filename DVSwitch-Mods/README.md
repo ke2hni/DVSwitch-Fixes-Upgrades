@@ -586,12 +586,15 @@ sudo ./dvswitch-dark-mode.sh restore-original
 
 ### 9. Widescreen Display Layout
 
-**What it adds:** Responsive dashboard width, readable table wrapping, wider
-Gateway and Local Activity panels, and centered Hardware Info on compatible
-screens.
+**What it adds:** A dashboard width that follows 96% of the browser viewport,
+readable table wrapping, fluid Gateway and Local Activity panels, and centered
+Hardware Info on compatible screens. There is no fixed maximum width, so very
+wide screens also produce wider activity tables. The 96vw value follows the
+browser's CSS viewport, so browser zoom and operating-system display scaling
+affect the resulting pixel width.
 
 **Required first:** None. This is a standalone dashboard layout installer and
-is also available as option 3 in the manager menu. Run it after Dark Mode when
+is also available as option 4 in the manager menu. Run it after Dark Mode when
 both are being installed together.
 
 ```bash

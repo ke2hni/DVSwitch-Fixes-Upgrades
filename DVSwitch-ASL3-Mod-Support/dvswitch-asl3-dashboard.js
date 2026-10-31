@@ -1,4 +1,4 @@
-/* Version: 1.1.3 — check Connect by default in the ASL link actions. */
+/* Version: 1.1.4 — let ASL activity follow the fluid dashboard width. */
 (function () {
   'use strict';
 
@@ -239,10 +239,11 @@
     if (activity || !document.getElementById('lastHerd')) return;
     activity = document.createElement('section');
     activity.id = 'dvs-asl-activity'; activity.hidden = true;
-    activity.style.cssText = 'margin:8px auto;max-width:1400px';
+    // Keep the ASL activity section fluid so it follows the dashboard viewport width.
+    activity.style.cssText = 'margin:8px auto';
     var title = document.createElement('span'); title.textContent = 'ASL Gateway Activity'; title.style.cssText = 'font-weight:bold;font-size:14px';
     var card = document.createElement('fieldset');
-    card.style.cssText = 'box-shadow:0 0 10px #999;background-color:#e8e8e8e8;width:min(95%,1400px);margin:10px auto 0;font-size:12px;border-radius:10px';
+    card.style.cssText = 'box-shadow:0 0 10px #999;background-color:#e8e8e8e8;width:95%;margin:10px auto 0;font-size:12px;border-radius:10px';
     var table = document.createElement('table'); table.style.cssText = 'width:100%;margin-top:3px;border-collapse:collapse';
     var header = document.createElement('tr');
     ['Time', 'Mode', 'Node', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER'].forEach(function (text) { var th = document.createElement('th'); th.textContent = text; header.appendChild(th); });

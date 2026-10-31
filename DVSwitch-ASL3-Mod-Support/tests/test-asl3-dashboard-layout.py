@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
-
 """Test the ASL Net card patch in the dashboard's left status column."""
+# Version: 1.0.1
+# SPDX-License-Identifier: MIT
 
 from __future__ import annotations
 
@@ -55,6 +55,11 @@ require(b"dvswitchASL3ShowNetStatus" not in cleaned and cleaned == b"", "old sum
 
 js = (ROOT / "dvswitch-asl3-dashboard.js").read_text(encoding="utf-8")
 card = (ROOT / "dvswitch-asl3-net-card.php").read_text(encoding="utf-8")
+# The injected ASL activity panel must grow with the fluid dashboard layout.
+require("max-width:1400px" not in js and "width:min(95%,1400px)" not in js,
+        "ASL activity panel still has a fixed maximum width")
+require("activity.style.cssText = 'margin:8px auto'" in js and "width:95%" in js,
+        "ASL activity panel does not use fluid sizing")
 require("setTargetLabel" in js and "dvswitch-asl3-net-status" not in js, "dashboard JS must retain Node label only, not the misplaced cell")
 require("dvswitch-asl3-node-links" in card and "astdb.txt" in card and "ASL Net" in card and
         "Status unavailable" in card,

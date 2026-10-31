@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
+# Version: 1.1.0
 
 """Track and undo only responsive layout edits made by Mode Buttons."""
 
@@ -13,19 +14,28 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path('/usr/share/dvswitch')
+# Keep prior capped width strings here so Mode Buttons can migrate and reverse its own layout edits.
 PAIRS = {
     ROOT / 'index.php': [
         ('<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">',
          '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">'),
     ],
     ROOT / 'css/css.php': [
-        ('width: 900px;', 'width: min(96vw, 1200px);'),
+        ('width: 900px;', 'width: 96vw;'),
+        ('width: min(96vw, 1200px);', 'width: 96vw;'),
         ('white-space: nowrap;', 'white-space: normal;'),
     ],
-    ROOT / 'include/lh.php': [('width:640px;', 'width:min(95%,1400px);')],
-    ROOT / 'include/localtx.php': [('width:640px;', 'width:min(95%,1400px);')],
+    ROOT / 'include/lh.php': [
+        ('width:640px;', 'width:95%;'),
+        ('width:min(95%,1400px);', 'width:95%;'),
+    ],
+    ROOT / 'include/localtx.php': [
+        ('width:640px;', 'width:95%;'),
+        ('width:min(95%,1400px);', 'width:95%;'),
+    ],
     ROOT / 'include/system.php': [
-        ('width:855px', 'width:min(95%,1400px)'),
+        ('width:855px', 'width:95%'),
+        ('width:min(95%,1400px)', 'width:95%'),
         ('margin-left:6px;margin-right:0px', 'margin-left:auto;margin-right:auto'),
     ],
 }
@@ -45,22 +55,53 @@ def atomic_write(path: Path, data: bytes, original: os.stat_result) -> None:
 
 
 def capture(state_path: Path) -> None:
+    operations = []
+    existing_stat = None
     if state_path.exists():
         if state_path.is_symlink() or not state_path.is_file():
             raise ValueError(f'unsafe state file: {state_path}')
-        return
-    operations = []
+        state = json.loads(state_path.read_text(encoding='utf-8'))
+        if state.get('format') != 1 or not isinstance(state.get('operations'), list):
+            raise ValueError('unsupported layout-state format')
+        operations = state['operations']
+        existing_stat = state_path.stat()
+
+    contents = {}
     for path, replacements in PAIRS.items():
         if path.is_symlink() or not path.is_file():
             raise ValueError(f'unsafe or missing dashboard file: {path}')
-        data = path.read_bytes()
+        contents[path] = path.read_bytes()
+
+    # Upgrade recorded replacement values only after the new stylesheet text is live.
+    latest_by_previous = {old: new for replacements in PAIRS.values() for old, new in replacements}
+    allowed = {str(path) for path in PAIRS}
+    for operation in operations:
+        path = Path(operation['path'])
+        if str(path) not in allowed or not isinstance(operation['count'], int) or operation['count'] < 1:
+            raise ValueError('invalid layout-state operation')
+        previous = operation['new']
+        latest = latest_by_previous.get(previous)
+        if latest and contents[path].count(latest.encode()) >= operation['count']:
+            operation['new'] = latest
+
+    # Capture newly introduced layout edits, including upgrades from an earlier Buttons state.
+    covered = {}
+    for operation in operations:
+        key = (operation['path'], operation['new'])
+        covered[key] = covered.get(key, 0) + operation['count']
+    for path, replacements in PAIRS.items():
+        data = contents[path]
         for old, new in replacements:
-            count = data.count(old.encode())
-            if count:
+            key = (str(path), old)
+            count = data.count(old.encode()) - covered.get(key, 0)
+            if count > 0:
                 operations.append({'path': str(path), 'old': old, 'new': new, 'count': count})
+                covered[key] = covered.get(key, 0) + count
     state_path.parent.mkdir(parents=True, exist_ok=True)
     content = (json.dumps({'format': 1, 'operations': operations}, indent=2) + '\n').encode()
-    atomic_write(state_path, content, os.stat(state_path.parent))
+    if existing_stat and state_path.read_bytes() == content:
+        return
+    atomic_write(state_path, content, existing_stat or os.stat(state_path.parent))
     os.chmod(state_path, 0o600)
 
 

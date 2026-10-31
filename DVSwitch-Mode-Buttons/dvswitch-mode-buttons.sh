@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="1.0.0-test74"
+VERSION="1.0.0-test75"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -823,6 +823,8 @@ echo "PASS: created available BM/TGIF presets in $PRESET_DIR."
 
 python3 ./dvswitch-mode-layout-state capture "$LAYOUT_STATE"
 bash ./dvswitch-display-layout.sh apply
+# Refresh ownership markers after the layout script has migrated prior width values.
+python3 ./dvswitch-mode-layout-state capture "$LAYOUT_STATE"
 install_dashboard_components
 
 ./install-mode-target-persistence.sh

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Verify full-file dashboard restores reject edits from other components."""
+# Version: 1.0.1
 from __future__ import annotations
 
 import os
@@ -29,19 +30,26 @@ with tempfile.TemporaryDirectory(prefix="dvsm-restore-guards-") as tmp:
 
     snapshot = root / "css.php"
     current = root / "current-css.php"
+    # Cover both stock and previously capped snapshots migrating to the fluid width.
     snapshot.write_text("width: 900px;\nwhite-space: nowrap;\n")
-    current.write_text("width: min(96vw, 1200px);\nwhite-space: normal;\n")
+    current.write_text("width: 96vw;\nwhite-space: normal;\n")
     layout_function = function_source(ROOT / "dvswitch-display-layout.sh", "check_layout_snapshot_pair")
     harness = root / "layout-check.sh"
     harness.write_text(
         die + layout_function + "\ncheck_layout_snapshot_pair \"$CURRENT\" \"$SNAPSHOT\" "
-        + "\"width: 900px;\" \"width: min(96vw, 1200px);\" "
+        + "\"width: 900px;\" \"width: 96vw;\" "
+        + "\"width: min(96vw, 1200px);\" \"width: 96vw;\" "
         + "\"white-space: nowrap;\" \"white-space: normal;\"\n",
         encoding="utf-8",
     )
     env = os.environ | {"CURRENT": str(current), "SNAPSHOT": str(snapshot)}
     accepted = subprocess.run(["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
     require(accepted.returncode == 0, "display-layout restore guard rejected its own changes")
+    snapshot.write_text("width: min(96vw, 1200px);\nwhite-space: normal;\n")
+    current.write_text("width: 96vw;\nwhite-space: normal;\n")
+    accepted_legacy = subprocess.run(["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
+    require(accepted_legacy.returncode == 0,
+            "display-layout restore guard rejected an upgrade from the prior width cap")
     current.write_text(current.read_text() + "/* later component edit */\n")
     refused = subprocess.run(["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
     require(refused.returncode != 0 and "unrelated or customized changes" in refused.stderr,

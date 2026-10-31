@@ -67,7 +67,7 @@ Choose **1** to install the buttons or upgrade an existing installation to the c
 - Standalone DMR Master card rendering for BM and TGIF; while STFU, YSF, P25, NXDN, or D-Star is active, it retains the last BM/TGIF talkgroup instead of displaying another mode’s tune ID.
 - Friendly-name wrapping inside the DMR card.
 - A saved DMR talkgroup that the dashboard updates only while BM or TGIF is active; STFU and other mode IDs never replace it.
-- The responsive DVSwitch dashboard layout, using the separate `dvswitch-display-layout.sh` script. The installer runs its read-only check and then its normal apply action during option 1, so the dashboard width is corrected along with the buttons.
+- The fluid DVSwitch dashboard layout, using the separate `dvswitch-display-layout.sh` script. It uses 96% of the browser's CSS viewport without a fixed maximum width; Gateway Activity, Local Activity, Hardware Info, and ASL Gateway Activity expand with the available space. Browser zoom and operating-system display scaling affect the resulting pixel width. The installer runs its read-only check and then its normal apply action during option 1, so the dashboard width is updated along with the buttons.
 
 The dashboard mode buttons and inline talkgroup/reflector tuner work whether they are installed before or after the
 DVSwitch-Mods RX Monitor position modification. If RX Monitor has already moved
@@ -186,7 +186,7 @@ Uninstall removes both mode helpers, the target-state helper, tuner helper, endp
 /var/backups/dvswitch-mode-buttons/
 ```
 
-The repository keeps `dvswitch-display-layout.sh` as a separate installer script. It updates `index.php`, `css/css.php`, `include/lh.php`, `include/localtx.php`, and `include/system.php`; the ownership helper stores the specific substitutions made by the Buttons install.
+The repository keeps `dvswitch-display-layout.sh` as a separate installer script. Version 1.2 uses a 96vw dashboard width and 95% widths for Gateway Activity, Local Activity, and Hardware Info. It updates `index.php`, `css/css.php`, `include/lh.php`, `include/localtx.php`, and `include/system.php`; the ownership helper stores the specific substitutions made by the Buttons install and migrates ownership records from prior capped layouts.
 
 `/etc/dvswitch-mode-buttons/favorites.json` contains separate favorites for BM, TGIF, STFU, YSF, P25, NXDN, and D-Star. Each mode's list is alphabetized by favorite name when saved, with each target ID kept with its name. The installer copies the repository's example `favorites.json` there when the file does not already exist, so the dropdown and Edit screen have sample entries on first install. Upgrades preserve an existing file, and uninstall retains it so a reinstall does not erase the user's lists. Edit or remove the sample entries to match the reflectors and talkgroups you use.
 

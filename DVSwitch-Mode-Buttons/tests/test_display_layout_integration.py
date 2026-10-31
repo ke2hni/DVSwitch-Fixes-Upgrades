@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Regression coverage for the bundled responsive dashboard layout."""
+# Version: 1.1.2
 
 from __future__ import annotations
 
 import importlib.util
 import importlib.machinery
+import json
+import re
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = (ROOT / 'dvswitch-mode-buttons.sh').read_text()
 LAYOUT = (ROOT / 'dvswitch-display-layout.sh').read_text()
+MODS_LAYOUT = (ROOT.parent / 'DVSwitch-Mods' / 'dvswitch-display-layout.sh').read_text()
 LOADER = importlib.machinery.SourceFileLoader('mode_layout_state', str(ROOT / 'dvswitch-mode-layout-state'))
 SPEC = importlib.util.spec_from_loader('mode_layout_state', LOADER)
 assert SPEC and SPEC.loader
@@ -20,6 +25,24 @@ SPEC.loader.exec_module(STATE)
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    # Keep the standalone and bundled installers on the same width rules.
+    def test_both_installers_share_fluid_width_logic(self):
+        function = r'(?ms)^replace_layout_variants\(\)\{.*?^}'
+        bundled = re.search(function, LAYOUT)
+        standalone = re.search(function, MODS_LAYOUT)
+        self.assertIsNotNone(bundled)
+        self.assertIsNotNone(standalone)
+        self.assertEqual(bundled.group(0), standalone.group(0))
+        for marker in (
+            'replace_layout_variants "$CSS_FILE" "width: 96vw;"',
+            'replace_layout_variants "$LH_FILE" "width:95%;"',
+            'replace_layout_variants "$LOCALTX_FILE" "width:95%;"',
+            'replace_layout_variants "$SYSTEM_FILE" "width:95%"',
+        ):
+            self.assertIn(marker, LAYOUT)
+            self.assertIn(marker, MODS_LAYOUT)
+
+    # Both original and previously capped widths must migrate to the fluid layout.
     def test_installer_checks_applies_and_restores_bundled_layout(self):
         self.assertIn('bash ./dvswitch-display-layout.sh check', INSTALLER)
         self.assertIn('python3 ./dvswitch-mode-layout-state capture "$LAYOUT_STATE"', INSTALLER)
@@ -29,11 +52,15 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertIn('check)', LAYOUT)
         for source, old, new in (
             ('$INDEX_FILE', '<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">', '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">'),
-            ('$CSS_FILE', 'width: 900px;', 'width: min(96vw, 1200px);'),
+            ('$CSS_FILE', 'width: 900px;', 'width: 96vw;'),
+            ('$CSS_FILE', 'width: min(96vw, 1200px);', 'width: 96vw;'),
             ('$CSS_FILE', 'white-space: nowrap;', 'white-space: normal;'),
-            ('$LH_FILE', 'width:640px;', 'width:min(95%,1400px);'),
-            ('$LOCALTX_FILE', 'width:640px;', 'width:min(95%,1400px);'),
-            ('$SYSTEM_FILE', 'width:855px', 'width:min(95%,1400px)'),
+            ('$LH_FILE', 'width:640px;', 'width:95%;'),
+            ('$LH_FILE', 'width:min(95%,1400px);', 'width:95%;'),
+            ('$LOCALTX_FILE', 'width:640px;', 'width:95%;'),
+            ('$LOCALTX_FILE', 'width:min(95%,1400px);', 'width:95%;'),
+            ('$SYSTEM_FILE', 'width:855px', 'width:95%'),
+            ('$SYSTEM_FILE', 'width:min(95%,1400px)', 'width:95%'),
             ('$SYSTEM_FILE', 'margin-left:6px;margin-right:0px', 'margin-left:auto;margin-right:auto'),
         ):
             self.assertIn(source, LAYOUT)
@@ -63,6 +90,59 @@ class DisplayLayoutTests(unittest.TestCase):
                 self.assertIn(b'later unrelated mod', path.read_bytes())
             self.assertFalse(state.exists())
 
+    # Existing ownership records must follow the new replacement after an upgrade.
+    def test_capture_migrates_previous_width_ownership(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            css = base / 'css.php'
+            css.write_text('width: min(96vw, 1200px);\n')
+            state = base / 'owned.json'
+            state.write_text(json.dumps({
+                'format': 1,
+                'operations': [{
+                    'path': str(css),
+                    'old': 'width: 900px;',
+                    'new': 'width: min(96vw, 1200px);',
+                    'count': 1,
+                }],
+            }, indent=2) + '\n')
+            original_pairs = STATE.PAIRS
+            STATE.PAIRS = {css: [
+                ('width: 900px;', 'width: 96vw;'),
+                ('width: min(96vw, 1200px);', 'width: 96vw;'),
+            ]}
+            try:
+                STATE.capture(state)
+                css.write_text('width: 96vw;\n')
+                STATE.capture(state)
+                operation = json.loads(state.read_text())['operations'][0]
+                self.assertEqual(operation['new'], 'width: 96vw;')
+                STATE.restore(state)
+                self.assertEqual(css.read_text(), 'width: 900px;\n')
+            finally:
+                STATE.PAIRS = original_pairs
+
+    # Exercise the shell migration against both stock and prior capped values.
+    def test_layout_width_replacements_upgrade_and_rerun_cleanly(self):
+        match = re.search(r'(?ms)^replace_layout_variants\(\)\{.*?^}', LAYOUT)
+        self.assertIsNotNone(match)
+        with tempfile.TemporaryDirectory() as directory:
+            dashboard = Path(directory) / 'css.php'
+            for previous in ('width: 900px;', 'width: min(96vw, 1200px);'):
+                dashboard.write_text(previous + '\n')
+                harness = Path(directory) / 'replace.sh'
+                harness.write_text(
+                    'log(){ :; }\ndie(){ echo "$1" >&2; exit 1; }\n'
+                    + match.group(0) + '\n'
+                    + f'replace_layout_variants "{dashboard}" "width: 96vw;" "test fluid width" '
+                    + '"width: 900px;" "width: min(96vw, 1200px);"\n',
+                    encoding='utf-8',
+                )
+                subprocess.run(['bash', '-e', str(harness)], check=True, capture_output=True)
+                self.assertEqual(dashboard.read_text(), 'width: 96vw;\n')
+                subprocess.run(['bash', '-e', str(harness)], check=True, capture_output=True)
+                self.assertEqual(dashboard.read_text(), 'width: 96vw;\n')
+
     def test_preexisting_responsive_layout_is_not_claimed(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'dashboard.php'
@@ -70,7 +150,7 @@ class DisplayLayoutTests(unittest.TestCase):
             STATE.PAIRS = {path: [('stock width', 'responsive width')]}
             state = path.parent / 'owned.json'
             STATE.capture(state)
-            self.assertEqual(__import__('json').loads(state.read_text())['operations'], [])
+            self.assertEqual(json.loads(state.read_text())['operations'], [])
             STATE.restore(state)
             self.assertEqual(path.read_text(), 'ALREADY RESPONSIVE')
 

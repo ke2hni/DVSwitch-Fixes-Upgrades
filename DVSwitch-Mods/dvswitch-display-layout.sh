@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-VERSION="1.1"
+VERSION="1.2"
 ROOT="/usr/share/dvswitch"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -53,12 +53,14 @@ restore_dashboard_files_from(){
     '<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">' \
     '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">' \
   check_layout_snapshot_pair "$CSS_FILE" "$src/css.php" \
-    'width: 900px;' 'width: min(96vw, 1200px);' \
+    'width: 900px;' 'width: 96vw;' \
+    'width: min(96vw, 1200px);' 'width: 96vw;' \
     'white-space: nowrap;' 'white-space: normal;'
-  check_layout_snapshot_pair "$LH_FILE" "$src/lh.php" 'width:640px;' 'width:min(95%,1400px);'
-  check_layout_snapshot_pair "$LOCALTX_FILE" "$src/localtx.php" 'width:640px;' 'width:min(95%,1400px);'
+  check_layout_snapshot_pair "$LH_FILE" "$src/lh.php" 'width:640px;' 'width:95%;' 'width:min(95%,1400px);' 'width:95%;'
+  check_layout_snapshot_pair "$LOCALTX_FILE" "$src/localtx.php" 'width:640px;' 'width:95%;' 'width:min(95%,1400px);' 'width:95%;'
   check_layout_snapshot_pair "$SYSTEM_FILE" "$src/system.php" \
-    'width:855px' 'width:min(95%,1400px)' \
+    'width:855px' 'width:95%' \
+    'width:min(95%,1400px)' 'width:95%' \
     'margin-left:6px;margin-right:0px' 'margin-left:auto;margin-right:auto'
 
   cp -a "$src/index.php" "$INDEX_FILE" || die "Could not restore index.php"
@@ -123,6 +125,33 @@ replace_or_confirm(){
   fi
 }
 
+# Upgrade stock and previously capped widths to the current viewport-based sizes.
+replace_layout_variants(){
+  file="$1"
+  new="$2"
+  label="$3"
+  shift 3
+  changed=0
+
+  while [ "$#" -gt 0 ]; do
+    old="$1"
+    shift
+    if grep -Fq "$old" "$file"; then
+      sed -i "s|$old|$new|g" "$file" || die "Failed changing: $label"
+      changed=1
+    fi
+  done
+
+  if [ "$changed" -eq 1 ]; then
+    log "Changed: $label"
+  elif grep -Fq "$new" "$file"; then
+    log "Already applied: $label"
+  else
+    log "WARNING: Expected original or supported previous width not found for: $label"
+    log "WARNING: File may be newer, customized, or already changed differently: $file"
+  fi
+}
+
 apply_responsive(){
   need_root
 
@@ -139,14 +168,15 @@ apply_responsive(){
 
   replace_or_confirm "$INDEX_FILE" '<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">' '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">' "index.php main content td width 100%"
 
-  replace_or_confirm "$CSS_FILE" "width: 900px;" "width: min(96vw, 1200px);" "css.php container width 900px -> min(96vw, 1200px)"
+  # Let the dashboard and its main panels use the available browser viewport width.
+  replace_layout_variants "$CSS_FILE" "width: 96vw;" "css.php fluid dashboard width" "width: 900px;" "width: min(96vw, 1200px);"
   log "Preserved stock nav width: width : 185px; (no responsive nav-width patch applied)"
   replace_or_confirm "$CSS_FILE" "white-space: nowrap;" "white-space: normal;" "css.php table white-space nowrap -> normal"
 
-  replace_or_confirm "$LH_FILE" "width:640px;" "width:min(95%,1400px);" "lh.php Gateway Activity fieldset width 640px -> min(95%,1400px)"
-  replace_or_confirm "$LOCALTX_FILE" "width:640px;" "width:min(95%,1400px);" "localtx.php Local Activity fieldset width 640px -> min(95%,1400px)"
+  replace_layout_variants "$LH_FILE" "width:95%;" "lh.php Gateway Activity fluid width" "width:640px;" "width:min(95%,1400px);"
+  replace_layout_variants "$LOCALTX_FILE" "width:95%;" "localtx.php Local Activity fluid width" "width:640px;" "width:min(95%,1400px);"
 
-  replace_or_confirm "$SYSTEM_FILE" "width:855px" "width:min(95%,1400px)" "system.php Hardware Info width 855px -> min(95%,1400px)"
+  replace_layout_variants "$SYSTEM_FILE" "width:95%" "system.php Hardware Info fluid width" "width:855px" "width:min(95%,1400px)"
   replace_or_confirm "$SYSTEM_FILE" "margin-left:6px;margin-right:0px" "margin-left:auto;margin-right:auto" "system.php Hardware Info margin center"
 
   log "Responsive dashboard tweaks complete."
@@ -199,7 +229,7 @@ show_status(){
   fi
   echo
   echo "Current responsive markers:"
-  grep -Hn 'width:100%;\|width: min(96vw, 1200px);\|white-space: normal;\|width:min(95%,1400px)\|margin-left:auto;margin-right:auto' "$INDEX_FILE" "$CSS_FILE" "$LH_FILE" "$LOCALTX_FILE" "$SYSTEM_FILE" 2>/dev/null || true
+  grep -Hn 'width:100%;\|width: 96vw;\|white-space: normal;\|width:95%;\|margin-left:auto;margin-right:auto' "$INDEX_FILE" "$CSS_FILE" "$LH_FILE" "$LOCALTX_FILE" "$SYSTEM_FILE" 2>/dev/null || true
 }
 
 case "${1:-menu}" in
