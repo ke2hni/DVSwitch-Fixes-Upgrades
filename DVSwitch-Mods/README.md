@@ -1,4 +1,4 @@
-<!-- Version: 1.0.9 --><div align="center">
+<!-- Version: 1.0.14 --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -112,8 +112,11 @@ The combined repository menu provides five installation choices and one uninstal
    stored in the sibling `DVSwitch-ASL3-Mod-Support/` directory; install Mode
    Buttons with option 2 to display the ASL mode button and tuner.
 
-The Dark Mode and Display Layout installers do not require the standard
-component chain. STFU status, STFU activity, RX Monitor position, and the STFU
+The Widescreen Display Layout aligns Status and activity headings and card tops
+across digital and ASL modes, applies the final one-pixel corrections measured
+from the dashboard screenshots, prevents the fixed status column from pushing
+the main column beyond the viewport, and uses a shorter header. The Dark Mode and Display Layout installers
+do not require the standard component chain. STFU status, STFU activity, RX Monitor position, and the STFU
 logrotate restart repair are included at the end of the standard component
 installation and uninstall order. Option 0 exits without changing anything.
 The standalone Mode Buttons, Dark Mode, and Widescreen installers are managed
@@ -587,15 +590,17 @@ sudo ./dvswitch-dark-mode.sh restore-original
 ### 9. Widescreen Display Layout
 
 **What it adds:** A dashboard width that follows 96% of the browser viewport,
-readable table wrapping, fluid Gateway and Local Activity panels, and centered
-Hardware Info on compatible screens. There is no fixed maximum width, so very
+readable table wrapping, fluid Gateway and Local Activity panels, centered
+Hardware Info, mode-aware Status/activity alignment, and a shorter header on compatible
+screens. There is no fixed maximum width, so very
 wide screens also produce wider activity tables. The 96vw value follows the
 browser's CSS viewport, so browser zoom and operating-system display scaling
 affect the resulting pixel width.
 
 **Required first:** None. This is a standalone dashboard layout installer and
 is also available as option 4 in the manager menu. Run it after Dark Mode when
-both are being installed together.
+both are being installed together. Run `sudo ./dvswitch-display-layout.sh --check`
+before `sudo ./dvswitch-display-layout.sh apply`; the check is read-only.
 
 ```bash
 sudo ./dvswitch-display-layout.sh apply

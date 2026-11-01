@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Verify full-file dashboard restores reject edits from other components."""
-# Version: 1.0.1
+# Version: 1.0.7
 from __future__ import annotations
 
 import os
 from pathlib import Path
 import re
 import subprocess
+import shlex
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,25 +32,71 @@ with tempfile.TemporaryDirectory(prefix="dvsm-restore-guards-") as tmp:
     snapshot = root / "css.php"
     current = root / "current-css.php"
     # Cover both stock and previously capped snapshots migrating to the fluid width.
-    snapshot.write_text("width: 900px;\nwhite-space: nowrap;\n")
-    current.write_text("width: 96vw;\nwhite-space: normal;\n")
+    css_overlay = '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.4 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+    snapshot.write_text("width: 900px;\nwhite-space: nowrap;\n.container {\n")
+    current.write_text("width: 96vw;\nwhite-space: normal;\n" + css_overlay + "\n")
     layout_function = function_source(ROOT / "dvswitch-display-layout.sh", "check_layout_snapshot_pair")
     harness = root / "layout-check.sh"
+    arguments = [
+        '"width: 900px;"', '"width: 96vw;"',
+        '"width: min(96vw, 1200px);"', '"width: 96vw;"',
+        '"white-space: nowrap;"', '"white-space: normal;"',
+        shlex.quote('.container {'), shlex.quote(css_overlay),
+    ]
     harness.write_text(
         die + layout_function + "\ncheck_layout_snapshot_pair \"$CURRENT\" \"$SNAPSHOT\" "
-        + "\"width: 900px;\" \"width: 96vw;\" "
-        + "\"width: min(96vw, 1200px);\" \"width: 96vw;\" "
-        + "\"white-space: nowrap;\" \"white-space: normal;\"\n",
+        + " ".join(arguments) + "\n",
         encoding="utf-8",
     )
     env = os.environ | {"CURRENT": str(current), "SNAPSHOT": str(snapshot)}
     accepted = subprocess.run(["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
     require(accepted.returncode == 0, "display-layout restore guard rejected its own changes")
-    snapshot.write_text("width: min(96vw, 1200px);\nwhite-space: normal;\n")
-    current.write_text("width: 96vw;\nwhite-space: normal;\n")
+    snapshot.write_text("width: min(96vw, 1200px);\nwhite-space: normal;\n.container {\n")
+    current.write_text("width: 96vw;\nwhite-space: normal;\n" + css_overlay + "\n")
     accepted_legacy = subprocess.run(["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
     require(accepted_legacy.returncode == 0,
             "display-layout restore guard rejected an upgrade from the prior width cap")
+    previous_overlay = ('/* DVSwitch-Mods: responsive column alignment and compact header v1.3.3 */ '
+                        '.nav #modeInfo > fieldset { margin-top:8px !important; } '
+                        'body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } '
+                        'body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } '
+                        '.header { padding:0; } .header h2 { margin:8px 0; } .container {')
+    snapshot.write_text("width: 96vw;\nwhite-space: normal;\n" + previous_overlay + "\n")
+    current.write_text("width: 96vw;\nwhite-space: normal;\n" + css_overlay + "\n")
+    previous_arguments = [
+        '"width: 900px;"', '"width: 96vw;"',
+        '"width: min(96vw, 1200px);"', '"width: 96vw;"',
+        '"white-space: nowrap;"', '"white-space: normal;"',
+        shlex.quote(previous_overlay), shlex.quote(css_overlay),
+    ]
+    harness.write_text(
+        die + layout_function + "\ncheck_layout_snapshot_pair \"$CURRENT\" \"$SNAPSHOT\" "
+        + " ".join(previous_arguments) + "\n",
+        encoding="utf-8",
+    )
+    accepted_previous_overlay = subprocess.run(
+        ["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
+    require(accepted_previous_overlay.returncode == 0,
+            "display-layout restore guard rejected a v1.3.3-to-v1.3.4 overlay upgrade")
+    legacy_overlay = ('/* DVSwitch-Mods: responsive column alignment and compact header v1.3.0 */ '
+                      '.nav #modeInfo > fieldset { margin-top:15px !important; } '
+                      '.header { padding:0; } .header h2 { margin:8px 0; } .container {')
+    snapshot.write_text("width: 96vw;\nwhite-space: normal;\n" + legacy_overlay + "\n")
+    previous_arguments = [
+        '"width: 900px;"', '"width: 96vw;"',
+        '"width: min(96vw, 1200px);"', '"width: 96vw;"',
+        '"white-space: nowrap;"', '"white-space: normal;"',
+        shlex.quote(legacy_overlay), shlex.quote(css_overlay),
+    ]
+    harness.write_text(
+        die + layout_function + "\ncheck_layout_snapshot_pair \"$CURRENT\" \"$SNAPSHOT\" "
+        + " ".join(previous_arguments) + "\n",
+        encoding="utf-8",
+    )
+    accepted_legacy_overlay = subprocess.run(
+        ["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
+    require(accepted_legacy_overlay.returncode == 0,
+            "display-layout restore guard rejected a v1.3.0-to-v1.3.2 overlay upgrade")
     current.write_text(current.read_text() + "/* later component edit */\n")
     refused = subprocess.run(["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
     require(refused.returncode != 0 and "unrelated or customized changes" in refused.stderr,

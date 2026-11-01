@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-VERSION="1.2"
+VERSION="1.3.4"
 ROOT="/usr/share/dvswitch"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -14,6 +14,13 @@ CSS_FILE="$ROOT/css/css.php"
 LH_FILE="$ROOT/include/lh.php"
 LOCALTX_FILE="$ROOT/include/localtx.php"
 SYSTEM_FILE="$ROOT/include/system.php"
+
+# Keep supported overlays explicit so upgrades and restores recognize each layout version.
+CSS_LAYOUT_OVERLAY_V130='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.0 */ .nav #modeInfo > fieldset { margin-top:15px !important; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+CSS_LAYOUT_OVERLAY_V131='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.1 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+CSS_LAYOUT_OVERLAY_V132='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.2 */ .nav #modeInfo > fieldset { margin-top:1px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:6px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity > span { position:relative; top:6px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+CSS_LAYOUT_OVERLAY_V133='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.3 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+CSS_LAYOUT_OVERLAY='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.4 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
 
 log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 die(){ log "ERROR: $*"; exit 1; }
@@ -94,6 +101,26 @@ replace_or_confirm(){
   fi
 }
 
+# Replace a literal CSS block so punctuation in selectors is not interpreted by sed.
+replace_exact_or_confirm(){
+  file="$1" old="$2" new="$3" label="$4"
+  python3 - "$file" "$old" "$new" "$label" <<'PY_LAYOUT_EXACT_REPLACE' || die "Failed changing: $label"
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text(encoding='utf-8')
+old, new, label = sys.argv[2:5]
+if text.count(old) == 1:
+    path.write_text(text.replace(old, new, 1), encoding='utf-8')
+    print(f"Changed: {label}")
+elif new in text:
+    print(f"Already applied: {label}")
+else:
+    print(f"WARNING: Expected supported CSS block not found for: {label}")
+    raise SystemExit(1)
+PY_LAYOUT_EXACT_REPLACE
+}
+
 # Upgrade stock and previously capped widths to the current viewport-based sizes.
 replace_layout_variants(){
   file="$1"
@@ -135,12 +162,28 @@ apply_responsive(){
 
   log "Applying DVSwitch Dashboard display layout tweaks v$VERSION"
 
-  replace_or_confirm "$INDEX_FILE" '<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">' '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">' "index.php main content td width 100%"
+  # Let the two-column dashboard table divide the viewport instead of adding 100% beside the fixed status column.
+  replace_or_confirm "$INDEX_FILE" 'style="border:none; border-collapse:collapse; cellspacing:0; cellpadding:0; background-color:#fafafa;"' 'style="border:none; border-collapse:collapse; cellspacing:0; cellpadding:0; background-color:#fafafa; width:100%; table-layout:fixed;"' "index.php main content table fills available width"
+  replace_or_confirm "$INDEX_FILE" '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">' '<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">' "index.php content column no longer forces overflow"
 
   # Let the dashboard and its main panels use the available browser viewport width.
   replace_layout_variants "$CSS_FILE" "width: 96vw;" "css.php fluid dashboard width" "width: 900px;" "width: min(96vw, 1200px);"
   log "Preserved stock nav width: width : 185px; (no responsive nav-width patch applied)"
   replace_or_confirm "$CSS_FILE" "white-space: nowrap;" "white-space: normal;" "css.php table white-space nowrap -> normal"
+  # Preserve prior overlays during upgrades so the owned CSS remains reversible.
+  if grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.4' "$CSS_FILE"; then
+    log "Already applied: responsive column alignment and compact header"
+  elif grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.3' "$CSS_FILE"; then
+    replace_exact_or_confirm "$CSS_FILE" "$CSS_LAYOUT_OVERLAY_V133" "$CSS_LAYOUT_OVERLAY" "css.php one-pixel heading and ASL panel alignment"
+  elif grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.2' "$CSS_FILE"; then
+    replace_exact_or_confirm "$CSS_FILE" "$CSS_LAYOUT_OVERLAY_V132" "$CSS_LAYOUT_OVERLAY" "css.php measured card and heading alignment"
+  elif grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.1' "$CSS_FILE"; then
+    replace_exact_or_confirm "$CSS_FILE" "$CSS_LAYOUT_OVERLAY_V131" "$CSS_LAYOUT_OVERLAY" "css.php guide spacing and panel alignment"
+  elif grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.0' "$CSS_FILE"; then
+    replace_exact_or_confirm "$CSS_FILE" "$CSS_LAYOUT_OVERLAY_V130" "$CSS_LAYOUT_OVERLAY" "css.php mode-aware status alignment and compact header"
+  else
+    replace_exact_or_confirm "$CSS_FILE" '.container {' "$CSS_LAYOUT_OVERLAY" "css.php mode-aware status alignment and compact header"
+  fi
 
   replace_layout_variants "$LH_FILE" "width:95%;" "lh.php Gateway Activity fluid width" "width:640px;" "width:min(95%,1400px);"
   replace_layout_variants "$LOCALTX_FILE" "width:95%;" "localtx.php Local Activity fluid width" "width:640px;" "width:min(95%,1400px);"
@@ -202,7 +245,7 @@ show_status(){
 }
 
 case "${1:-menu}" in
-  check)
+  check|--check)
     need_root
     require_file "$INDEX_FILE"
     require_file "$CSS_FILE"
