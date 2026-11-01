@@ -61,4 +61,7 @@ Each subproject contains its own license and tests. Review its README and safety
 <img width="1600" height="900" alt="Screenshot 2026-10-25 202336" src="https://github.com/user-attachments/assets/f2166c94-49d4-4c6c-9b41-d4ee86d395cc" />
 <img width="1600" height="900" alt="Screenshot 2026-10-25 202342" src="https://github.com/user-attachments/assets/5208d1e9-523a-4e0a-b11a-a0fec70c74d2" />
 <img width="1600" height="900" alt="Screenshot 2026-10-25 203014" src="https://github.com/user-attachments/assets/8a633877-ce14-407d-b7b8-fb434ff56a7f" />
+<img width="1600" height="900" alt="Screenshot 2026-11-01 161054" src="https://github.com/user-attachments/assets/37c09afe-84df-49c3-8d5e-58d939dc533f" />
+<img width="1600" height="900" alt="Screenshot 2026-11-01 161224" src="https://github.com/user-attachments/assets/b0edf98a-fc09-4991-be26-4c18e14d1aca" />
+<img width="1600" height="900" alt="Screenshot 2026-11-01 161240" src="https://github.com/user-attachments/assets/b8a0fae4-822d-43cc-8da2-0fad51693052" />
 
