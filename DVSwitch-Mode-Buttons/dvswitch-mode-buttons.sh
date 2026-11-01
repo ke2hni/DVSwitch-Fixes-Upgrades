@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="1.0.0-test81"
+VERSION="1.0.0-test83"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"

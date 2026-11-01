@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Verify full-file dashboard restores reject edits from other components."""
-# Version: 1.0.8
+# Version: 1.0.10
 from __future__ import annotations
 
 import os
@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix="dvsm-restore-guards-") as tmp:
     snapshot = root / "css.php"
     current = root / "current-css.php"
     # Cover both stock and previously capped snapshots migrating to the fluid width.
-    css_overlay = '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.5 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity > span { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+    css_overlay = '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.7 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity > span { position:relative; top:-1px; } body:not(:has(#dvs-asl-activity:not([hidden]))) #lastHerd > span:first-child { position:relative; top:1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
     snapshot.write_text("width: 900px;\nwhite-space: nowrap;\n.container {\n")
     current.write_text("width: 96vw;\nwhite-space: normal;\n" + css_overlay + "\n")
     layout_function = function_source(ROOT / "dvswitch-display-layout.sh", "check_layout_snapshot_pair")
@@ -56,11 +56,7 @@ with tempfile.TemporaryDirectory(prefix="dvsm-restore-guards-") as tmp:
     accepted_legacy = subprocess.run(["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
     require(accepted_legacy.returncode == 0,
             "display-layout restore guard rejected an upgrade from the prior width cap")
-    previous_overlay = ('/* DVSwitch-Mods: responsive column alignment and compact header v1.3.4 */ '
-                        '.nav #modeInfo > fieldset { margin-top:8px !important; } '
-                        'body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } '
-                        'body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } '
-                        '.header { padding:0; } .header h2 { margin:8px 0; } .container {')
+    previous_overlay = '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.6 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } body:not(:has(#dvs-asl-activity:not([hidden]))) #lastHerd > span:first-child { position:relative; top:1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
     snapshot.write_text("width: 96vw;\nwhite-space: normal;\n" + previous_overlay + "\n")
     current.write_text("width: 96vw;\nwhite-space: normal;\n" + css_overlay + "\n")
     previous_arguments = [
@@ -77,7 +73,7 @@ with tempfile.TemporaryDirectory(prefix="dvsm-restore-guards-") as tmp:
     accepted_previous_overlay = subprocess.run(
         ["bash", "-e", str(harness)], env=env, text=True, capture_output=True)
     require(accepted_previous_overlay.returncode == 0,
-            "display-layout restore guard rejected a v1.3.4-to-v1.3.5 overlay upgrade")
+            "display-layout restore guard rejected a v1.3.6-to-v1.3.7 overlay upgrade")
     legacy_overlay = ('/* DVSwitch-Mods: responsive column alignment and compact header v1.3.0 */ '
                       '.nav #modeInfo > fieldset { margin-top:15px !important; } '
                       '.header { padding:0; } .header h2 { margin:8px 0; } .container {')
