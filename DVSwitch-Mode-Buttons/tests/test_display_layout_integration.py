@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Regression coverage for the bundled responsive dashboard layout."""
-# Version: 1.1.7
+# Version: 1.1.8
 
 from __future__ import annotations
 
@@ -53,17 +53,18 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertIn('check|--check)', MODS_LAYOUT)
         self.assertIn('margin-top:8px !important;', MODS_LAYOUT)
         self.assertIn('#modeInfo > span:first-child { position:relative; top:-1px; }', MODS_LAYOUT)
-        self.assertIn('#dvs-asl-activity { position:relative; top:-1px; }', MODS_LAYOUT)
+        self.assertIn('#dvs-asl-activity > span { position:relative; top:-1px; }', MODS_LAYOUT)
         active_overlay = re.search(r"(?m)^CSS_LAYOUT_OVERLAY='([^']*)'", MODS_LAYOUT)
         self.assertIsNotNone(active_overlay)
-        self.assertNotIn('#dvs-asl-activity > span { position:relative;', active_overlay.group(1))
+        self.assertIn('#dvs-asl-activity > span { position:relative; top:-1px; }', active_overlay.group(1))
+        self.assertNotIn('#dvs-asl-activity { position:relative; top:-1px; }', active_overlay.group(1))
         self.assertIn('body:has(#dvs-asl-activity:not([hidden]))', MODS_LAYOUT)
         self.assertIn('PASS: display-layout targets are present', MODS_LAYOUT)
-        self.assertIn('VERSION="1.0.0-test80"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test81"', INSTALLER)
         for source, old, new in (
             ('$INDEX_FILE', 'background-color:#fafafa; width:100%; table-layout:fixed;', 'table-layout:fixed;'),
             ('$INDEX_FILE', 'width:100%;">', 'background-color:#fafafa;">'),
-            ('$CSS_FILE', 'DVSwitch-Mods: responsive column alignment and compact header v1.3.4', 'margin-top:15px !important;'),
+            ('$CSS_FILE', 'DVSwitch-Mods: responsive column alignment and compact header v1.3.5', 'margin-top:15px !important;'),
             ('$CSS_FILE', '.header h2 { margin:8px 0; }', 'padding:0;'),
             ('$CSS_FILE', 'width: 900px;', 'width: 96vw;'),
             ('$CSS_FILE', 'width: min(96vw, 1200px);', 'width: 96vw;'),
@@ -113,7 +114,7 @@ class DisplayLayoutTests(unittest.TestCase):
             table_new = 'style="border:none; background-color:#fafafa; width:100%; table-layout:fixed;"'
             cell_old = '<td style="background-color:#fafafa; width:100%;">'
             cell_new = '<td style="background-color:#fafafa;">'
-            overlay = '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.4 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+            overlay = '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.5 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity > span { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
             original_index = table_old + '\n' + cell_old + '\n'
             original_css = '.container { width: 96vw; }\n'
             index.write_text(original_index)
@@ -174,6 +175,7 @@ class DisplayLayoutTests(unittest.TestCase):
             '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.0 */ .nav #modeInfo > fieldset { margin-top:15px !important; } .header { padding:0; } .header h2 { margin:8px 0; } .container {',
             '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.1 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .header { padding:0; } .header h2 { margin:8px 0; } .container {',
             '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.2 */ .nav #modeInfo > fieldset { margin-top:1px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:6px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity > span { position:relative; top:6px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {',
+            '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.4 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {',
             '/* DVSwitch-Mods: responsive column alignment and compact header v1.3.3 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {',
         )
         dashboard_css = Path('/usr/share/dvswitch/css/css.php')

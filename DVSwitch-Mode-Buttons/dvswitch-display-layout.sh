@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-VERSION="1.3.4"
+VERSION="1.3.5"
 ROOT="/usr/share/dvswitch"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -20,7 +20,8 @@ CSS_LAYOUT_OVERLAY_V130='/* DVSwitch-Mods: responsive column alignment and compa
 CSS_LAYOUT_OVERLAY_V131='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.1 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
 CSS_LAYOUT_OVERLAY_V132='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.2 */ .nav #modeInfo > fieldset { margin-top:1px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:6px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity > span { position:relative; top:6px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
 CSS_LAYOUT_OVERLAY_V133='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.3 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
-CSS_LAYOUT_OVERLAY='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.4 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+CSS_LAYOUT_OVERLAY_V134='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.4 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
+CSS_LAYOUT_OVERLAY='/* DVSwitch-Mods: responsive column alignment and compact header v1.3.5 */ .nav #modeInfo > fieldset { margin-top:8px !important; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > fieldset { margin-top:15px !important; } .nav #modeInfo > span:first-child { position:relative; top:-1px; } body:has(#dvs-asl-activity:not([hidden])) .nav #modeInfo > span:first-child { position:relative; top:4px; } body:has(#dvs-asl-activity:not([hidden])) #dvs-asl-activity > span { position:relative; top:-1px; } .header { padding:0; } .header h2 { margin:8px 0; } .container {'
 
 log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 die(){ log "ERROR: $*"; exit 1; }
@@ -171,8 +172,10 @@ apply_responsive(){
   log "Preserved stock nav width: width : 185px; (no responsive nav-width patch applied)"
   replace_or_confirm "$CSS_FILE" "white-space: nowrap;" "white-space: normal;" "css.php table white-space nowrap -> normal"
   # Preserve prior overlays during upgrades so the owned CSS remains reversible.
-  if grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.4' "$CSS_FILE"; then
+  if grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.5' "$CSS_FILE"; then
     log "Already applied: responsive column alignment and compact header"
+  elif grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.4' "$CSS_FILE"; then
+    replace_exact_or_confirm "$CSS_FILE" "$CSS_LAYOUT_OVERLAY_V134" "$CSS_LAYOUT_OVERLAY" "css.php heading-only alignment correction"
   elif grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.3' "$CSS_FILE"; then
     replace_exact_or_confirm "$CSS_FILE" "$CSS_LAYOUT_OVERLAY_V133" "$CSS_LAYOUT_OVERLAY" "css.php one-pixel heading and ASL panel alignment"
   elif grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.2' "$CSS_FILE"; then

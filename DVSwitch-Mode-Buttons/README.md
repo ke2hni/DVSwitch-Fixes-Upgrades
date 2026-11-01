@@ -186,7 +186,7 @@ Uninstall removes both mode helpers, the target-state helper, tuner helper, endp
 /var/backups/dvswitch-mode-buttons/
 ```
 
-The repository keeps `dvswitch-display-layout.sh` as a separate installer script. Version 1.3.4 uses a 96vw dashboard width and 95% widths for Gateway Activity, Local Activity, and Hardware Info. It fixes the wide-screen two-column table so the main content uses the space remaining beside the status column, aligns Status and activity headings and card tops, and includes one-pixel corrections measured from the screenshots. It updates `index.php`, `css/css.php`, `include/lh.php`, `include/localtx.php`, and `include/system.php`; the ownership helper stores the specific substitutions made by the Buttons install and migrates ownership records from earlier layout versions.
+The repository keeps `dvswitch-display-layout.sh` as a separate installer script. Version 1.3.5 uses a 96vw dashboard width and 95% widths for Gateway Activity, Local Activity, and Hardware Info. It fixes the wide-screen two-column table so the main content uses the space remaining beside the status column, aligns Status and activity headings and card tops, and includes one-pixel corrections measured from the screenshots. It updates `index.php`, `css/css.php`, `include/lh.php`, `include/localtx.php`, and `include/system.php`; the ownership helper stores the specific substitutions made by the Buttons install and migrates ownership records from earlier layout versions.
 
 `/etc/dvswitch-mode-buttons/favorites.json` contains separate favorites for BM, TGIF, STFU, YSF, P25, NXDN, and D-Star. Each mode's list is alphabetized by favorite name when saved, with each target ID kept with its name. The installer copies the repository's example `favorites.json` there when the file does not already exist, so the dropdown and Edit screen have sample entries on first install. Upgrades preserve an existing file, and uninstall retains it so a reinstall does not erase the user's lists. Edit or remove the sample entries to match the reflectors and talkgroups you use.
 
@@ -299,7 +299,7 @@ Version 1.0.0-test73 fixes ASL node discovery for `rpt.conf` sections with paren
 Version 1.0.0-test74 removes ASL button, tune, favorite, and link behavior from Mode Buttons. The ASL3 Support repository now owns the complete ASL dashboard integration. Upgrading replaces older Mode Buttons markup and removes an ASL button embedded by an earlier Button release. Standard digital buttons and favorites continue to work independently.
 
 
-Version 1.0.0-test80 includes Widescreen Display Layout 1.3.4. The dashboard table now shares the available viewport width between the fixed status column and activity column, the Status heading and card align with the first visible activity heading and panel in digital and ASL modes, and the header is shorter. Layout ownership state migrates earlier overlay and v58 forced-width edits so uninstall safely restores the prior layout.
+Version 1.0.0-test81 includes Widescreen Display Layout 1.3.5. The dashboard table now shares the available viewport width between the fixed status column and activity column, the Status heading and card align with the first visible activity heading and panel in digital and ASL modes, and the header is shorter. Layout ownership state migrates earlier overlay and v58 forced-width edits so uninstall safely restores the prior layout.
 
 
-Version 1.0.0-test80 moves only the digital Status heading up 1px and moves the ASL heading and activity card up 1px, matching the latest annotated screenshots.
+Version 1.0.0-test81 keeps the aligned card tops fixed, moves the non-ASL Status heading up 1px, and moves only the ASL Gateway Activity heading up 1px.
