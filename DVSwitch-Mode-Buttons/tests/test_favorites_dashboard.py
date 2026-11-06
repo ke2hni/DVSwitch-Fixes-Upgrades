@@ -30,6 +30,10 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('if (activeMode !== requestedMode || !Array.from(modeButtons).some(function (button)', SCRIPT)
         self.assertIn("button.classList.contains('selected')", SCRIPT)
 
+    def test_new_favorite_name_is_limited_to_server_validation_length(self):
+        self.assertIn("makeRow({ name: friendlyName.slice(0, 32), target: target })", SCRIPT)
+        self.assertIn("name.maxLength = 32", SCRIPT)
+
     def test_target_name_endpoint_uses_network_databases(self):
         self.assertIn("'/var/lib/mmdvm/TGList_BM.txt'", ENDPOINT)
         self.assertIn("'/var/lib/mmdvm/TGList_TGIF.txt'", ENDPOINT)
@@ -45,7 +49,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test74"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test83"', INSTALLER)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -101,7 +105,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test74"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test83"', INSTALLER)
 
 
 if __name__ == '__main__':

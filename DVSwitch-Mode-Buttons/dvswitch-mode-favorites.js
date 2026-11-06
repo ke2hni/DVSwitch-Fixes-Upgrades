@@ -1,4 +1,4 @@
-/* Version: 1.0.1 — prevent stale mode favorites from replacing the active list. */
+/* Version: 1.0.2 — keep auto-filled favorite names within the server limit. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -8,7 +8,7 @@
     const tuner = document.getElementById('dvs-target-tuner');
     const input = document.getElementById('dvs-target-input');
     const tuneButton = document.getElementById('dvs-target-submit');
-    const addFavoriteButton = root.querySelector('.dvs-favorites-add-current');
+    const addFavoriteButton = root && root.querySelector('.dvs-favorites-add-current');
     const tuneStatus = document.getElementById('dvs-target-message');
     if (!root || !tuner || !input) return;
 
@@ -27,7 +27,7 @@
     const listStatus = root.querySelector('.dvs-favorites-list-status');
     const editButton = root.querySelector('.dvs-favorites-edit');
     const editor = root.querySelector('.dvs-favorites-editor');
-    const editorStatus = editor.querySelector('.dvs-favorites-status');
+    const editorStatus = editor && editor.querySelector('.dvs-favorites-status');
     const selector = root.querySelector('.dvs-favorites-mode');
     const rows = root.querySelector('.dvs-favorites-rows');
     const nameCaches = new Map();
@@ -179,7 +179,8 @@
           const match = dstarTarget.match(/^(REF|XRF|DCS|XLX)([A-Z0-9]{3})([A-Z])L?$/);
           if (match) friendlyName = match[1] + match[2] + ' ' + match[3];
         }
-        makeRow({ name: friendlyName, target: target });
+        // Normalize automatic labels before assigning them to the 32-character editor field.
+        makeRow({ name: friendlyName.slice(0, 32), target: target });
         rows.lastElementChild.children[0].focus();
         editorStatus.textContent = friendlyName
           ? (activeMode === 'DSTAR'

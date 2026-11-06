@@ -1,10 +1,3 @@
-# Version: 1.0.0
-# DVSwitch-Mods custom Gateway Activity callsign descriptions
-# Format: CALLSIGN = DESCRIPTION. Keep one exact identifier per line.
-# Tab-separated CALLSIGN<TAB>DESCRIPTION entries are also supported.
-# Edit the installed copy at /etc/dvswitch-mods/callsign-descriptions.tsv.
-# A matching description takes precedence over FCC/DMR names and CTY.DAT
-# country fallback.
 9998 = Announcement
 9999 = Announcement
 H4MLNK = YSF Link
@@ -17,3 +10,4 @@ SRVPROBA = Server Probe A
 SRVPROBB = Server Probe B
 AL-LINK = Alabama Link YSF Reflector Dashboard
 4000 = Disconnect
+H0IP = Hams Over IP
