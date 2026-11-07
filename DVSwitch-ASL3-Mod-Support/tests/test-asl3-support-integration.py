@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.9
+# Version: 1.0.10
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -20,6 +20,7 @@ DASHBOARD = (ROOT / 'dvswitch-asl3-dashboard.js').read_text()
 ACTIVITY = (ROOT / 'dvswitch-asl3-activity.php').read_text()
 PATCHER = (ROOT / 'lib' / 'patch_dvswitch_asl_mode_switch.py').read_text()
 BUTTONS = (ROOT.parent / 'DVSwitch-Mode-Buttons' / 'dvswitch-mode-buttons.sh').read_text()
+BUTTON_HELPER = (ROOT.parent / 'DVSwitch-Mode-Buttons' / 'dvswitch-mode-buttons').read_text()
 BUTTON_JS = (ROOT.parent / 'DVSwitch-Mode-Buttons' / 'dvswitch-mode-favorites.js').read_text()
 
 
@@ -71,6 +72,11 @@ require('watchAnalogBridgeInfo()' in DASHBOARD and 'new MutationObserver' in DAS
         "mode === 'ASL' ? 'Node' : 'Tx TG/Ref'" in DASHBOARD and
         "connectedNodes.join(', ') : '-'" in DASHBOARD,
         'the Analog_Bridge target row must survive status refreshes and show connected ASL nodes or a hyphen')
+require("var mode = modeFromAnalogBridge();" in DASHBOARD and
+        "if (document.getElementById('dvs-mode-buttons') && activeMode)" in DASHBOARD and
+        'updateAnalogBridgeTarget(activeMode);' in DASHBOARD and
+        "if (mode !== activeMode) setTargetLabel(mode);" in DASHBOARD,
+        'stale status refreshes must not replace the confirmed mode or discard the ASL favorites response')
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')
@@ -86,6 +92,12 @@ require('wait_for_connection "$target"' in LINK and 'did not reach ESTABLISHED s
 require('disconnect external links before leaving ASL' in PATCHER and
         'dvswitch-asl3-node-link || return 1' in PATCHER,
         'ASL-owned dvswitch.sh repair must remove external links on every ASL exit')
+require("# Version: 1.0.0-test75" in BUTTON_HELPER and
+        "previous_live_mode=$(read_live_mode)" in BUTTON_HELPER and
+        'if [[ "$previous_mode" == ASL || "$previous_live_mode" == ASL ]]; then' in BUTTON_HELPER and
+        "NOTICE: retrying the mode command after ASL link cleanup." in BUTTON_HELPER and
+        "mode_is_live \"$live_mode\" || die 'Analog_Bridge did not confirm the requested mode after leaving ASL.'" in BUTTON_HELPER,
+        'digital mode selection must detect a live ASL state, retry once, and confirm the bridge before saving button state')
 match = re.search(r"python3 - \"\$FAVORITES_FILE\" <<'PY_ASL_FAVORITES_MIGRATE'\n(.*?)^PY_ASL_FAVORITES_MIGRATE$", SUPPORT, re.M | re.S)
 require(match is not None, 'ASL installer must migrate prior user-saved ASL favorites')
 with tempfile.TemporaryDirectory() as directory:

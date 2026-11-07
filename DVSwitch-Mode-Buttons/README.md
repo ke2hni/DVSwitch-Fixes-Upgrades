@@ -311,4 +311,6 @@ Version 1.0.0-test84 sets the visible shared TG/Reflector field to 10 characters
 
 Version 1.0.0-test85 also sets the TG/reflector field inside Edit Favorites to 10 characters wide. Its 35-character input allowance remains, and ASL node favorite fields are compacted by ASL dashboard support.
 
+Version 1.0.0-test75 restores one-click switching out of ASL after ASL link cleanup. The helper detects ASL from live `ABInfo_*.json` even when the Mode Buttons state file was not updated by the ASL-owned mode button, retries the requested digital mode once when needed, and saves the selection only after the live bridge confirms the new mode. ASL link cleanup remains owned by ASL 3 Support.
+
 Version 1.0.0-test86 expands favorite names from 32 to 35 characters and sizes the Edit Favorites name input to display up to 35 characters within the available dialog width. The target column remains 10 characters wide.

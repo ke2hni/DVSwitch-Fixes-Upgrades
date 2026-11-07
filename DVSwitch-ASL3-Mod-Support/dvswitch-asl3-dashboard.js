@@ -1,4 +1,4 @@
-/* Version: 1.1.6 — compact ASL node fields in Tune and Edit Favorites. */
+/* Version: 1.1.7 — preserve confirmed mode state across live status refreshes. */
 (function () {
   'use strict';
 
@@ -42,7 +42,7 @@
     var info = document.getElementById('modeInfo');
     mode = String(mode || '').toUpperCase();
     if (!info || !mode) return;
-    activeMode = mode;
+    // This helper updates the live table only; activeMode changes after a confirmed button request.
     var label = mode === 'ASL' ? 'Node' : 'Tx TG/Ref';
     info.querySelectorAll('tr').forEach(function (row) {
       var heading = row.querySelector('th');
@@ -65,7 +65,15 @@
     // Reapply only the target label/value after DVSwitch replaces the status table.
     new MutationObserver(function () {
       var mode = modeFromAnalogBridge();
-      if (mode) updateAnalogBridgeTarget(mode);
+      if (!mode) return;
+      // status.php briefly republishes the old mode during transitions; never let it
+      // replace the confirmed UI state or invalidate an in-flight ASL favorites load.
+      if (document.getElementById('dvs-mode-buttons') && activeMode) {
+        updateAnalogBridgeTarget(activeMode);
+        return;
+      }
+      if (mode !== activeMode) setTargetLabel(mode);
+      else updateAnalogBridgeTarget(mode);
     }).observe(info, { childList: true, subtree: true });
   }
 

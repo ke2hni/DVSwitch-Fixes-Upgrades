@@ -138,3 +138,5 @@ Version 1.1.2 check: switch from a digital mode to ASL and immediately open Favo
 Version 1.1.3 check: confirm the shared tuner input is 10 characters wide in digital and ASL modes, shows `TG/Ref` or `Node #` respectively, and keeps a 35-character HTML input limit. ASL Tune must continue to reject non-numeric node values and values longer than eight digits.
 
 Version 1.1.4 also verifies that ASL favorite editor node inputs use the compact 10-character visual width while retaining the existing 8-digit limit.
+
+Version 1.1.7 transition checks: from ASL, click each digital mode once and confirm the live Analog_Bridge mode changes and the selected button updates. Switch back to ASL and open Favorites immediately; confirm the ASL entries populate without F5, including while status.php refreshes. Repeat with an ASL mode button managed by ASL Support.

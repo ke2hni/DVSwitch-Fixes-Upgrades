@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test74
+# Version: 1.0.0-test75
 set -u
 MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
 STATE_DIR=/var/lib/dvswitch-mode-buttons
@@ -8,6 +8,7 @@ DMR_NETWORK_FILE=$STATE_DIR/last-dmr-network
 DMR_CARD_MODE_FILE=$STATE_DIR/last-dmr-card-mode
 TARGET_HELPER=/usr/local/sbin/dvswitch-mode-targets
 PRESET_DIR=/etc/dvswitch-mode-buttons/dmr-presets
+ABINFO_DIR=${ABINFO_DIR:-/tmp}
 INI=/opt/MMDVM_Bridge/MMDVM_Bridge.ini
 ANALOG_INI=/opt/Analog_Bridge/Analog_Bridge.ini
 DMR_HISTORY_WRITER=/usr/local/sbin/dvswitch-mods-record-dmr-network
@@ -140,6 +141,37 @@ install -d -m 755 -o root -g root "$STATE_DIR"
 previous_mode=''
 [[ -r "$STATE_FILE" ]] && previous_mode=$(tr -d '[:space:]' < "$STATE_FILE")
 
+# Record the live bridge mode before switching; ASL Support owns the exit cleanup.
+read_live_mode() {
+  python3 - "$ABINFO_DIR" <<'PY_ASL_MODE_STATUS'
+import glob
+import json
+import os
+import sys
+
+files = glob.glob(os.path.join(sys.argv[1], 'ABInfo_*.json'))
+if files:
+    path = max(files, key=os.path.getmtime)
+    try:
+        with open(path, encoding='utf-8') as source:
+            data = json.load(source)
+        for value in (data.get('tlv', {}).get('ambe_mode', ''), data.get('ambe_mode', '')):
+            value = str(value).strip().upper()
+            if value:
+                print(value)
+                break
+    except (OSError, ValueError, AttributeError):
+        pass
+PY_ASL_MODE_STATUS
+}
+mode_is_live() {
+  case "$mode:$1" in
+    BM:DMR|TGIF:DMR|STFU:DMR|STFU:STFU|YSF:YSF|YSF:YSFN|YSF:YSFW|P25:P25|NXDN:NXDN|DSTAR:DSTAR) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+previous_live_mode=$(read_live_mode)
+
 target=''
 if [[ ( "$mode" == BM || "$mode" == TGIF ) && -x "$TARGET_HELPER" ]]; then
   target=$($TARGET_HELPER get "$mode" 2>/dev/null || true)
@@ -173,6 +205,24 @@ case "$mode" in
   DSTAR|STFU|YSF|P25|NXDN) [[ -x "$MODE_CMD" ]] || die "missing $MODE_CMD"; "$MODE_CMD" mode "$mode" || exit 1 ;;
   *) die "unsupported mode: $1" ;;
 esac
+# A mode command can return before Analog_Bridge has switched listeners. Retry once
+# when the live state started in ASL, before publishing the requested mode as active.
+if [[ "$previous_mode" == ASL || "$previous_live_mode" == ASL ]]; then
+  live_mode=$(read_live_mode)
+  if ! mode_is_live "$live_mode"; then
+    printf 'NOTICE: retrying the mode command after ASL link cleanup.\n'
+    case "$mode" in
+      BM|TGIF) "$MODE_CMD" mode DMR || die 'DVSwitch DMR mode retry failed' ;;
+      *) "$MODE_CMD" mode "$mode" || die 'DVSwitch mode retry failed' ;;
+    esac
+    for attempt in 1 2 3 4 5 6 7 8; do
+      live_mode=$(read_live_mode)
+      mode_is_live "$live_mode" && break
+      sleep 0.25
+    done
+  fi
+  mode_is_live "$live_mode" || die 'Analog_Bridge did not confirm the requested mode after leaving ASL.'
+fi
 printf '%s\n' "$mode" > "$STATE_FILE"
 chown root:root "$STATE_FILE"; chmod 644 "$STATE_FILE"
 if [[ "$mode" == BM || "$mode" == TGIF ]]; then

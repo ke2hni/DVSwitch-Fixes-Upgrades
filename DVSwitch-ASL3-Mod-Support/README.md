@@ -65,5 +65,6 @@ Version 1.1.1 keeps the Analog_Bridge target row synchronized after DVSwitch ref
 
 Version 1.1.2 clears old-mode favorites immediately when ASL is selected and discards delayed digital favorites responses after the selected mode changes.
 
-
 Version 1.1.6 keeps both the shared ASL node field and the ASL favorite editor node field 10 characters wide, shows the short `Node #` hint, and has a 35-character HTML input allowance. ASL node validation remains numeric and limited to the existing 8-digit application limit.
+
+Version 1.1.7 preserves the confirmed ASL selection while the dashboard status table refreshes. This prevents a stale mode value from replacing the selected mode and causing the in-flight ASL favorites request to be discarded. It also continues to infer the mode from the live table when Mode Buttons is not installed.
