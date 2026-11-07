@@ -1,4 +1,4 @@
-"""Verify fresh installs get sample favorites without replacing user data."""
+"""Version: 1.0.1. Verify starter favorites are valid and upgrades preserve user data."""
 
 import json
 import os
@@ -20,6 +20,8 @@ class FavoritesStarterTests(unittest.TestCase):
         self.assertEqual(set(data), {"BM", "TGIF", "STFU", "YSF", "P25", "NXDN", "DSTAR"})
         self.assertTrue(all(data[mode] for mode in data))
         self.assertTrue(all(set(item) == {"name", "target"} for items in data.values() for item in items))
+        # Keep starter labels within the shared editor and save-helper name limit.
+        self.assertTrue(all(1 <= len(item["name"].strip()) <= 32 for items in data.values() for item in items))
         for items in data.values():
             keys = [(item["name"].casefold(), item["target"].casefold()) for item in items]
             self.assertEqual(keys, sorted(keys), "starter favorites must be alphabetized within each mode")

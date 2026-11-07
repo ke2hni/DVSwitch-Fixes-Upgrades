@@ -298,8 +298,10 @@ Version 1.0.0-test73 fixes ASL node discovery for `rpt.conf` sections with paren
 
 Version 1.0.0-test74 removes ASL button, tune, favorite, and link behavior from Mode Buttons. The ASL3 Support repository now owns the complete ASL dashboard integration. Upgrading replaces older Mode Buttons markup and removes an ASL button embedded by an earlier Button release. Standard digital buttons and favorites continue to work independently.
 
-
 Version 1.0.0-test83 includes Widescreen Display Layout 1.3.7. The dashboard table now shares the available viewport width between the fixed status column and activity column, the Status heading and card align with the first visible activity heading and panel in digital and ASL modes, and the header is shorter. Layout ownership state migrates earlier overlay and v58 forced-width edits so uninstall safely restores the prior layout.
 
 
 Version 1.0.0-test83 keeps the ASL Gateway Activity card fixed and moves only its heading up 1px. The regular-mode heading and card positions remain as in test82.
+
+
+Favorites data revision 1.0.1 shortens the P25 starter label to the supported 32-character limit. Mode Buttons dashboard script 1.0.3 and save helper 1.0.1 trim older overlong labels as they are loaded and saved, so an existing favorites file with that original starter entry does not block saving.

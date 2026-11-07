@@ -1,4 +1,4 @@
-"""Favorites are stored alphabetically by name within each mode."""
+"""Version: 1.0.1. Favorites sort by name and legacy labels are trimmed."""
 
 import importlib.machinery
 import importlib.util
@@ -16,6 +16,16 @@ loader.exec_module(favorites)
 
 
 class FavoritesSortTests(unittest.TestCase):
+    def test_save_trims_legacy_favorite_names_to_editor_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'favorites.json'
+            favorites.save_favorites('P25', [
+                {'name': "America's Kansas City Wide Digital Network", 'target': '31313'},
+            ], target)
+            self.assertEqual(json.loads(target.read_text())['P25'], [
+                {'name': "America's Kansas City Wide Digit", 'target': '31313'},
+            ])
+
     def test_save_accepts_100_favorites_and_rejects_101(self):
         favorites_100 = [{'name': f'Favorite {index:03}', 'target': str(index)} for index in range(100)]
         favorites_101 = favorites_100 + [{'name': 'Favorite 100', 'target': '100'}]

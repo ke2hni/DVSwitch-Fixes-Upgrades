@@ -1,4 +1,4 @@
-"""Version: 1.0.1. Check Favorites loading and clean ownership of ASL controls."""
+"""Version: 1.0.2. Check Favorites loading, legacy labels, and ASL ownership."""
 
 from pathlib import Path
 import re
@@ -32,6 +32,7 @@ class FavoritesDashboardTests(unittest.TestCase):
 
     def test_new_favorite_name_is_limited_to_server_validation_length(self):
         self.assertIn("makeRow({ name: friendlyName.slice(0, 32), target: target })", SCRIPT)
+        self.assertIn("name.value = String(favorite.name || '').slice(0, 32)", SCRIPT)
         self.assertIn("name.maxLength = 32", SCRIPT)
 
     def test_target_name_endpoint_uses_network_databases(self):

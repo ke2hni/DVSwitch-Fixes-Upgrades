@@ -1,4 +1,4 @@
-/* Version: 1.0.2 — keep auto-filled favorite names within the server limit. */
+/* Version: 1.0.3 — trim legacy favorite labels to the editor's 32-character limit. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -8,7 +8,7 @@
     const tuner = document.getElementById('dvs-target-tuner');
     const input = document.getElementById('dvs-target-input');
     const tuneButton = document.getElementById('dvs-target-submit');
-    const addFavoriteButton = root && root.querySelector('.dvs-favorites-add-current');
+    const addFavoriteButton = root.querySelector('.dvs-favorites-add-current');
     const tuneStatus = document.getElementById('dvs-target-message');
     if (!root || !tuner || !input) return;
 
@@ -27,7 +27,7 @@
     const listStatus = root.querySelector('.dvs-favorites-list-status');
     const editButton = root.querySelector('.dvs-favorites-edit');
     const editor = root.querySelector('.dvs-favorites-editor');
-    const editorStatus = editor && editor.querySelector('.dvs-favorites-status');
+    const editorStatus = editor.querySelector('.dvs-favorites-status');
     const selector = root.querySelector('.dvs-favorites-mode');
     const rows = root.querySelector('.dvs-favorites-rows');
     const nameCaches = new Map();
@@ -114,7 +114,7 @@
       const row = document.createElement('div');
       row.className = 'dvs-favorite-edit-row';
       const name = document.createElement('input');
-      name.type = 'text'; name.maxLength = 32; name.value = favorite.name || '';
+      name.type = 'text'; name.maxLength = 32; name.value = String(favorite.name || '').slice(0, 32);
       name.placeholder = 'Favorite name'; name.setAttribute('aria-label', 'Favorite name');
       const target = document.createElement('input');
       target.type = 'text'; target.maxLength = 32; target.value = favorite.target || '';
@@ -179,7 +179,7 @@
           const match = dstarTarget.match(/^(REF|XRF|DCS|XLX)([A-Z0-9]{3})([A-Z])L?$/);
           if (match) friendlyName = match[1] + match[2] + ' ' + match[3];
         }
-        // Normalize automatic labels before assigning them to the 32-character editor field.
+        // Trim a long network label before adding it to the 32-character editor field.
         makeRow({ name: friendlyName.slice(0, 32), target: target });
         rows.lastElementChild.children[0].focus();
         editorStatus.textContent = friendlyName
