@@ -1,4 +1,4 @@
-"""Version: 1.0.2. Favorites sort, trim legacy names, and accept 35-char IDs."""
+"""Version: 1.0.3. Favorites sort and preserve names up to 35 characters."""
 
 import importlib.machinery
 import importlib.util
@@ -16,15 +16,22 @@ loader.exec_module(favorites)
 
 
 class FavoritesSortTests(unittest.TestCase):
-    def test_save_trims_legacy_favorite_names_to_editor_limit(self):
+    def test_save_trims_legacy_favorite_names_to_35_character_limit(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / 'favorites.json'
             favorites.save_favorites('P25', [
                 {'name': "America's Kansas City Wide Digital Network", 'target': '31313'},
             ], target)
             self.assertEqual(json.loads(target.read_text())['P25'], [
-                {'name': "America's Kansas City Wide Digit", 'target': '31313'},
+                {'name': "America's Kansas City Wide Digital", 'target': '31313'},
             ])
+
+    def test_save_accepts_favorite_names_up_to_35_characters(self):
+        name = 'N' * 35
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'favorites.json'
+            favorites.save_favorites('DSTAR', [{'name': name, 'target': 'REF001C'}], target)
+            self.assertEqual(json.loads(target.read_text())['DSTAR'][0]['name'], name)
 
     def test_save_accepts_target_ids_up_to_35_characters(self):
         target_id = 'A' * 35

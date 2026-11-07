@@ -1,4 +1,4 @@
-/* Version: 1.0.5 — compact target fields in both Tune and Edit Favorites. */
+/* Version: 1.0.6 — show and save favorite names up to the full 35-character limit. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -115,7 +115,8 @@
       const row = document.createElement('div');
       row.className = 'dvs-favorite-edit-row';
       const name = document.createElement('input');
-      name.type = 'text'; name.maxLength = 32; name.value = String(favorite.name || '').slice(0, 32);
+      name.type = 'text'; name.maxLength = 35; name.value = String(favorite.name || '').slice(0, 35);
+      // The installer styles this input to show the same 35 characters it accepts.
       name.placeholder = 'Favorite name'; name.setAttribute('aria-label', 'Favorite name');
       const target = document.createElement('input');
       target.type = 'text'; target.maxLength = 35; target.value = favorite.target || '';
@@ -182,8 +183,8 @@
           const match = dstarTarget.match(/^(REF|XRF|DCS|XLX)([A-Z0-9]{3})([A-Z])L?$/);
           if (match) friendlyName = match[1] + match[2] + ' ' + match[3];
         }
-        // Trim a long network label before adding it to the 32-character editor field.
-        makeRow({ name: friendlyName.slice(0, 32), target: target });
+        // Trim a long network label to the 35-character editor limit.
+        makeRow({ name: friendlyName.slice(0, 35), target: target });
         rows.lastElementChild.children[0].focus();
         editorStatus.textContent = friendlyName
           ? (activeMode === 'DSTAR'

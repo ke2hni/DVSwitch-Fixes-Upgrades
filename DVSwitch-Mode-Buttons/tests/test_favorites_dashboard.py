@@ -1,4 +1,4 @@
-"""Version: 1.0.3. Check compact target widths as well as Favorites behavior."""
+"""Version: 1.0.4. Check full-width 35-character names and compact target inputs."""
 
 from pathlib import Path
 import re
@@ -33,9 +33,12 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn("button.classList.contains('selected')", SCRIPT)
 
     def test_shared_target_field_is_compact_and_allows_35_characters(self):
-        self.assertIn("makeRow({ name: friendlyName.slice(0, 32), target: target })", SCRIPT)
-        self.assertIn("name.value = String(favorite.name || '').slice(0, 32)", SCRIPT)
+        self.assertIn("makeRow({ name: friendlyName.slice(0, 35), target: target })", SCRIPT)
+        self.assertIn("name.value = String(favorite.name || '').slice(0, 35)", SCRIPT)
+        self.assertIn("name.maxLength = 35", SCRIPT)
         self.assertIn("target.maxLength = 35", SCRIPT)
+        self.assertIn("width:min(35ch,55vw)", INSTALLER)
+        self.assertIn("width:min(35ch,calc(100vw - 220px))", INSTALLER)
         self.assertIn("target.style.width = '10ch'", SCRIPT)
         self.assertIn('.dvs-favorite-edit-row input:nth-child(2){box-sizing:border-box;width:10ch}', INSTALLER)
         self.assertIn("/^[A-Za-z0-9_-]{1,35}$/", SCRIPT)
@@ -61,7 +64,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test85"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test86"', INSTALLER)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -117,7 +120,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test85"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test86"', INSTALLER)
 
 
 if __name__ == '__main__':

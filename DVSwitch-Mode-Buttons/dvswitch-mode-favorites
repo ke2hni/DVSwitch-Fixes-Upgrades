@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # SPDX-License-Identifier: MIT
 """Validate and atomically save mode-scoped dashboard favorites."""
 
@@ -34,11 +34,11 @@ def save_favorites(mode, items, path=PATH):
         name = item.get('name')
         target = item.get('target')
         if not isinstance(name, str):
-            raise ValueError('favorite names must contain 1 to 32 printable characters')
-        # Trim legacy or starter labels to the dashboard's 32-character field limit before saving.
-        name = name.strip()[:32]
-        if not 1 <= len(name) <= 32:
-            raise ValueError('favorite names must contain 1 to 32 printable characters')
+            raise ValueError('favorite names must contain 1 to 35 printable characters')
+        # Preserve legacy labels up to the dashboard's expanded 35-character name limit.
+        name = name.strip()[:35].rstrip()
+        if not 1 <= len(name) <= 35:
+            raise ValueError('favorite names must contain 1 to 35 printable characters')
         # Accept the same 35-character target IDs as the dashboard input.
         if not isinstance(target, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,35}', target):
             raise ValueError('invalid talkgroup or reflector ID')

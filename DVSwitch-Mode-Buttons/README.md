@@ -304,9 +304,11 @@ Version 1.0.0-test83 includes Widescreen Display Layout 1.3.7. The dashboard tab
 Version 1.0.0-test83 keeps the ASL Gateway Activity card fixed and moves only its heading up 1px. The regular-mode heading and card positions remain as in test82.
 
 
-Favorites data revision 1.0.1 shortens the P25 starter label to the supported 32-character limit. Mode Buttons dashboard script 1.0.3 and save helper 1.0.1 trim older overlong labels as they are loaded and saved, so an existing favorites file with that original starter entry does not block saving.
+Favorites data revision 1.0.1 shortens the P25 starter label to the supported 35-character limit. Mode Buttons dashboard script 1.0.6 and save helper 1.0.3 retain legacy names up to 35 characters when loaded and saved, so existing favorites remain editable.
 
 
 Version 1.0.0-test84 sets the visible shared TG/Reflector field to 10 characters, uses the short `TG/Ref` hint, and permits 35-character target strings. Dashboard script 1.0.4, favorites helper 1.0.2, target-state helper 1.0.1, tune helper 1.0.1, and target-persistence installer 1.0.1 use the same 35-character limit. ASL retains its numeric node validation and uses the compact shared field.
 
 Version 1.0.0-test85 also sets the TG/reflector field inside Edit Favorites to 10 characters wide. Its 35-character input allowance remains, and ASL node favorite fields are compacted by ASL dashboard support.
+
+Version 1.0.0-test86 expands favorite names from 32 to 35 characters and sizes the Edit Favorites name input to display up to 35 characters within the available dialog width. The target column remains 10 characters wide.
