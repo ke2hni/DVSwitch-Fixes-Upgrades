@@ -1,4 +1,4 @@
-/* Version: 1.0.3 — trim legacy favorite labels to the editor's 32-character limit. */
+/* Version: 1.0.4 — compact the target field and allow 35-character target IDs. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -40,7 +40,8 @@
     }
 
     function validTarget(mode, target) {
-      return /^[A-Za-z0-9_-]{1,32}$/.test(target);
+      // Keep browser validation aligned with the shared field and server limit.
+      return /^[A-Za-z0-9_-]{1,35}$/.test(target);
     }
 
     async function load(mode) {
@@ -72,8 +73,8 @@
         button.classList.toggle('selected', button.dataset.mode === activeMode);
       });
       root.hidden = !validMode(activeMode);
-      // Keep the shared target hint within its existing input width.
-      input.placeholder = 'Enter TG/Reflector';
+      // Use a short hint that fits the compact target field; keep the full accessible label.
+      input.placeholder = 'TG/Ref';
       input.setAttribute('aria-label', 'Talkgroup or reflector ID');
       document.dispatchEvent(new CustomEvent('dvswitch-mode-buttons-mode', { detail: { mode: activeMode } }));
       if (editor.open) return;
@@ -117,7 +118,7 @@
       name.type = 'text'; name.maxLength = 32; name.value = String(favorite.name || '').slice(0, 32);
       name.placeholder = 'Favorite name'; name.setAttribute('aria-label', 'Favorite name');
       const target = document.createElement('input');
-      target.type = 'text'; target.maxLength = 32; target.value = favorite.target || '';
+      target.type = 'text'; target.maxLength = 35; target.value = favorite.target || '';
       target.placeholder = 'TG / reflector ID'; target.setAttribute('aria-label', 'Talkgroup or reflector ID');
       const remove = document.createElement('button');
       remove.type = 'button'; remove.className = 'button link'; remove.textContent = 'Delete';

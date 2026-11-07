@@ -1,4 +1,4 @@
-/* Version: 1.1.4 — let ASL activity follow the fluid dashboard width. */
+/* Version: 1.1.5 — keep the shared node field compact with a 35-character input limit. */
 (function () {
   'use strict';
 
@@ -74,10 +74,12 @@
     updateAnalogBridgeTarget(activeMode);
     var input = document.getElementById('dvs-target-input');
     if (input) {
-      // Keep the shared field hint compact enough to fit its existing width.
-      input.placeholder = activeMode === 'ASL' ? 'Enter Node #' : 'Enter TG/Reflector';
+      // Keep the visible hint short enough for the compact shared target field.
+      input.placeholder = activeMode === 'ASL' ? 'Node #' : 'TG/Ref';
       input.setAttribute('aria-label', activeMode === 'ASL' ? 'AllStar node number' : 'Talkgroup or reflector');
-      input.style.width = activeMode === 'ASL' ? '14ch' : '18ch';
+      // The field stays 10 characters wide while allowing long target text where needed.
+      input.maxLength = 35;
+      input.style.width = '10ch';
     }
     document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]').forEach(function (button) {
       if (button.dataset.mode === 'ASL') button.classList.toggle('selected', activeMode === 'ASL');
@@ -161,7 +163,7 @@
     root = document.createElement('section');
     root.id = 'dvs-favorites';
     root.style.cssText = 'text-align:center;margin:0 auto 8px';
-    root.innerHTML = '<div class="dvs-favorites-control-line" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap"><span class="dvs-favorites-heading">Favorites</span><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="ASL favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-add-current">+ Favorite</button><form id="dvs-target-tuner" aria-label="Tune AllStar node" style="display:inline-flex;align-items:center;gap:6px"><input id="dvs-target-input" type="text" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="Enter Node #" aria-label="AllStar node number" style="box-sizing:border-box;width:14ch;height:32px;padding:4px 8px"><button id="dvs-target-submit" type="submit" class="button link">Tune</button><span id="dvs-target-message" role="status" aria-live="polite"></span></form></div>';
+    root.innerHTML = '<div class="dvs-favorites-control-line" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap"><span class="dvs-favorites-heading">Favorites</span><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="ASL favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-add-current">+ Favorite</button><form id="dvs-target-tuner" aria-label="Tune AllStar node" style="display:inline-flex;align-items:center;gap:6px"><input id="dvs-target-input" type="text" inputmode="numeric" maxlength="35" autocomplete="off" placeholder="Node #" aria-label="AllStar node number" style="box-sizing:border-box;width:10ch;height:32px;padding:4px 8px"><button id="dvs-target-submit" type="submit" class="button link">Tune</button><span id="dvs-target-message" role="status" aria-live="polite"></span></form></div>';
     var bar = document.getElementById('dvs-asl-mode-buttons');
     bar.insertAdjacentElement('afterend', root);
     return root;

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# Version: 1.0.1
 set -Eeuo pipefail
 STATE_DIR=/var/lib/dvswitch-mode-buttons
 STATE=$STATE_DIR/mode-targets.json
+# Preserve target IDs accepted by the 35-character dashboard field.
 die(){ echo "ERROR: $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die 'run with sudo'
 [[ $# -ge 2 ]] || die 'usage: save MODE TARGET | get MODE'
@@ -9,7 +11,7 @@ mode="${2:-}"
 # ASL node favorites are managed by ASL Support, separate from this mode-target store.
 case "$mode" in BM|TGIF|STFU|YSF|P25|NXDN|DSTAR) ;; *) die 'unsupported mode';; esac
 case "$1" in
-  save) [[ $# -eq 3 ]] || die 'usage: save MODE TARGET'; target="$3"; [[ -n "$target" ]] || die 'target is empty'; [[ "$target" =~ ^[A-Za-z0-9_-]{1,32}$ ]] || die 'invalid target' ;;
+  save) [[ $# -eq 3 ]] || die 'usage: save MODE TARGET'; target="$3"; [[ -n "$target" ]] || die 'target is empty'; [[ "$target" =~ ^[A-Za-z0-9_-]{1,35}$ ]] || die 'invalid target' ;;
   get) [[ $# -eq 2 ]] || die 'usage: get MODE' ;;
   *) die 'usage: save MODE TARGET | get MODE' ;;
 esac

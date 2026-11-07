@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Version: 1.0.1
 # SPDX-License-Identifier: MIT
 
 """Ensure the persistence installer recognizes the test35 helper layout."""
@@ -9,9 +10,13 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = (ROOT / "install-mode-target-persistence.sh").read_text(encoding="utf-8")
+TARGETS = (ROOT / "dvswitch-mode-targets").read_text(encoding="utf-8")
+TUNE = (ROOT / "dvswitch-mode-tune").read_text(encoding="utf-8")
 
 
 def main() -> None:
+    # The persistence helper, target store, and tune helper share one target-length limit.
+    assert "{1,35}" in INSTALLER and "{1,35}" in TARGETS and "{1,35}" in TUNE
     start = INSTALLER.index('python3 - "$MODE_HELPER" <<\'PY\'')
     start = INSTALLER.index("\n", start) + 1
     end = INSTALLER.index("\nPY\n", start)

@@ -64,3 +64,6 @@ Version 1.1.0 restores the ASL-owned mode button and shared Tune/Favorites workf
 Version 1.1.1 keeps the Analog_Bridge target row synchronized after DVSwitch refreshes `status.php`: ASL shows `Node` and the connected node number, or `-` when no external node is connected.
 
 Version 1.1.2 clears old-mode favorites immediately when ASL is selected and discards delayed digital favorites responses after the selected mode changes.
+
+
+Version 1.1.5 keeps the shared ASL node field 10 characters wide, shows the short `Node #` hint, and has a 35-character HTML input allowance. ASL node validation remains numeric and limited to the existing 8-digit application limit.

@@ -11,6 +11,8 @@ INSTALLER = (ROOT / 'dvswitch-mode-buttons.sh').read_text()
 SCRIPT = (ROOT / 'dvswitch-mode-favorites.js').read_text()
 HELPER = (ROOT / 'dvswitch-mode-favorites').read_text()
 ENDPOINT = INSTALLER.split('install -o root -g root -m 644 /dev/stdin "$ENDPOINT" <<\'PHP\'\n', 1)[1].split('\nPHP\n', 1)[0]
+TARGETS = (ROOT / 'dvswitch-mode-targets').read_text()
+TUNE = (ROOT / 'dvswitch-mode-tune').read_text()
 
 
 class FavoritesDashboardTests(unittest.TestCase):
@@ -25,15 +27,22 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', SCRIPT)
 
     def test_favorites_responses_are_ignored_after_mode_changes(self):
-        self.assertIn("input.placeholder = 'Enter TG/Reflector'", SCRIPT)
+        self.assertIn("input.placeholder = 'TG/Ref'", SCRIPT)
         self.assertIn('const requestedMode = activeMode;', SCRIPT)
         self.assertIn('if (activeMode !== requestedMode || !Array.from(modeButtons).some(function (button)', SCRIPT)
         self.assertIn("button.classList.contains('selected')", SCRIPT)
 
-    def test_new_favorite_name_is_limited_to_server_validation_length(self):
+    def test_shared_target_field_is_compact_and_allows_35_characters(self):
         self.assertIn("makeRow({ name: friendlyName.slice(0, 32), target: target })", SCRIPT)
         self.assertIn("name.value = String(favorite.name || '').slice(0, 32)", SCRIPT)
-        self.assertIn("name.maxLength = 32", SCRIPT)
+        self.assertIn("target.maxLength = 35", SCRIPT)
+        self.assertIn("/^[A-Za-z0-9_-]{1,35}$/", SCRIPT)
+        self.assertIn('maxlength="35"', INSTALLER)
+        self.assertIn('placeholder="TG/Ref"', INSTALLER)
+        self.assertIn('width:10ch', INSTALLER)
+        self.assertIn("'/^[A-Za-z0-9_-]{1,35}$/D'", ENDPOINT)
+        self.assertIn('{1,35}', TARGETS)
+        self.assertIn('{1,35}', TUNE)
 
     def test_target_name_endpoint_uses_network_databases(self):
         self.assertIn("'/var/lib/mmdvm/TGList_BM.txt'", ENDPOINT)
@@ -50,7 +59,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test83"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test84"', INSTALLER)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -106,7 +115,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test83"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test84"', INSTALLER)
 
 
 if __name__ == '__main__':

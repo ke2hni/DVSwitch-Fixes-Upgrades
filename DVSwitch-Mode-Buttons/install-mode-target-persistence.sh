@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Version: 1.0.1
 set -Eeuo pipefail
 
 ROOT=/opt/MMDVM_Bridge
@@ -32,7 +33,8 @@ install -o root -g root -m 755 dvswitch-mode-buttons "$MODE_HELPER"
 # Publish the retained STFU target for the independent dashboard card. The
 # canonical per-mode JSON remains root-only; this one value is read-only to PHP.
 saved_stfu_target=$("$TARGET_HELPER" get STFU)
-[[ "$saved_stfu_target" =~ ^[A-Za-z0-9_-]{1,32}$ ]] || saved_stfu_target=''
+# Keep restored target state within the dashboard's 35-character input limit.
+[[ "$saved_stfu_target" =~ ^[A-Za-z0-9_-]{1,35}$ ]] || saved_stfu_target=''
 stfu_tmp=$(mktemp "$STATE_DIR/.stfu-target.XXXXXX")
 printf '%s\n' "$saved_stfu_target" > "$stfu_tmp"
 chown root:root "$stfu_tmp"

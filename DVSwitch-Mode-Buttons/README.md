@@ -305,3 +305,6 @@ Version 1.0.0-test83 keeps the ASL Gateway Activity card fixed and moves only it
 
 
 Favorites data revision 1.0.1 shortens the P25 starter label to the supported 32-character limit. Mode Buttons dashboard script 1.0.3 and save helper 1.0.1 trim older overlong labels as they are loaded and saved, so an existing favorites file with that original starter entry does not block saving.
+
+
+Version 1.0.0-test84 sets the visible shared TG/Reflector field to 10 characters, uses the short `TG/Ref` hint, and permits 35-character target strings. Dashboard script 1.0.4, favorites helper 1.0.2, target-state helper 1.0.1, tune helper 1.0.1, and target-persistence installer 1.0.1 use the same 35-character limit. ASL retains its numeric node validation and uses the compact shared field.

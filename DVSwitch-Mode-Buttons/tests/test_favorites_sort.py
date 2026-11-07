@@ -1,4 +1,4 @@
-"""Version: 1.0.1. Favorites sort by name and legacy labels are trimmed."""
+"""Version: 1.0.2. Favorites sort, trim legacy names, and accept 35-char IDs."""
 
 import importlib.machinery
 import importlib.util
@@ -25,6 +25,13 @@ class FavoritesSortTests(unittest.TestCase):
             self.assertEqual(json.loads(target.read_text())['P25'], [
                 {'name': "America's Kansas City Wide Digit", 'target': '31313'},
             ])
+
+    def test_save_accepts_target_ids_up_to_35_characters(self):
+        target_id = 'A' * 35
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'favorites.json'
+            favorites.save_favorites('DSTAR', [{'name': 'Long ID', 'target': target_id}], target)
+            self.assertEqual(json.loads(target.read_text())['DSTAR'][0]['target'], target_id)
 
     def test_save_accepts_100_favorites_and_rejects_101(self):
         favorites_100 = [{'name': f'Favorite {index:03}', 'target': str(index)} for index in range(100)]
