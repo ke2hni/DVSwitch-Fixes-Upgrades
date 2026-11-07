@@ -123,8 +123,24 @@
       "target": "31313"
     },
     {
+      "name": "Kilowatt Amateur Radio Club",
+      "target": "50592"
+    },
+    {
+      "name": "Lookout Mountain Amateur Radio",
+      "target": "43389"
+    },
+    {
       "name": "P25 North America",
       "target": "10200"
+    },
+    {
+      "name": "Sin City Repeater Group",
+      "target": "47366"
+    },
+    {
+      "name": "Utah High Desert Amateur Radio",
+      "target": "65102"
     }
   ],
   "STFU": [
