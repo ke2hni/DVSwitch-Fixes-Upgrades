@@ -1,4 +1,4 @@
-/* Version: 1.1.5 — keep the shared node field compact with a 35-character input limit. */
+/* Version: 1.1.6 — compact ASL node fields in Tune and Edit Favorites. */
 (function () {
   'use strict';
 
@@ -388,7 +388,9 @@
     if (!elements.rows) return;
     var row = document.createElement('div'); row.className = 'dvs-favorite-edit-row';
     var name = document.createElement('input'); name.type = 'text'; name.maxLength = 64; name.value = favorite.name || ''; name.placeholder = 'Friendly name'; name.setAttribute('aria-label', 'Favorite name');
-    var node = document.createElement('input'); node.type = 'text'; node.inputMode = 'numeric'; node.maxLength = 8; node.value = favorite.node || ''; node.placeholder = 'Node #'; node.setAttribute('aria-label', 'AllStar node number');
+    var node = document.createElement('input'); node.type = 'text'; node.inputMode = 'numeric'; node.maxLength = 8; node.value = favorite.node || '';
+    // Keep ASL favorite node inputs compact without changing their 8-digit validation.
+    node.style.boxSizing = 'border-box'; node.style.width = '10ch'; node.placeholder = 'Node #'; node.setAttribute('aria-label', 'AllStar node number');
     var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button link'; remove.textContent = 'Delete'; remove.addEventListener('click', function () { row.remove(); });
     row.append(name, node, remove); elements.rows.appendChild(row);
   }

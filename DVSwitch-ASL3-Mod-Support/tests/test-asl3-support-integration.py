@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.8
+# Version: 1.0.9
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -53,6 +53,7 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         "'TG/Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
         'ASL dashboard must own its mode button and reuse the shared target form')
 require("input.maxLength = 35" in DASHBOARD and "input.style.width = '10ch'" in DASHBOARD and
+        "node.style.width = '10ch'" in DASHBOARD and
         'maxlength="35"' in DASHBOARD and 'width:10ch' in DASHBOARD,
         'ASL shared tuner must stay compact and accept the 35-character field limit')
 require("select.replaceChildren(new Option('Select favorite', ''));" in DASHBOARD and

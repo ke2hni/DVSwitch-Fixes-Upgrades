@@ -308,3 +308,5 @@ Favorites data revision 1.0.1 shortens the P25 starter label to the supported 32
 
 
 Version 1.0.0-test84 sets the visible shared TG/Reflector field to 10 characters, uses the short `TG/Ref` hint, and permits 35-character target strings. Dashboard script 1.0.4, favorites helper 1.0.2, target-state helper 1.0.1, tune helper 1.0.1, and target-persistence installer 1.0.1 use the same 35-character limit. ASL retains its numeric node validation and uses the compact shared field.
+
+Version 1.0.0-test85 also sets the TG/reflector field inside Edit Favorites to 10 characters wide. Its 35-character input allowance remains, and ASL node favorite fields are compacted by ASL dashboard support.

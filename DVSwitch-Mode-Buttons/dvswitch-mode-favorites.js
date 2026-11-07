@@ -1,4 +1,4 @@
-/* Version: 1.0.4 — compact the target field and allow 35-character target IDs. */
+/* Version: 1.0.5 — compact target fields in both Tune and Edit Favorites. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -119,7 +119,9 @@
       name.placeholder = 'Favorite name'; name.setAttribute('aria-label', 'Favorite name');
       const target = document.createElement('input');
       target.type = 'text'; target.maxLength = 35; target.value = favorite.target || '';
-      target.placeholder = 'TG / reflector ID'; target.setAttribute('aria-label', 'Talkgroup or reflector ID');
+      // Keep the editor target field compact while allowing up to 35 input characters.
+      target.style.boxSizing = 'border-box'; target.style.width = '10ch';
+      target.placeholder = 'TG/Ref'; target.setAttribute('aria-label', 'Talkgroup or reflector ID');
       const remove = document.createElement('button');
       remove.type = 'button'; remove.className = 'button link'; remove.textContent = 'Delete';
       remove.addEventListener('click', function () { row.remove(); });
