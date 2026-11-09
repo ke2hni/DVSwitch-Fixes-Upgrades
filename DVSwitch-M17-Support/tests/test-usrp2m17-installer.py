@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.4
+# Version: 1.0.5
 # Created: 2026-11-09T14:06:32-05:00 by KE2HNI
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
@@ -50,6 +50,23 @@ def main() -> None:
     assert "LocalPort=32011\nDstPort=17000\n" in config
     assert "FilePath=/var/log/usrp2m17\n" in config
     assert "ExecStart=/usr/local/bin/USRP2M17" in BRIDGE.service_text()
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory) / "opt/dvswitch-m17"
+        source = root / "MMDVM_CM"
+        project = source / "USRP2M17"
+        project.mkdir(parents=True, mode=0o700)
+        # Simulate the manager's restrictive umask and confirm the service path is traversable.
+        for path in (root, source, project):
+            path.chmod(0o700)
+        old_install_root, old_source_root = BRIDGE.INSTALL_ROOT, BRIDGE.SOURCE_ROOT
+        try:
+            BRIDGE.INSTALL_ROOT, BRIDGE.SOURCE_ROOT = root, source
+            BRIDGE.ensure_service_directory_access()
+            assert all((path.stat().st_mode & 0o777) == 0o755
+                       for path in (root, source, project))
+        finally:
+            BRIDGE.INSTALL_ROOT, BRIDGE.SOURCE_ROOT = old_install_root, old_source_root
 
     with tempfile.TemporaryDirectory() as directory:
         temp_root = Path(directory)
@@ -113,17 +130,28 @@ def main() -> None:
         paths["SUPPORT_INSTALLER"].write_text("#!/bin/sh\n", encoding="utf-8")
         paths["SUPPORT_INSTALLER"].chmod(0o755)
         restored_switch = []
+        service_started = False
 
         def fake_run(command, **kwargs):
+            nonlocal service_started
             if command[:2] == ["pgrep", "-x"]:
                 return subprocess.CompletedProcess(command, 1, "", "")
+            if command[:2] == ["systemctl", "enable"]:
+                service_started = True
+                return subprocess.CompletedProcess(command, 0, "", "")
+            if command[:2] == ["systemctl", "stop"] or command[:3] == ["systemctl", "disable", "--now"]:
+                service_started = False
+                return subprocess.CompletedProcess(command, 0, "", "")
             if command[:3] == ["bash", str(paths["SUPPORT_INSTALLER"]), "--restore"]:
                 restored_switch.append(command[-1])
                 return subprocess.CompletedProcess(command, 0, "", "")
             if command[:3] == ["bash", str(paths["SUPPORT_INSTALLER"]), "--install"]:
                 return subprocess.CompletedProcess(
                     command, 0, "PASS: commands installed\nBackup: /var/backups/m17/install-first\n", "")
-            if command[:2] == ["systemctl", "is-active"] or command[:2] == ["systemctl", "is-enabled"]:
+            if command[:2] == ["systemctl", "is-active"]:
+                return subprocess.CompletedProcess(command, 0 if service_started else 1,
+                                                   "active\n" if service_started else "inactive\n", "")
+            if command[:2] == ["systemctl", "is-enabled"]:
                 return subprocess.CompletedProcess(command, 1, "inactive\n", "")
             return subprocess.CompletedProcess(command, 0, "", "")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.3
+# Version: 1.0.4
 # Created: 2026-11-09T14:06:32-05:00 by KE2HNI
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
 
@@ -21,7 +21,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -428,6 +428,16 @@ def ensure_source() -> None:
     run(["make"], cwd=project)
     if not (project / "USRP2M17").is_file():
         raise SetupError("The build did not produce the USRP2M17 executable.")
+    ensure_service_directory_access()
+
+
+def ensure_service_directory_access() -> None:
+    """Allow the unprivileged ASL service account to traverse its working path."""
+    # The manager runs with umask 077; make the owned source directories traversable explicitly.
+    for directory in (INSTALL_ROOT, SOURCE_ROOT, SOURCE_ROOT / "USRP2M17"):
+        if not directory.is_dir():
+            raise SetupError(f"USRP2M17 service directory is missing: {directory}")
+        directory.chmod(0o755)
 
 
 def module_loaded() -> bool:
@@ -578,6 +588,10 @@ def install() -> None:
             switch_backup = Path(match.group(1)).name
         run(["systemctl", "daemon-reload"])
         run(["systemctl", "enable", "--now", "usrp2m17.service"])
+        service_state = run(["systemctl", "is-active", "usrp2m17.service"],
+                            check=False, capture=True).stdout.strip()
+        if service_state != "active":
+            raise SetupError("usrp2m17.service did not become active; review 'journalctl -u usrp2m17.service'.")
         state = {"version": VERSION, "backup": str(backup),
                  "created_root": previous_state.get("created_root", created_root),
                  "rpt_added_node": added_node, "rpt_added_map": added_map,
