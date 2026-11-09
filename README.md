@@ -1,6 +1,6 @@
 # DVSwitch Fixes & Upgrades
 
-<!-- Version: 1.0.1; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI -->
+<!-- Version: 1.0.2; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI -->
 
 A combined repository for independently installable DVSwitch repairs, dashboard modifications, ASL 3 support, and M17 private-node switching support.
 
@@ -41,7 +41,8 @@ The menu offers:
 3. Launch the Dark Mode dashboard installer.
 4. Launch the Widescreen Display Layout installer.
 5. Uninstall all manager-recorded standard components.
-6. Install ASL 3 Support (ASL 3 must be installed).
+6. Install ASL 3 Support (ASL 3 must be installed; if multiple private USRP
+   nodes exist, select the node number used for DVSwitch).
 7. Install M17 private-node switch commands.
 0. Exit.
 

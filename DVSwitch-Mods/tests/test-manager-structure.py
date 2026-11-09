@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.1
+# Version: 1.0.2
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 # SPDX-License-Identifier: MIT
 
@@ -81,6 +81,7 @@ def main() -> None:
             'Choose an option [0/1/2/3/4/5/6/7]:' in master and
             'ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-asl3-mod-support.sh"' in master and
             '6) run_asl3_support_installer ;;' in master and
+            '--select-private-node' in master and
             'M17_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-support.sh"' in master and
             '7) run_m17_support_installer ;;' in master and
             'MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"' in master and

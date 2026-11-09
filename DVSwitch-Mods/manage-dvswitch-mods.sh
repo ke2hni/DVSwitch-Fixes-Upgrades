@@ -1,6 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
+# Version: 1.2.13
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 
 # Repository-wide front end. Existing repair/modification files remain the
@@ -10,7 +11,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.12"
+readonly SCRIPT_VERSION="1.2.13"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -110,11 +111,13 @@ run_mode_buttons_installer() {
 }
 
 run_asl3_support_installer() {
+    local private_node
     require_root
     require_executable_script "$ASL3_SUPPORT_SCRIPT"
     printf '\n=== INSTALL ASL 3 SUPPORT ===\n'
-    "$ASL3_SUPPORT_SCRIPT" --check
-    "$ASL3_SUPPORT_SCRIPT" --install
+    private_node=$("$ASL3_SUPPORT_SCRIPT" --select-private-node)
+    "$ASL3_SUPPORT_SCRIPT" --check "$private_node"
+    "$ASL3_SUPPORT_SCRIPT" --install "$private_node"
 }
 
 run_m17_support_installer() {

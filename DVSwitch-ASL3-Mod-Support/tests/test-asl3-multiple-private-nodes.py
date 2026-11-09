@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.1
+# Version: 1.1.0
 # Created: 2026-11-09T00:41:12-05:00 by KE2HNI
 
 """Check ASL discovery with several private USRP nodes."""
@@ -34,22 +34,24 @@ rxPort = 34001
 
 def main() -> None:
     assert TOOL.private_nodes(RPT) == ["1970", "1972", "1973"]
-    assert TOOL.find_local_node(RPT, ANALOG) == "1970"
     assert TOOL.find_public_node(RPT) == "446901"
+    assert TOOL.find_local_node(RPT, ANALOG, "1970") == "1970"
+    assert TOOL.find_local_node(RPT, ANALOG, "1972") == "1972"
     try:
         TOOL.find_local_node(RPT)
     except ValueError as error:
-        assert "Analog_Bridge ports are required" in str(error)
+        assert "explicitly select" in str(error)
     else:
-        raise AssertionError("multiple private nodes were accepted without a DVSwitch port map")
+        raise AssertionError("multiple private nodes were accepted without explicit user selection")
 
-    mismatched = ANALOG.replace(b"32001", b"32009").replace(b"34001", b"34009")
-    try:
-        TOOL.find_local_node(RPT, mismatched)
-    except ValueError as error:
-        assert "match 0 of 3" in str(error)
-    else:
-        raise AssertionError("unmatched Analog_Bridge ports selected a private node")
+    # Before M17 is configured, its stanza can share the default port pair.
+    # The explicit selection, not stanza order or ports, determines the bridge.
+    duplicate_pair = RPT.replace(
+        b"[1972](node-main)\nrxchannel = USRP/127.0.0.1:34003:32003",
+        b"[1972](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001",
+    )
+    assert TOOL.private_nodes(duplicate_pair) == ["1970", "1972", "1973"]
+    assert TOOL.find_local_node(duplicate_pair, ANALOG, "1972") == "1972"
 
     with tempfile.TemporaryDirectory() as directory:
         rpt_path = Path(directory) / "rpt.conf"
@@ -57,7 +59,7 @@ def main() -> None:
         rpt_path.write_bytes(RPT)
         analog_path.write_bytes(ANALOG)
         check = subprocess.run(
-            ["python3", str(ROOT / "lib" / "asl3_rpt_conf.py"), "check", str(rpt_path), "--analog-bridge", str(analog_path)],
+            ["python3", str(ROOT / "lib" / "asl3_rpt_conf.py"), "check", str(rpt_path), "--analog-bridge", str(analog_path), "--private-node", "1970"],
             check=True,
             capture_output=True,
             text=True,
@@ -73,32 +75,50 @@ def main() -> None:
         rpt_path.write_bytes(RPT)
         ini_path.write_bytes(ANALOG)
         ports = subprocess.run(
-            ["python3", str(ports_tool), "check", str(rpt_path), str(ini_path)],
+            ["python3", str(ports_tool), "check", str(rpt_path), str(ini_path), "--private-node", "1970"],
             check=True,
             capture_output=True,
             text=True,
         )
         assert "PASS: Analog_Bridge USRP ports match the private ASL node." in ports.stdout
         before = ini_path.read_bytes()
+        mismatched = ANALOG.replace(b"32001", b"32009").replace(b"34001", b"34009")
         ini_path.write_bytes(mismatched)
         ports = subprocess.run(
-            ["python3", str(ports_tool), "check", str(rpt_path), str(ini_path)],
+            ["python3", str(ports_tool), "check", str(rpt_path), str(ini_path), "--private-node", "1970"],
+            check=True,
             capture_output=True,
             text=True,
         )
-        assert ports.returncode != 0 and "match 0 of 3" in ports.stdout
-        assert ini_path.read_bytes() == mismatched == before.replace(b"32001", b"32009").replace(b"34001", b"34009")
+        assert "NEEDS REPAIR: Analog_Bridge USRP ports should be txPort=32001, rxPort=34001." in ports.stdout
+        assert ini_path.read_bytes() == mismatched
+        ports = subprocess.run(
+            ["python3", str(ports_tool), "install", str(rpt_path), str(ini_path), "--private-node", "1970"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert "CHANGED=1" in ports.stdout
+        assert ini_path.read_bytes() == before
 
     hook = "/usr/local/sbin/dvswitch-asl3-link-event"
     with tempfile.TemporaryDirectory() as directory:
         rpt_path = Path(directory) / "rpt.conf"
         rpt_path.write_bytes(RPT)
-        assert TOOL.install_hooks(rpt_path, hook, ANALOG) == "446901"
+        assert TOOL.install_hooks(rpt_path, hook, ANALOG, "1970") == "446901"
         installed = rpt_path.read_bytes()
         assert installed.count(TOOL.MARKER) == 1
         assert b"[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n" in installed
         assert b"[1972](node-main)\nrxchannel = USRP/127.0.0.1:34003:32003\n" in installed
-        assert TOOL.install_hooks(rpt_path, hook, ANALOG) == "446901"
+        assert TOOL.install_hooks(rpt_path, hook, ANALOG, "1970") == "446901"
+
+        # Installation remains deterministic by using the selected node when
+        # an unconfigured private node has the same default ports.
+        rpt_path.write_bytes(duplicate_pair)
+        assert TOOL.install_hooks(rpt_path, hook, ANALOG, "1972") == "446901"
+        installed = rpt_path.read_bytes()
+        assert installed.count(TOOL.MARKER) == 1
+        assert b"[1972](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n" in installed
 
     helper = ROOT / "dvswitch-asl3-ami-status.py"
     status_spec = importlib.util.spec_from_file_location("asl3_ami_status", helper)
@@ -112,7 +132,7 @@ def main() -> None:
     ]
     assert status._connected_nodes(xstat, TOOL.private_nodes(RPT)) == ["700001"]
 
-    print("PASS: multiple private USRP nodes are recognized; Analog_Bridge selects DVSwitch; private peers stay hidden")
+    print("PASS: multiple private USRP nodes require explicit DVSwitch selection; chosen node and public-peer filtering are honored")
 
 
 if __name__ == "__main__":

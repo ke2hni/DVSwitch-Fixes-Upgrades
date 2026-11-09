@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Version: 1.0.6
+# Version: 1.1.0
 # Created: 2026-10-26T13:07:55-04:00 by KE2HNI
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
@@ -11,6 +11,7 @@ readonly RPT_CONF="/etc/asterisk/rpt.conf"
 readonly ANALOG_BRIDGE_CONF="/opt/Analog_Bridge/Analog_Bridge.ini"
 readonly ASTERISK="/usr/sbin/asterisk"
 readonly RPT_CONF_TOOL="/usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py"
+readonly PRIVATE_NODE_CONFIG="/etc/dvswitch-asl3-support/private-node"
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run through the dashboard sudo rule.'
@@ -39,7 +40,10 @@ else
 fi
 
 [[ -f "$RPT_CONF_TOOL" && ! -L "$RPT_CONF_TOOL" ]] || die 'ASL rpt.conf helper is not installed.'
-private_node=$(python3 "$RPT_CONF_TOOL" node "$RPT_CONF" --analog-bridge "$ANALOG_BRIDGE_CONF") || die 'Could not identify the local DVSwitch private node that connects to Analog_Bridge.'
+[[ -f "$PRIVATE_NODE_CONFIG" && ! -L "$PRIVATE_NODE_CONFIG" ]] || die 'DVSwitch private bridge node has not been selected; reinstall ASL Support to choose it.'
+private_node=$(cat "$PRIVATE_NODE_CONFIG")
+[[ "$private_node" =~ ^[0-9]{1,8}$ ]] || die 'Saved DVSwitch private bridge node selection is invalid.'
+private_node=$(python3 "$RPT_CONF_TOOL" node "$RPT_CONF" --analog-bridge "$ANALOG_BRIDGE_CONF" --private-node "$private_node") || die 'The selected DVSwitch private bridge node is not configured in rpt.conf.'
 private_nodes=$(python3 "$RPT_CONF_TOOL" private-nodes "$RPT_CONF") || die 'Could not identify configured private USRP nodes.'
 public_node=$(python3 "$RPT_CONF_TOOL" public-node "$RPT_CONF") || die 'Could not identify the local public ASL node from rpt.conf.'
 

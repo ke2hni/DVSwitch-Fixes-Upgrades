@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # Created: 2026-11-09T00:41:12-05:00 by KE2HNI
 
 """Verify private-node switching disconnects before connecting another mode."""
@@ -35,10 +35,12 @@ def main() -> None:
         root = Path(directory)
         rpt_conf = root / "rpt.conf"
         analog_conf = root / "Analog_Bridge.ini"
+        selection_conf = root / "private-node"
         state = root / "links.txt"
         log = root / "calls.log"
         rpt_conf.write_text(RPT_SAMPLE, encoding="utf-8")
         analog_conf.write_text(AB_SAMPLE, encoding="utf-8")
+        selection_conf.write_text("1970\n", encoding="utf-8")
         state.write_text(
             "NODE PEER RECONNECTS DIRECTION CONNECT TIME CONNECT STATE\n"
             "1970 127.0.0.1 0 OUT 00:00 ESTABLISHED\n",
@@ -74,6 +76,7 @@ def main() -> None:
             .replace('readonly ANALOG_BRIDGE_CONF="/opt/Analog_Bridge/Analog_Bridge.ini"', f'readonly ANALOG_BRIDGE_CONF="{analog_conf}"')
             .replace('readonly ASTERISK="/usr/sbin/asterisk"', f'readonly ASTERISK="{mock_asterisk}"')
             .replace('readonly RPT_CONF_TOOL="/usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py"', f'readonly RPT_CONF_TOOL="{ROOT / "lib" / "asl3_rpt_conf.py"}"')
+            .replace('readonly PRIVATE_NODE_CONFIG="/etc/dvswitch-asl3-support/private-node"', f'readonly PRIVATE_NODE_CONFIG="{selection_conf}"')
             .replace('sleep 0.25', 'sleep 0.01')
         )
         helper = root / "dvswitch-asl3-node-link"

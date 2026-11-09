@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.0
+# Version: 1.0.1
 # Created: 2026-10-27T15:03:24-04:00 by KE2HNI
 
 """Keep Analog_Bridge USRP ports paired with the private ASL node."""
@@ -17,9 +17,10 @@ from pathlib import Path
 import asl3_rpt_conf
 
 
-def expected_ports(rpt_data: bytes, ini_data: bytes | None = None) -> tuple[str, str]:
+def expected_ports(rpt_data: bytes, ini_data: bytes | None = None,
+                   private_node: str | None = None) -> tuple[str, str]:
     """Return Analog_Bridge ports from its matching private USRP node."""
-    private_node = asl3_rpt_conf.find_local_node(rpt_data, ini_data)
+    private_node = asl3_rpt_conf.find_local_node(rpt_data, ini_data, private_node)
     matches = [item for item in asl3_rpt_conf.node_sections(rpt_data) if item[0] == private_node]
     if len(matches) != 1:
         raise ValueError(f"expected exactly one DVSwitch private USRP node; found {len(matches)}")
@@ -69,14 +70,15 @@ def config_values(data: bytes) -> tuple[bytes, list[tuple[int, re.Match[bytes]]]
     return b"".join(lines), port_lines
 
 
-def apply_ports(rpt_path: Path, ini_path: Path, install: bool) -> bool:
+def apply_ports(rpt_path: Path, ini_path: Path, install: bool,
+                private_node: str | None = None) -> bool:
     """Check or atomically update USRP ports; return whether bytes changed."""
     if rpt_path.is_symlink() or not rpt_path.is_file():
         raise ValueError(f"rpt.conf is not a regular file: {rpt_path}")
     if ini_path.is_symlink() or not ini_path.is_file():
         raise ValueError(f"Analog_Bridge.ini is not a regular file: {ini_path}")
     original = ini_path.read_bytes()
-    tx_port, rx_port = expected_ports(rpt_path.read_bytes(), original)
+    tx_port, rx_port = expected_ports(rpt_path.read_bytes(), original, private_node)
     _, port_lines = config_values(original)
     lines = original.splitlines(keepends=True)
     updated = False
@@ -111,14 +113,15 @@ def main() -> int:
     parser.add_argument("action", choices=("check", "install"))
     parser.add_argument("rpt_conf", type=Path)
     parser.add_argument("analog_bridge_ini", type=Path)
+    parser.add_argument("--private-node")
     args = parser.parse_args()
     try:
-        changed = apply_ports(args.rpt_conf, args.analog_bridge_ini, args.action == "install")
+        changed = apply_ports(args.rpt_conf, args.analog_bridge_ini, args.action == "install", args.private_node)
         if changed and args.action == "check":
-            tx_port, rx_port = expected_ports(args.rpt_conf.read_bytes())
+            tx_port, rx_port = expected_ports(args.rpt_conf.read_bytes(), private_node=args.private_node)
             print(f"NEEDS REPAIR: Analog_Bridge USRP ports should be txPort={tx_port}, rxPort={rx_port}.")
         elif changed:
-            tx_port, rx_port = expected_ports(args.rpt_conf.read_bytes())
+            tx_port, rx_port = expected_ports(args.rpt_conf.read_bytes(), private_node=args.private_node)
             print(f"CHANGED: Analog_Bridge USRP ports set to txPort={tx_port}, rxPort={rx_port}.")
             print("CHANGED=1")
         else:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.0
+# Version: 1.1.0
 # Created: 2026-10-26T13:07:55-04:00 by KE2HNI
 
 set -Eeuo pipefail
@@ -31,6 +31,7 @@ readonly DASHBOARD_JS_TARGET="/usr/share/dvswitch/dvswitch-asl3-dashboard.js"
 readonly CONTROL_ENDPOINT_TARGET="/usr/share/dvswitch/dvswitch-asl3-control.php"
 readonly FAVORITES_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-favorites"
 readonly FAVORITES_FILE="/etc/dvswitch-asl3-support/favorites.json"
+readonly PRIVATE_NODE_CONFIG_TARGET="/etc/dvswitch-asl3-support/private-node"
 readonly ACTIVITY_ENDPOINT_TARGET="/usr/share/dvswitch/dvswitch-asl3-activity.php"
 readonly ACTIVITY_STATUS_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-ami-status"
 readonly EVENT_HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-link-event"
@@ -49,6 +50,7 @@ REPAIR_BACKUP=""
 INSTALL_ACTIVE=0
 ANALOG_BRIDGE_CHANGED=0
 APACHE_AUDIO_CONF_ENABLED_BEFORE=0
+SELECTED_PRIVATE_NODE=""
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
@@ -110,7 +112,63 @@ tag = '<script src="/dvswitch/dvswitch-asl3-dashboard.js"></script>'
 if text.count(tag) > 1:
     raise SystemExit('ERROR: duplicate ASL dashboard script references found')
 PY_ASL_INDEX_CHECK
-    python3 "$RPT_CONF_TOOL" check "$RPT_CONF" --analog-bridge "$ANALOG_BRIDGE_CONF"
+    python3 "$RPT_CONF_TOOL" check "$RPT_CONF" --analog-bridge "$ANALOG_BRIDGE_CONF" --private-node "$SELECTED_PRIVATE_NODE"
+    python3 "$USRP_PORT_TOOL" check "$RPT_CONF" "$ANALOG_BRIDGE_CONF" --private-node "$SELECTED_PRIVATE_NODE"
+}
+
+private_node_list() {
+    python3 "$RPT_CONF_TOOL" private-nodes "$RPT_CONF"
+}
+
+valid_private_node() {
+    grep -Fxq -- "$1" <<< "$(private_node_list)"
+}
+
+select_bridge_node() {
+    local -a nodes=()
+    local saved="" entered="" default=""
+    mapfile -t nodes < <(private_node_list)
+    ((${#nodes[@]} > 0)) || die 'No private USRP node is configured in rpt.conf.'
+    if ((${#nodes[@]} == 1)); then
+        printf '%s\n' "${nodes[0]}"
+        return 0
+    fi
+    if [[ -f "$PRIVATE_NODE_CONFIG_TARGET" && ! -L "$PRIVATE_NODE_CONFIG_TARGET" ]]; then
+        saved=$(cat "$PRIVATE_NODE_CONFIG_TARGET")
+        valid_private_node "$saved" && default=$saved
+    fi
+    printf 'Private USRP nodes: %s\n' "${nodes[*]}" >&2
+    if [[ -n "$default" ]]; then
+        printf 'Which private node number is used for DVSwitch and its Analog_Bridge connection to the public ASL node? Press Enter to keep %s: ' "$default" >&2
+    else
+        printf 'Which private node number is used for DVSwitch and its Analog_Bridge connection to the public ASL node? ' >&2
+    fi
+    [[ -r /dev/tty ]] || die 'Interactive node selection requires a terminal; pass --private-node NODE.'
+    IFS= read -r entered </dev/tty || die 'Could not read the private-node selection.'
+    entered=${entered:-$default}
+    [[ -n "$entered" ]] || die 'A private-node selection is required.'
+    valid_private_node "$entered" || die "Node $entered is not one of the configured private USRP nodes: ${nodes[*]}"
+    printf '%s\n' "$entered"
+}
+
+resolve_private_node() {
+    local mode=$1 saved="" count
+    if [[ -z "$SELECTED_PRIVATE_NODE" && -f "$PRIVATE_NODE_CONFIG_TARGET" && ! -L "$PRIVATE_NODE_CONFIG_TARGET" ]]; then
+        saved=$(cat "$PRIVATE_NODE_CONFIG_TARGET")
+        [[ "$saved" =~ ^[0-9]{1,8}$ ]] || die "Invalid saved private-node selection in $PRIVATE_NODE_CONFIG_TARGET."
+        SELECTED_PRIVATE_NODE=$saved
+    fi
+    count=$(private_node_list | sed '/^$/d' | wc -l)
+    if [[ -z "$SELECTED_PRIVATE_NODE" ]]; then
+        if [[ "$count" -eq 1 ]]; then
+            SELECTED_PRIVATE_NODE=$(private_node_list)
+        elif [[ "$mode" == install ]]; then
+            SELECTED_PRIVATE_NODE=$(select_bridge_node)
+        else
+            die "Found $count private USRP nodes. Select the DVSwitch/Analog_Bridge node first with --select-private-node, then run --check NODE."
+        fi
+    fi
+    valid_private_node "$SELECTED_PRIVATE_NODE" || die "Selected node $SELECTED_PRIVATE_NODE is not a configured private USRP node. Choose again with --select-private-node."
 }
 
 snapshot_file() {
@@ -143,7 +201,7 @@ rollback_install() {
     trap - ERR
     if [[ $INSTALL_ACTIVE -eq 1 && -n "$BACKUP_DIR" ]]; then
         printf 'ERROR: ASL dashboard installation failed; restoring its saved files.\n' >&2
-        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$FAVORITES_HELPER_TARGET" "$FAVORITES_FILE" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$CONTROL_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
+        for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$FAVORITES_HELPER_TARGET" "$FAVORITES_FILE" "$PRIVATE_NODE_CONFIG_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$CONTROL_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do restore_snapshot "$target" || printf 'ERROR: rollback failed for %s.\n' "$target" >&2; done
         if [[ $APACHE_AUDIO_CONF_ENABLED_BEFORE -eq 0 ]]; then a2disconf dvswitch-asl3-webproxy >/dev/null 2>&1 || true; fi
         if [[ -n "$REPAIR_BACKUP" ]]; then "$ASL_REPAIR" --restore "$REPAIR_BACKUP" || printf 'ERROR: rollback of dvswitch.sh failed.\n' >&2; fi
         if [[ $ANALOG_BRIDGE_CHANGED -eq 1 ]]; then systemctl restart analog_bridge >/dev/null 2>&1 || true; fi
@@ -204,9 +262,10 @@ run_check() {
         printf 'SKIP: ASL 3 is not installed. No files changed; DVSwitch remains usable without ASL.\n'
         return 0
     fi
+    resolve_private_node check
     preflight
     "$ASL_REPAIR" --check
-    python3 "$USRP_PORT_TOOL" check "$RPT_CONF" "$ANALOG_BRIDGE_CONF"
+    printf 'DVSwitch private bridge node selected: %s\n' "$SELECTED_PRIVATE_NODE"
     if python3 "$ACTIVITY_STATUS_HELPER" >/dev/null 2>&1; then
         printf 'PASS: Allmon3 public-node keying status is available.\n'
     else
@@ -221,6 +280,7 @@ run_install() {
         printf 'SKIP: ASL 3 is not installed. No files changed; DVSwitch remains usable without ASL.\n'
         return 0
     fi
+    resolve_private_node install
     preflight
     "$ASL_REPAIR" --check
     stamp=$(date +%Y%m%d-%H%M%S)
@@ -231,8 +291,16 @@ run_install() {
     while [[ -e "$BACKUP_DIR" ]]; do collision=$((collision + 1)); BACKUP_DIR="$BACKUP_ROOT/install-$stamp-$collision"; done
     install -d -o root -g root -m 0700 "$BACKUP_DIR"
     if [[ -e /etc/apache2/conf-enabled/dvswitch-asl3-webproxy.conf ]]; then APACHE_AUDIO_CONF_ENABLED_BEFORE=1; fi
-    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$FAVORITES_HELPER_TARGET" "$FAVORITES_FILE" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$CONTROL_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file "$target"; done
+    for target in "$DASHBOARD_SYSTEM" "$DASHBOARD_STATUS" "$DASHBOARD_CARD_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$DASHBOARD_INDEX" "$HELPER_TARGET" "$LINKS_HELPER_TARGET" "$EVENT_HELPER_TARGET" "$ACTIVITY_STATUS_HELPER_TARGET" "$FAVORITES_HELPER_TARGET" "$FAVORITES_FILE" "$PRIVATE_NODE_CONFIG_TARGET" "$RPT_CONF_TOOL_TARGET" "$DASHBOARD_JS_TARGET" "$ACTIVITY_ENDPOINT_TARGET" "$CONTROL_ENDPOINT_TARGET" "$SUDOERS" "$ACTIVITY_SUDOERS" "$RPT_CONF" "$ANALOG_BRIDGE_CONF"; do snapshot_file "$target"; done
     INSTALL_ACTIVE=1
+
+    install -d -o root -g root -m 0755 "$(dirname "$PRIVATE_NODE_CONFIG_TARGET")"
+    local selection_tmp
+    selection_tmp=$(mktemp "$(dirname "$PRIVATE_NODE_CONFIG_TARGET")/.private-node.XXXXXX")
+    printf '%s\n' "$SELECTED_PRIVATE_NODE" > "$selection_tmp"
+    chown root:root "$selection_tmp"
+    chmod 0644 "$selection_tmp"
+    mv -fT "$selection_tmp" "$PRIVATE_NODE_CONFIG_TARGET"
 
     install -o root -g root -m 0644 "$AUDIO_PROXY_CONF" "$AUDIO_PROXY_CONF_TARGET"
     a2enmod proxy proxy_wstunnel >/dev/null
@@ -241,7 +309,7 @@ run_install() {
 
     # Match Analog_Bridge's USRP ports to the dynamic private-node channel map.
     local usrp_port_output
-    usrp_port_output=$(python3 "$USRP_PORT_TOOL" install "$RPT_CONF" "$ANALOG_BRIDGE_CONF")
+    usrp_port_output=$(python3 "$USRP_PORT_TOOL" install "$RPT_CONF" "$ANALOG_BRIDGE_CONF" --private-node "$SELECTED_PRIVATE_NODE")
     printf '%s\n' "$usrp_port_output"
     if grep -qx 'CHANGED=1' <<< "$usrp_port_output"; then
         ANALOG_BRIDGE_CHANGED=1
@@ -293,7 +361,7 @@ PY_ASL_FAVORITES_MIGRATE
     fi
     install -o root -g root -m 0644 "$ACTIVITY_ENDPOINT" "$ACTIVITY_ENDPOINT_TARGET"
     install_activity_sudoers
-    python3 "$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET" --analog-bridge "$ANALOG_BRIDGE_CONF"
+    python3 "$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET" --analog-bridge "$ANALOG_BRIDGE_CONF" --private-node "$SELECTED_PRIVATE_NODE"
     install -d -o root -g www-data -m 0750 /var/lib/dvswitch-mods
     python3 "$LAYOUT_PATCHER" install "$DASHBOARD_STATUS"
     install_index_script
@@ -319,8 +387,21 @@ PY_ASL_FAVORITES_MIGRATE
 }
 
 case "${1:-}" in
-    --check) [[ $# -eq 1 ]] || die '--check takes no extra arguments.'; run_check ;;
-    --install) [[ $# -eq 1 ]] || die '--install takes no extra arguments.'; run_install ;;
-    --help|-h) printf 'DVSwitch ASL 3 Support\nUsage: sudo %s {--check|--install}\n' "$(basename "$0")" ;;
-    *) die "Usage: sudo $(basename "$0") {--check|--install}" ;;
+    --select-private-node)
+        [[ $# -eq 1 ]] || die '--select-private-node takes no extra arguments.'
+        [[ -f "$RPT_CONF" ]] || die "ASL configuration is unavailable: $RPT_CONF"
+        select_bridge_node
+        ;;
+    --check)
+        [[ $# -le 2 ]] || die '--check accepts an optional private node number.'
+        SELECTED_PRIVATE_NODE=${2:-}
+        run_check
+        ;;
+    --install)
+        [[ $# -le 2 ]] || die '--install accepts an optional private node number.'
+        SELECTED_PRIVATE_NODE=${2:-}
+        run_install
+        ;;
+    --help|-h) printf 'DVSwitch ASL 3 Support\nUsage: sudo %s --select-private-node\n       sudo %s --check [PRIVATE_NODE]\n       sudo %s --install [PRIVATE_NODE]\n' "$(basename "$0")" "$(basename "$0")" "$(basename "$0")" ;;
+    *) die "Usage: sudo $(basename "$0") {--select-private-node|--check [PRIVATE_NODE]|--install [PRIVATE_NODE]}" ;;
 esac

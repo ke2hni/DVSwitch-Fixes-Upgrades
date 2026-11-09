@@ -1,6 +1,6 @@
 # DVSwitch ASL 3 Mod Support
 
-<!-- Version: 1.0.0; Created: 2026-10-26T13:07:55-04:00; Created by KE2HNI -->
+<!-- Version: 1.1.0; Created: 2026-10-26T13:07:55-04:00; Created by KE2HNI -->
 
 Repository: <https://github.com/ke2hni/DVSwitch-Fixes-Upgrades>
 
@@ -44,17 +44,20 @@ external links could not be cleared.
 
 The patchers reject unsupported versions and dashboard structures without
 changing installed files. ASL node discovery supports multiple private USRP nodes.
-It identifies the DVSwitch private node by matching its reciprocal USRP ports to
-Analog_Bridge's `[USRP]` `txPort`/`rxPort`; it excludes all USRP private nodes
-when identifying the public node and listing external links. A single-private-node
-configuration remains supported without a port match. If multiple private nodes
-exist and the Analog_Bridge port match is missing or ambiguous, checks stop
-without changing files. From the combined repository root, run
+It excludes all USRP private nodes when identifying the public node and listing
+external links. If exactly one private node exists, it is selected automatically.
+If multiple private nodes exist, option 6 asks which node number is used for
+DVSwitch and its Analog_Bridge connection to the public ASL node. The choice is
+saved in `/etc/dvswitch-asl3-support/private-node` and used by checks and runtime
+helpers; neither port matching nor stanza order decides it. The selected node's
+USRP channel remains the source for Analog_Bridge port validation and repair.
+From the combined repository root, run
 `python3 DVSwitch-ASL3-Mod-Support/tests/test-dvswitch-asl-mode-switch-patcher.py`
 and `python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py` to
 check the mode-switch repair and dashboard layout patch. Run
 `python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-multiple-private-nodes.py`
-to verify discovery with three private USRP nodes.
+to verify explicit selection with multiple private USRP nodes, including
+identical default port pairs.
 
 Version 1.0.1 moved link-state checks to 250ms intervals. Version 1.1.0
 reduces the external-link disconnect verification window to five seconds before
