@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
+# Version: 1.0.0
+# Created: 2026-10-27T15:44:26-04:00 by KE2HNI
 
 """Read Allmon3-compatible ASL keying status for the configured public node."""
 
@@ -98,13 +100,14 @@ def _keyed_values(lines: list[str]) -> dict[str, bool]:
     return values
 
 
-def _connected_nodes(xstat: list[str], private_node: str) -> list[str]:
+def _connected_nodes(xstat: list[str], private_nodes: list[str]) -> list[str]:
     nodes: list[str] = []
     for line in xstat:
         fields = line.split()
         if len(fields) >= 6 and fields[0] == "Conn:" and fields[-1] == "ESTABLISHED":
             node = fields[1]
-            if node != private_node and re.fullmatch(r"[0-9]{1,8}", node) and node not in nodes:
+            # Hide every private USRP endpoint, including M17, from public-node peers.
+            if node not in private_nodes and re.fullmatch(r"[0-9]{1,8}", node) and node not in nodes:
                 nodes.append(node)
     return nodes
 
@@ -127,7 +130,7 @@ def _link_keying(sawstat: list[str], connected: list[str]) -> dict[str, dict[str
 def query_status(rpt_data: bytes, config_path: Path = ALLMON_CONFIG) -> dict[str, object]:
     """Fetch XStat/SawStat for the discovered public node using local Allmon3 AMI settings."""
     public_node = asl3_rpt_conf.find_public_node(rpt_data)
-    private_node = asl3_rpt_conf.find_local_node(rpt_data)
+    private_nodes = asl3_rpt_conf.private_nodes(rpt_data)
     host, port, user, secret = _local_manager_config(public_node, config_path)
 
     with socket.create_connection((host, port), timeout=2.0) as connection:
@@ -152,7 +155,7 @@ def query_status(rpt_data: bytes, config_path: Path = ALLMON_CONFIG) -> dict[str
                 pass
             stream.close()
 
-    connected = _connected_nodes(xstat, private_node)
+    connected = _connected_nodes(xstat, private_nodes)
     return {
         "public_node": public_node,
         "connected_nodes": connected,

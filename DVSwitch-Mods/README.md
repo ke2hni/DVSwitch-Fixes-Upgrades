@@ -1,4 +1,4 @@
-<!-- Version: 1.0.14 --><div align="center">
+<!-- Version: 1.0.16; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -93,7 +93,7 @@ Run the manager without arguments:
 sudo ./manage-dvswitch-mods.sh
 ```
 
-The combined repository menu provides five installation choices and one uninstall choice:
+The combined repository menu provides six installation choices and one uninstall choice:
 
 1. **Standard DVSwitch repairs and modifications** — runs the complete
    dependency-ordered installation and records its reversible backups.
@@ -111,6 +111,11 @@ The combined repository menu provides five installation choices and one uninstal
    the optional ASL mode-switch repair and dashboard support. ASL support is
    stored in the sibling `DVSwitch-ASL3-Mod-Support/` directory; install Mode
    Buttons with option 2 to display the ASL mode button and tuner.
+7. **M17 private-node switch commands** — installs `m17` and `dvs-dvswitch`
+   commands from the sibling `DVSwitch-M17-Support/` directory. They switch
+   the public ASL node between the configured M17 and Analog_Bridge private
+   nodes, disconnecting other private USRP links first. Install or upgrade ASL
+   3 Support with option 6 before using option 7.
 
 The Widescreen Display Layout aligns Status and activity headings and card tops
 across digital and ASL modes, applies the final one-pixel corrections measured

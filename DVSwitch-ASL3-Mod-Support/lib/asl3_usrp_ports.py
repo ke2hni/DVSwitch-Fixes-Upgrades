@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
+# Version: 1.0.0
+# Created: 2026-10-27T15:03:24-04:00 by KE2HNI
 
 """Keep Analog_Bridge USRP ports paired with the private ASL node."""
 
@@ -15,11 +17,12 @@ from pathlib import Path
 import asl3_rpt_conf
 
 
-def expected_ports(rpt_data: bytes) -> tuple[str, str]:
-    """Return Analog_Bridge txPort/rxPort from the private node's USRP channel."""
-    matches = asl3_rpt_conf.node_sections(rpt_data)
+def expected_ports(rpt_data: bytes, ini_data: bytes | None = None) -> tuple[str, str]:
+    """Return Analog_Bridge ports from its matching private USRP node."""
+    private_node = asl3_rpt_conf.find_local_node(rpt_data, ini_data)
+    matches = [item for item in asl3_rpt_conf.node_sections(rpt_data) if item[0] == private_node]
     if len(matches) != 1:
-        raise ValueError(f"expected one private USRP node; found {len(matches)}")
+        raise ValueError(f"expected exactly one DVSwitch private USRP node; found {len(matches)}")
     channel = [
         asl3_rpt_conf.clean_line(line).decode("ascii", "strict")
         for line in matches[0][3].splitlines()
@@ -72,8 +75,8 @@ def apply_ports(rpt_path: Path, ini_path: Path, install: bool) -> bool:
         raise ValueError(f"rpt.conf is not a regular file: {rpt_path}")
     if ini_path.is_symlink() or not ini_path.is_file():
         raise ValueError(f"Analog_Bridge.ini is not a regular file: {ini_path}")
-    tx_port, rx_port = expected_ports(rpt_path.read_bytes())
     original = ini_path.read_bytes()
+    tx_port, rx_port = expected_ports(rpt_path.read_bytes(), original)
     _, port_lines = config_values(original)
     lines = original.splitlines(keepends=True)
     updated = False

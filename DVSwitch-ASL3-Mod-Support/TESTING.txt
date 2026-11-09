@@ -1,3 +1,6 @@
+# Version: 1.0.0
+# Created: 2026-10-26T13:07:55-04:00 by KE2HNI
+
 ASL dashboard integration test procedure
 
 These checks are for an ASL 3 test node. They do not install anything on a node.
@@ -9,9 +12,12 @@ PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dash
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-support-integration.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-rpt-conf.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-usrp-ports.py
+PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-multiple-private-nodes.py
+sudo PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-multiple-private-switch.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-ami-status.py
 PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-Mode-Buttons/tests/test-dmr-network-fast-path.py
 sudo PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-connect-replaces-external-links.py
+sudo PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-M17-Support/tests/test-m17-support-installer.py
 
 On a test node, check compatibility without changing installed files:
 

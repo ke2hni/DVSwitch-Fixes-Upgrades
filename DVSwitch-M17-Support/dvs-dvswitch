@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Version: 1.0.0
+# Created: 2026-11-09T00:41:12-05:00 by KE2HNI
+# DVSwitch-M17-Support: switch the public ASL node exclusively back to Analog_Bridge.
+
+set -Eeuo pipefail
+readonly LINK_HELPER=/usr/local/sbin/dvswitch-asl3-node-link
+readonly SUDO=/usr/bin/sudo
+[[ $# -eq 0 ]] || { printf 'ERROR: This command takes no arguments.\n' >&2; exit 1; }
+[[ -x "$LINK_HELPER" && -x "$SUDO" ]] || { printf 'ERROR: ASL private-node switching support is not installed.\n' >&2; exit 1; }
+printf 'SWITCH_DVSWITCH\n' | "$SUDO" "$LINK_HELPER"

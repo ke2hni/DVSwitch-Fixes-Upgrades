@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Version: 1.0.0
+# Created: 2026-10-26T20:18:55-04:00 by KE2HNI
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -11,8 +13,9 @@ readonly ASTERISK=/usr/sbin/asterisk
 readonly RPT_CONF_TOOL=/usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py
 [[ -f "$RPT_CONF" && -f "$RPT_CONF_TOOL" && -x "$ASTERISK" ]] || exit 1
 
-private_node=$(python3 "$RPT_CONF_TOOL" node "$RPT_CONF")
+private_nodes=$(python3 "$RPT_CONF_TOOL" private-nodes "$RPT_CONF")
 public_node=$(python3 "$RPT_CONF_TOOL" public-node "$RPT_CONF")
 links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1)
 awk '$1 == "NODE" && $2 == "PEER" { header=1 } END { exit !header }' <<< "$links" || exit 1
-awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep && $NF == "ESTABLISHED" && !seen[$1]++ { print $1 }' <<< "$links"
+# Treat every configured USRP node as private so M17 and DVSwitch stay out of external-link listings.
+awk -v privates="$private_nodes" 'BEGIN { count=split(privates, ids, "\n"); for (i=1; i<=count; i++) private[ids[i]]=1 } $1 ~ /^[0-9]+$/ && !private[$1] && $NF == "ESTABLISHED" && !seen[$1]++ { print $1 }' <<< "$links"

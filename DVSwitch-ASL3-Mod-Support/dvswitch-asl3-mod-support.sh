@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
+# Version: 1.0.0
+# Created: 2026-10-26T13:07:55-04:00 by KE2HNI
 
 set -Eeuo pipefail
 umask 077
@@ -108,7 +110,7 @@ tag = '<script src="/dvswitch/dvswitch-asl3-dashboard.js"></script>'
 if text.count(tag) > 1:
     raise SystemExit('ERROR: duplicate ASL dashboard script references found')
 PY_ASL_INDEX_CHECK
-    python3 "$RPT_CONF_TOOL" check "$RPT_CONF"
+    python3 "$RPT_CONF_TOOL" check "$RPT_CONF" --analog-bridge "$ANALOG_BRIDGE_CONF"
 }
 
 snapshot_file() {
@@ -291,7 +293,7 @@ PY_ASL_FAVORITES_MIGRATE
     fi
     install -o root -g root -m 0644 "$ACTIVITY_ENDPOINT" "$ACTIVITY_ENDPOINT_TARGET"
     install_activity_sudoers
-    python3 "$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET"
+    python3 "$RPT_CONF_TOOL" install "$RPT_CONF" "/usr/bin/sudo -n $EVENT_HELPER_TARGET" --analog-bridge "$ANALOG_BRIDGE_CONF"
     install -d -o root -g www-data -m 0750 /var/lib/dvswitch-mods
     python3 "$LAYOUT_PATCHER" install "$DASHBOARD_STATUS"
     install_index_script

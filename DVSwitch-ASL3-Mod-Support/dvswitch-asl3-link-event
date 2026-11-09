@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Version: 1.0.0
+# Created: 2026-10-26T13:07:55-04:00 by KE2HNI
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -11,8 +13,8 @@ local_node=$2
 remote_node=$3
 [[ "$local_node" =~ ^[0-9]{1,8}$ && "$remote_node" =~ ^[0-9]{1,8}$ ]] || exit 2
 if [[ -f /usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py ]]; then
-    private_node=$(python3 /usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py node /etc/asterisk/rpt.conf 2>/dev/null || true)
-    [[ -z "$private_node" || "$remote_node" != "$private_node" ]] || exit 0
+    private_nodes=$(python3 /usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py private-nodes /etc/asterisk/rpt.conf 2>/dev/null || true)
+    if [[ -n "$private_nodes" ]] && grep -Fxq -- "$remote_node" <<< "$private_nodes"; then exit 0; fi
 fi
 case "$event" in
     CONNECTED) label=Connected ;;

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Version: 1.0.0
+# Created: 2026-11-09T00:41:12-05:00 by KE2HNI
+# DVSwitch-M17-Support: switch the public ASL node exclusively to the M17 private node.
+
+set -Eeuo pipefail
+readonly CONFIG=/etc/dvswitch-m17-support.conf
+readonly LINK_HELPER=/usr/local/sbin/dvswitch-asl3-node-link
+readonly SUDO=/usr/bin/sudo
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+[[ $# -eq 0 ]] || die 'This command takes no arguments.'
+[[ -f "$CONFIG" && ! -L "$CONFIG" ]] || die "M17 node setting is missing: $CONFIG"
+[[ -x "$LINK_HELPER" && -x "$SUDO" ]] || die 'ASL private-node switching support is not installed.'
+mapfile -t nodes < <(sed -n 's/^M17_PRIVATE_NODE=\([0-9][0-9]*\)$/\1/p' "$CONFIG")
+[[ ${#nodes[@]} -eq 1 && ${nodes[0]} =~ ^[0-9]{1,8}$ && ${nodes[0]} != 0 ]] || die 'M17 node setting must contain exactly one non-zero numeric node ID.'
+printf 'SWITCH_PRIVATE\t%s\n' "${nodes[0]}" | "$SUDO" "$LINK_HELPER"

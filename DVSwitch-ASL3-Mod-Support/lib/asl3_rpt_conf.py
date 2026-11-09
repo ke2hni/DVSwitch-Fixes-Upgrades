@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
+# Version: 1.0.1
+# Created: 2026-10-26T13:45:14-04:00 by KE2HNI
 
 """Discover local ASL nodes and safely install gateway link event hooks."""
 
@@ -16,7 +18,40 @@ from pathlib import Path
 NODE_HEADER = re.compile(rb"\[\s*(\d{1,8})\s*\]\s*(?:\([^)]*\))?\s*$")
 ANY_HEADER = re.compile(rb"\[.*\]")
 CHANNEL = re.compile(rb"^\s*rxchannel\s*=\s*usrp(?:/|\s|$)", re.I)
+USRP_CHANNEL = re.compile(rb"^\s*rxchannel\s*=\s*usrp/[^:\s]+:(\d{1,5}):(\d{1,5})\s*$", re.I)
 MARKER = b"; DVSwitch-ASL3-Mod-Support: activity hooks v1"
+
+
+def private_nodes(data: bytes) -> list[str]:
+    """Return every numeric node stanza using a USRP channel."""
+    return [item[0] for item in node_sections(data)]
+
+
+def analog_bridge_ports(data: bytes) -> tuple[str, str]:
+    """Read the active Analog_Bridge [USRP] txPort/rxPort pair."""
+    lines = data.splitlines()
+    in_usrp = False
+    values: dict[str, str] = {}
+    for raw in lines:
+        content = raw.split(b";", 1)[0].split(b"#", 1)[0].strip()
+        header = re.fullmatch(rb"\[([^]]+)\]", content)
+        if header:
+            in_usrp = header.group(1).strip().lower() == b"usrp"
+            continue
+        if not in_usrp:
+            continue
+        match = re.fullmatch(rb"(txPort|rxPort)\s*=\s*(\d{1,5})", content, re.I)
+        if match:
+            key = match.group(1).decode("ascii").lower()
+            if key in values:
+                raise ValueError(f"Analog_Bridge [USRP] has duplicate {key} settings")
+            port = match.group(2).decode("ascii")
+            if not 1 <= int(port) <= 65535:
+                raise ValueError(f"Analog_Bridge {key} must be between 1 and 65535")
+            values[key] = port
+    if set(values) != {"txport", "rxport"}:
+        raise ValueError("Analog_Bridge [USRP] must define exactly one txPort and rxPort")
+    return values["txport"], values["rxport"]
 
 
 def clean_line(raw: bytes) -> bytes:
@@ -48,11 +83,28 @@ def node_sections(data: bytes) -> list[tuple[str, int, int, bytes]]:
             if any(CHANNEL.match(clean_line(line)) for line in item[3].splitlines())]
 
 
-def find_local_node(data: bytes) -> str:
+def find_local_node(data: bytes, analog_bridge_data: bytes | None = None) -> str:
     matches = node_sections(data)
-    if len(matches) != 1:
-        raise ValueError(f"expected one numeric node stanza with rxchannel=USRP; found {len(matches)}")
-    return matches[0][0]
+    if not matches:
+        raise ValueError("expected at least one numeric node stanza with rxchannel=USRP; found 0")
+    if len(matches) == 1:
+        return matches[0][0]
+    if analog_bridge_data is None:
+        raise ValueError(f"found {len(matches)} private USRP nodes; Analog_Bridge ports are required to identify the DVSwitch node")
+    tx_port, rx_port = analog_bridge_ports(analog_bridge_data)
+    candidates = []
+    for node, _, _, block in matches:
+        channels = [USRP_CHANNEL.fullmatch(clean_line(line)) for line in block.splitlines()
+                    if CHANNEL.match(clean_line(line))]
+        if len(channels) != 1 or channels[0] is None:
+            raise ValueError(f"private USRP node {node} has an unsupported or ambiguous rxchannel")
+        remote_port, local_port = (value.decode("ascii") for value in channels[0].groups())
+        # Asterisk sends to Analog_Bridge rxPort and listens on Analog_Bridge txPort.
+        if (local_port, remote_port) == (tx_port, rx_port):
+            candidates.append(node)
+    if len(candidates) != 1:
+        raise ValueError(f"Analog_Bridge ports match {len(candidates)} of {len(matches)} private USRP nodes; expected exactly one")
+    return candidates[0]
 
 
 def configured_nodes(data: bytes) -> list[str]:
@@ -61,18 +113,20 @@ def configured_nodes(data: bytes) -> list[str]:
 
 
 def find_public_node(data: bytes) -> str:
-    private_node = find_local_node(data)
-    candidates = [node for node in configured_nodes(data) if node != private_node]
+    """Find the sole configured numeric node that is not a private USRP endpoint."""
+    private = set(private_nodes(data))
+    candidates = [node for node in configured_nodes(data) if node not in private]
     if len(candidates) != 1:
-        raise ValueError(f"expected one local public node stanza paired with USRP node {private_node}; found {len(candidates)} candidates")
+        raise ValueError(f"expected one local public node stanza after excluding {len(private)} private USRP nodes; found {len(candidates)} candidates")
     return candidates[0]
 
 
-def install_hooks(path: Path, helper: str) -> str:
+def install_hooks(path: Path, helper: str, analog_bridge_data: bytes | None = None) -> str:
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"rpt.conf is not a regular file: {path}")
     original = path.read_bytes()
-    private_node = find_local_node(original)
+    # Select the Analog_Bridge-backed private node before removing legacy private-node hooks.
+    private_node = find_local_node(original, analog_bridge_data)
     node = find_public_node(original)
     lines = original.splitlines(keepends=True)
     sections = {item[0]: item[1:3] for item in numeric_sections(original)}
@@ -153,25 +207,30 @@ def write_updated(path: Path, lines: list[bytes]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "install", "node", "nodes", "public-node"))
+    parser.add_argument("action", choices=("check", "install", "node", "nodes", "private-nodes", "public-node"))
     parser.add_argument("rpt_conf", type=Path)
     parser.add_argument("helper", nargs="?")
+    parser.add_argument("--analog-bridge", type=Path, default=Path("/opt/Analog_Bridge/Analog_Bridge.ini"))
     args = parser.parse_args()
     try:
+        analog_data = args.analog_bridge.read_bytes() if args.analog_bridge.is_file() else None
         if args.action == "node":
-            print(find_local_node(args.rpt_conf.read_bytes()))
+            print(find_local_node(args.rpt_conf.read_bytes(), analog_data))
         elif args.action == "nodes":
             print("\n".join(configured_nodes(args.rpt_conf.read_bytes())))
+        elif args.action == "private-nodes":
+            print("\n".join(private_nodes(args.rpt_conf.read_bytes())))
         elif args.action == "public-node":
             print(find_public_node(args.rpt_conf.read_bytes()))
         elif args.action == "check":
             data = args.rpt_conf.read_bytes()
-            print(f"ASL private DVSwitch bridge node: {find_local_node(data)}")
+            print(f"ASL private USRP nodes: {', '.join(private_nodes(data))}")
+            print(f"ASL private DVSwitch bridge node: {find_local_node(data, analog_data)}")
             print(f"ASL local public node: {find_public_node(data)}")
         else:
             if not args.helper:
                 raise ValueError("--install requires the installed link-event helper path")
-            print(f"ASL link activity hooks installed for node {install_hooks(args.rpt_conf, args.helper)}")
+            print(f"ASL link activity hooks installed for node {install_hooks(args.rpt_conf, args.helper, analog_data)}")
     except (OSError, ValueError, StopIteration) as error:
         raise SystemExit(f"ERROR: {error}") from error
     return 0

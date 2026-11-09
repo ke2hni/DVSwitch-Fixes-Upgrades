@@ -1,14 +1,17 @@
 # DVSwitch Fixes & Upgrades
 
-A combined repository for the independently installable DVSwitch repairs and dashboard modifications from **DVSwitch-Mods** and **DVSwitch-Mode-Buttons**.
+<!-- Version: 1.0.1; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI -->
+
+A combined repository for independently installable DVSwitch repairs, dashboard modifications, ASL 3 support, and M17 private-node switching support.
 
 ## Repository layout
 
 - `DVSwitch-Mods/` contains the standard repair and modification manager, its standalone Dark Mode and Widescreen Display Layout installers, component scripts, tests, and detailed project documentation.
 - `DVSwitch-Mode-Buttons/` contains the dashboard mode controls, favorites editor, helpers, installer, tests, and detailed project documentation.
 - `DVSwitch-ASL3-Mod-Support/` contains optional ASL 3 support, the ASL-to-digital mode-switch repair, dashboard support, and its own checks and documentation. It detects ASL 3 first and skips cleanly when ASL is absent.
+- `DVSwitch-M17-Support/` contains the `m17` and `dvs-dvswitch` commands for switching the public ASL node between M17 and DVSwitch private USRP nodes.
 
-The three projects stay in separate directories. They contain files with the same names, including `README.md` and `LICENSE`; keeping each project intact in its own directory prevents collisions. Their installation state and backups remain separately managed. Mode Buttons can optionally use the DVSwitch-Mods network-history helper when installed, and continues to work without it. ASL 3 Support skips cleanly when ASL is not installed.
+The projects stay in separate directories. They contain files with the same names, including `README.md` and `LICENSE`; keeping each project intact in its own directory prevents collisions. Their installation state and backups remain separately managed. Mode Buttons can optionally use the DVSwitch-Mods network-history helper when installed, and continues to work without it. ASL 3 Support skips cleanly when ASL is not installed.
 
 ## Quick start
 
@@ -39,11 +42,14 @@ The menu offers:
 4. Launch the Widescreen Display Layout installer.
 5. Uninstall all manager-recorded standard components.
 6. Install ASL 3 Support (ASL 3 must be installed).
+7. Install M17 private-node switch commands.
 0. Exit.
+
+Install or upgrade ASL 3 Support with option 6 before using option 7.
 
 Option 5 only uninstalls components recorded by the DVSwitch-Mods manager. The Mode Buttons, Dark Mode, and Widescreen installers keep their own install and restore workflows; use their own uninstall or restore instructions when needed.
 
-The projects can also be used independently from their respective directories. For Mode Buttons, run `sudo ./dvswitch-mode-buttons.sh` from `DVSwitch-Mode-Buttons/`. For the DVSwitch-Mods manager, run `sudo ./manage-dvswitch-mods.sh` from `DVSwitch-Mods/`; its Mode Buttons and ASL 3 menu choices require their sibling directories to be present.
+The projects can also be used independently from their respective directories. For Mode Buttons, run `sudo ./dvswitch-mode-buttons.sh` from `DVSwitch-Mode-Buttons/`. For the DVSwitch-Mods manager, run `sudo ./manage-dvswitch-mods.sh` from `DVSwitch-Mods/`; its Mode Buttons, ASL 3, and M17 menu choices require their sibling directories to be present.
 
 ## Project documentation
 
@@ -51,6 +57,7 @@ The projects can also be used independently from their respective directories. F
 - [DVSwitch-Mods testing notes](DVSwitch-Mods/TESTING.txt)
 - [DVSwitch-Mode-Buttons README](DVSwitch-Mode-Buttons/README.md)
 - [DVSwitch-ASL3-Mod-Support README](DVSwitch-ASL3-Mod-Support/README.md)
+- [DVSwitch-M17-Support README](DVSwitch-M17-Support/README.md)
 
 Each subproject contains its own license and tests. Review its README and safety notes before installing on a node.
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
+# Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 
 # Repository-wide front end. Existing repair/modification files remain the
 # authoritative installers and validators; this manager selects and records
@@ -9,7 +10,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.11"
+readonly SCRIPT_VERSION="1.2.12"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -58,6 +59,7 @@ readonly DARK_MODE_SCRIPT="$SCRIPT_DIR/dvswitch-dark-mode.sh"
 readonly DISPLAY_LAYOUT_SCRIPT="$SCRIPT_DIR/dvswitch-display-layout.sh"
 readonly MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"
 readonly ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-asl3-mod-support.sh"
+readonly M17_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-support.sh"
 
 COMPONENT=""
 CHILD_SCRIPT=""
@@ -115,6 +117,14 @@ run_asl3_support_installer() {
     "$ASL3_SUPPORT_SCRIPT" --install
 }
 
+run_m17_support_installer() {
+    require_root
+    require_executable_script "$M17_SUPPORT_SCRIPT"
+    printf '\n=== INSTALL M17 PRIVATE-NODE SWITCH COMMANDS ===\n'
+    "$M17_SUPPORT_SCRIPT" --check
+    "$M17_SUPPORT_SCRIPT" --install
+}
+
 show_menu() {
     local choice
     require_root
@@ -127,9 +137,10 @@ show_menu() {
         "4) Install/launch the Widescreen Display Layout installer" \
         "5) Uninstall all manager-recorded standard components" \
         "6) Install ASL 3 Support" \
+        "7) Install M17 private-node switch commands" \
         "0) Exit" \
         ""
-    printf 'Choose an option [0/1/2/3/4/5/6]: '
+    printf 'Choose an option [0/1/2/3/4/5/6/7]: '
     read -r choice
     case "$choice" in
         1) initialize_state; install_requested all ;;
@@ -138,6 +149,7 @@ show_menu() {
         4) run_optional_mod_installer "DISPLAY LAYOUT" "$DISPLAY_LAYOUT_SCRIPT" ;;
         5) initialize_state; uninstall_requested all ;;
         6) run_asl3_support_installer ;;
+        7) run_m17_support_installer ;;
         0) exit 0 ;;
         *) die "Invalid choice" ;;
     esac
@@ -154,8 +166,8 @@ usage() {
         "       sudo $(basename "$0") --uninstall COMPONENT|all" \
         "       sudo $(basename "$0") --reset-after-reinstall" \
         "" \
-        "With no arguments, choose the standard install, Mode Buttons, Dark Mode," \
-        "Widescreen Display Layout, or ASL 3 Support from the interactive menu." \
+        "With no arguments, choose standard DVSwitch repairs, dashboard tools, ASL 3," \
+        "or M17 private-node switching support from the interactive menu." \
         "Only standard installations performed and recorded by this manager can be" \
         "uninstalled through it. Uninstall operations run in strict reverse" \
         "installation order so overlapping DVSwitch files remain consistent."
