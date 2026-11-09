@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.1.0; Created: 2026-11-09T00:41:12-05:00; Created by KE2HNI -->
+<!-- Version: 1.2.0; Created: 2026-11-09T00:41:12-05:00; Created by KE2HNI -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -14,3 +14,9 @@ The shared ASL node helper must be updated to multi-private-node support before 
 The install output identifies the backup folder. Restore it from the combined repository root with `sudo ./DVSwitch-M17-Support/dvswitch-m17-support.sh --restore install-YYYYMMDD-HHMMSS`; pass the actual folder name reported by your installer. Restore also saves the current files to a `pre-restore-*` recovery folder.
 
 Run `sudo PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-M17-Support/tests/test-m17-support-installer.py` from the combined repository root to exercise the installer's check, fresh-install, upgrade, already-installed, partial-install resume, restore, and collision-guard paths in a temporary tree.
+
+## Full USRP2M17 bridge installation
+
+The command installer above only installs the mode-switch commands. To install the actual M17 network bridge, run manager option 6 first and explicitly select the private node used by DVSwitch. Then choose manager option 8. The new interactive installer downloads and builds USRP2M17 from the upstream nostar/MMDVM_CM GitHub repository, asks for the M17 node number and port assignments, configures the reflector and Asterisk private node, and creates a systemd service. It also installs the existing M17/DVSwitch switch commands using the node number just entered.
+
+Follow [INSTALL-USRP2M17.md](INSTALL-USRP2M17.md) for the complete first-time instructions, verification commands, and uninstall procedure. The interactive installer can also be run directly from the combined repository root with `sudo ./DVSwitch-M17-Support/dvswitch-m17-bridge.py`.

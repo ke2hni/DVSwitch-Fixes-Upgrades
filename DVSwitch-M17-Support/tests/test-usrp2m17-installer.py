@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+# Version: 1.0.4
+# Created: 2026-11-09T14:06:32-05:00 by KE2HNI
+
+"""Check the USRP2M17 installer config and reversible Asterisk node edits."""
+
+from __future__ import annotations
+
+import importlib.util
+import os
+import subprocess
+import tempfile
+from types import SimpleNamespace
+from pathlib import Path
+from unittest.mock import patch
+
+SOURCE = Path(__file__).resolve().parents[1] / "dvswitch-m17-bridge.py"
+SPEC = importlib.util.spec_from_file_location("dvswitch_m17_bridge", SOURCE)
+assert SPEC is not None and SPEC.loader is not None
+BRIDGE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(BRIDGE)
+
+
+def main() -> None:
+    sample = (
+        "[nodes]\n446901 = radio@127.0.0.1:4571/446901,NONE\n"
+        "[446901](node-main)\nrxchannel = SimpleUSB/446901\n"
+        "[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n"
+    )
+    private = BRIDGE.discover_private_nodes(sample)
+    assert private == {"1970": "USRP/127.0.0.1:34001:32001"}
+    assert BRIDGE.validate_node("1972", "M17 node") == "1972"
+    assert BRIDGE.validate_port("34008", "USRP port") == 34008
+
+    settings = {
+        "callsign": "KE2HNI",
+        "address": "107.191.121.105",
+        "name": "M17-M17",
+        "module": "C",
+        "m17_local": 32011,
+        "m17_remote": 17000,
+        "m17_gain": "3",
+        "asl_local": 32008,
+        "usrp_local": 34008,
+        "usrp_gain": "-6",
+    }
+    config = BRIDGE.make_config(settings)
+    assert "Name=M17-M17 C\n" in config
+    assert "DstPort=32008\nLocalPort=34008\n" in config
+    assert "LocalPort=32011\nDstPort=17000\n" in config
+    assert "FilePath=/var/log/usrp2m17\n" in config
+    assert "ExecStart=/usr/local/bin/USRP2M17" in BRIDGE.service_text()
+
+    with tempfile.TemporaryDirectory() as directory:
+        temp_root = Path(directory)
+        BRIDGE.CONFIG = temp_root / "USRP2M17.ini"
+        BRIDGE.BINARY = temp_root / "usr-local-bin-USRP2M17"
+        BRIDGE.STATE_FILE = temp_root / "install-state.json"
+        BRIDGE.CONFIG.write_text(config, encoding="utf-8")
+        BRIDGE.BINARY.write_text("existing executable\n", encoding="utf-8")
+        assert BRIDGE.matching_imported_node(
+            {"1970": "USRP/127.0.0.1:34001:32001",
+             "1972": "USRP/127.0.0.1:34008:32008"}) == "1972"
+
+        rpt = Path(directory) / "rpt.conf"
+        rpt.write_text(sample, encoding="utf-8")
+        added_node, added_map = BRIDGE.edit_rpt_conf(rpt, "1972", 34008, 32008)
+        installed = rpt.read_text(encoding="utf-8")
+        assert added_node and added_map
+        assert "[1972](node-main)\nrxchannel = USRP/127.0.0.1:34008:32008\n" in installed
+        assert "1972 = radio@127.0.0.1:4571/1972,NONE ; DVSwitch-M17-Bridge v1" in installed
+        state = {"rpt_added_node": added_node, "rpt_added_map": added_map}
+        # Upgrade the managed port pair without taking ownership of unrelated node settings.
+        upgraded_node, upgraded_map = BRIDGE.edit_rpt_conf(
+            rpt, "1972", 34009, 32009, allow_managed_block=True)
+        assert upgraded_node and not upgraded_map
+        assert "rxchannel = USRP/127.0.0.1:34009:32009" in rpt.read_text(encoding="utf-8")
+        assert "1972 = radio@127.0.0.1:4571/1972,NONE ; DVSwitch-M17-Bridge v1" in rpt.read_text(encoding="utf-8")
+        rpt.write_text(installed + "; preserve this later user edit\n", encoding="utf-8")
+        BRIDGE.remove_managed_rpt(rpt, state)
+        restored = rpt.read_text(encoding="utf-8")
+        assert "[1972](node-main)" not in restored
+        assert "1972 = radio@127.0.0.1:4571/1972,NONE" not in restored
+        assert "; preserve this later user edit" in restored
+        assert "[1970](node-main)" in restored
+
+    with tempfile.TemporaryDirectory() as directory:
+        # Simulate fresh install, upgrade, and uninstall with isolated paths and mocked services.
+        root = Path(directory)
+        paths = {
+            "INSTALL_ROOT": root / "opt/dvswitch-m17",
+            "SOURCE_ROOT": root / "opt/dvswitch-m17/MMDVM_CM",
+            "CONFIG": root / "etc/USRP2M17.ini",
+            "BINARY": root / "usr/local/bin/USRP2M17",
+            "SERVICE": root / "etc/systemd/system/usrp2m17.service",
+            "LOG_DIR": root / "var/log/usrp2m17",
+            "STATE_ROOT": root / "var/lib/dvswitch-m17-bridge",
+            "STATE_FILE": root / "var/lib/dvswitch-m17-bridge/install-state.json",
+            "BACKUP_ROOT": root / "var/backups/usrp2m17",
+            "RPT_CONF": root / "etc/asterisk/rpt.conf",
+            "SUPPORT_INSTALLER": root / "repo/dvswitch-m17-support.sh",
+        }
+        prior = {key: getattr(BRIDGE, key) for key in paths}
+        for key, value in paths.items():
+            setattr(BRIDGE, key, value)
+        paths["RPT_CONF"].parent.mkdir(parents=True)
+        paths["RPT_CONF"].write_text(
+            "[nodes]\n446901 = radio@127.0.0.1:4571/446901,NONE\n"
+            "[446901](node-main)\nrxchannel = SimpleUSB/446901\n"
+            "[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n",
+            encoding="utf-8")
+        paths["SUPPORT_INSTALLER"].parent.mkdir(parents=True)
+        paths["SUPPORT_INSTALLER"].write_text("#!/bin/sh\n", encoding="utf-8")
+        paths["SUPPORT_INSTALLER"].chmod(0o755)
+        restored_switch = []
+
+        def fake_run(command, **kwargs):
+            if command[:2] == ["pgrep", "-x"]:
+                return subprocess.CompletedProcess(command, 1, "", "")
+            if command[:3] == ["bash", str(paths["SUPPORT_INSTALLER"]), "--restore"]:
+                restored_switch.append(command[-1])
+                return subprocess.CompletedProcess(command, 0, "", "")
+            if command[:3] == ["bash", str(paths["SUPPORT_INSTALLER"]), "--install"]:
+                return subprocess.CompletedProcess(
+                    command, 0, "PASS: commands installed\nBackup: /var/backups/m17/install-first\n", "")
+            if command[:2] == ["systemctl", "is-active"] or command[:2] == ["systemctl", "is-enabled"]:
+                return subprocess.CompletedProcess(command, 1, "inactive\n", "")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        def fake_source():
+            project = paths["SOURCE_ROOT"] / "USRP2M17"
+            project.mkdir(parents=True, exist_ok=True)
+            (project / "USRP2M17").write_text("fake executable\n", encoding="utf-8")
+            paths["BINARY"].parent.mkdir(parents=True, exist_ok=True)
+            paths["SERVICE"].parent.mkdir(parents=True, exist_ok=True)
+
+        old_run = BRIDGE.run
+        old_source = BRIDGE.ensure_source
+        old_check = BRIDGE.check_only
+        old_platform = BRIDGE.check_platform
+        old_private = BRIDGE.private_node_selection
+        old_reflector = BRIDGE.select_reflector
+        old_ports = BRIDGE.udp_port_free
+        old_require_root = BRIDGE.require_root
+        old_lookup = BRIDGE.pwd.getpwnam
+        try:
+            BRIDGE.run = fake_run
+            BRIDGE.ensure_source = fake_source
+            BRIDGE.check_only = lambda: None
+            BRIDGE.check_platform = lambda **_kwargs: []
+            BRIDGE.private_node_selection = lambda _private: "1970"
+            BRIDGE.select_reflector = lambda _existing: ("M17-M17", "127.0.0.1", 17000, "C")
+            BRIDGE.udp_port_free = lambda _port: True
+            BRIDGE.require_root = lambda: None
+            BRIDGE.pwd.getpwnam = lambda _name: SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid())
+            answers = ["1972", "KE2HNI", "", "", "", "", "", "y", "n",
+                       "", "", "", "", "", "", "", "y", "n", "y", "y"]
+            with patch("builtins.input", side_effect=answers):
+                BRIDGE.install()
+                original_backup = __import__("json").loads(paths["STATE_FILE"].read_text())["backup"]
+                BRIDGE.install()
+                upgraded = __import__("json").loads(paths["STATE_FILE"].read_text())
+                assert upgraded["backup"] == original_backup
+                assert "rxchannel = USRP/127.0.0.1:34008:32008" in paths["RPT_CONF"].read_text()
+                BRIDGE.uninstall()
+            assert not paths["STATE_FILE"].exists()
+            assert not paths["CONFIG"].exists()
+            assert not paths["BINARY"].exists()
+            assert not paths["SERVICE"].exists()
+            assert "[1972](node-main)" not in paths["RPT_CONF"].read_text()
+            assert "[1970](node-main)" in paths["RPT_CONF"].read_text()
+            assert restored_switch == ["install-first"]
+        finally:
+            BRIDGE.run = old_run
+            BRIDGE.ensure_source = old_source
+            BRIDGE.check_only = old_check
+            BRIDGE.check_platform = old_platform
+            BRIDGE.private_node_selection = old_private
+            BRIDGE.select_reflector = old_reflector
+            BRIDGE.udp_port_free = old_ports
+            BRIDGE.require_root = old_require_root
+            BRIDGE.pwd.getpwnam = old_lookup
+            for key, value in prior.items():
+                setattr(BRIDGE, key, value)
+
+    print("PASS: USRP2M17 configuration rendering, private-node detection, marked install, and selective cleanup")
+
+
+if __name__ == "__main__":
+    main()

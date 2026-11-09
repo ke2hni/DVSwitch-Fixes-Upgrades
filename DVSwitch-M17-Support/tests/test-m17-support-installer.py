@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.4
 # Created: 2026-11-09T00:53:07-05:00 by KE2HNI
 
 """Exercise M17 support installer check, fresh, upgrade, resume, restore, and collision paths in a temporary tree."""
@@ -113,6 +113,10 @@ def main() -> None:
         assert list(backup_root.glob("pre-restore-*")), "restore must preserve a recovery snapshot of the current files"
 
         conflict = root / "usr/local/bin/m17"
+        # The full bridge installer passes the selected node without prompting twice.
+        explicit = run("--install", "246810")
+        assert explicit.returncode == 0, explicit.stderr
+        assert "M17_PRIVATE_NODE=246810" in config.read_text(encoding="utf-8")
         if conflict.is_symlink() or conflict.exists():
             conflict.unlink()
         conflict.write_text("user command\n", encoding="utf-8")

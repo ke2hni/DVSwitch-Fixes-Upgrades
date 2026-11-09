@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 # SPDX-License-Identifier: MIT
 
@@ -70,20 +70,25 @@ def main() -> None:
             "hostname-title does not use its supported backup restore action")
     require("strict reverse" in master,
             "reverse-order uninstall safety notice is missing")
+    # Option 8 adds the full bridge flow while preserving existing option 7.
     require('"2) Install/launch the DVSwitch Mode Buttons installer"' in master and
             '"3) Install/launch the Dark Mode dashboard installer"' in master and
             '"4) Install/launch the Widescreen Display Layout installer"' in master and
             '"5) Uninstall all manager-recorded standard components"' in master and
             '"6) Install ASL 3 Support"' in master and
             '"7) Install M17 private-node switch commands"' in master and
+            '"8) Install/configure or uninstall the USRP2M17 M17 bridge"' in master and
             '2) run_mode_buttons_installer ;;' in master and
             '5) initialize_state; uninstall_requested all ;;' in master and
-            'Choose an option [0/1/2/3/4/5/6/7]:' in master and
+            'Choose an option [0/1/2/3/4/5/6/7/8]:' in master and
             'ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-asl3-mod-support.sh"' in master and
             '6) run_asl3_support_installer ;;' in master and
             '--select-private-node' in master and
             'M17_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-support.sh"' in master and
+            'M17_BRIDGE_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-bridge.py"' in master and
             '7) run_m17_support_installer ;;' in master and
+            '8) run_m17_bridge_installer ;;' in master and
+            '    "$M17_BRIDGE_SCRIPT"\n}' in master and
             'MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"' in master and
             'script_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")' in master and
             'cd -- "$script_dir"' in master and

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.1
+# Version: 1.0.2
 # Created: 2026-11-09T00:41:12-05:00 by KE2HNI
 
 set -Eeuo pipefail
@@ -46,7 +46,8 @@ run_install() {
         [[ -n "$m17_node" ]] || default_node=1972
     fi
     # Ask the installing operator for the M17 private-node ID, defaulting to the user's selected 1972.
-    if [[ -t 0 ]]; then
+    if [[ $# -eq 2 ]]; then m17_node=$2; fi
+    if [[ $# -ne 2 && -t 0 ]]; then
         read -r -p "M17 private node number [$default_node]: " m17_node
         m17_node=${m17_node:-$default_node}
     else
@@ -162,7 +163,7 @@ run_restore() {
 
 case "${1:-}" in
     --check) [[ $# -eq 1 ]] || die '--check takes no extra arguments.'; run_check ;;
-    --install) [[ $# -eq 1 ]] || die '--install takes no extra arguments.'; run_install ;;
+    --install) [[ $# -le 2 ]] || die '--install accepts an optional M17 private-node number.'; run_install "$@" ;;
     --restore) [[ $# -eq 2 ]] || die '--restore requires one backup directory name.'; run_restore "$2" ;;
     --help|-h) printf 'DVSwitch M17 private-node switching support\nUsage: sudo %s {--check|--install|--restore BACKUP-DIR}\n' "$(basename "$0")" ;;
     *) die "Usage: sudo $(basename "$0") {--check|--install|--restore BACKUP-DIR}" ;;

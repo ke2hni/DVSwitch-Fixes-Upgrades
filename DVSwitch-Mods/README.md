@@ -1,4 +1,4 @@
-<!-- Version: 1.0.17; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI --><div align="center">
+<!-- Version: 1.0.18; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -93,7 +93,7 @@ Run the manager without arguments:
 sudo ./manage-dvswitch-mods.sh
 ```
 
-The combined repository menu provides six installation choices and one uninstall choice:
+The combined repository menu provides seven installation choices and one uninstall choice:
 
 1. **Standard DVSwitch repairs and modifications** — runs the complete
    dependency-ordered installation and records its reversible backups.
@@ -118,6 +118,12 @@ The combined repository menu provides six installation choices and one uninstall
    the public ASL node between the configured M17 and Analog_Bridge private
    nodes, disconnecting other private USRP links first. Install or upgrade ASL
    3 Support with option 6 before using option 7.
+
+8. **USRP2M17 bridge** — opens the guided installer/uninstaller for the actual
+   M17 network bridge. It downloads and builds USRP2M17, asks which local ports
+   and M17 private node to use, installs a systemd service, and installs the
+   mode-switch commands. Run option 6 first so the DVSwitch private node is
+   explicitly selected. See DVSwitch-M17-Support/INSTALL-USRP2M17.md.
 
 The Widescreen Display Layout aligns Status and activity headings and card tops
 across digital and ASL modes, applies the final one-pixel corrections measured

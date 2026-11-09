@@ -1,7 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.2.13
+# Version: 1.2.14
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 
 # Repository-wide front end. Existing repair/modification files remain the
@@ -11,7 +11,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.13"
+readonly SCRIPT_VERSION="1.2.14"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -61,6 +61,7 @@ readonly DISPLAY_LAYOUT_SCRIPT="$SCRIPT_DIR/dvswitch-display-layout.sh"
 readonly MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"
 readonly ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-asl3-mod-support.sh"
 readonly M17_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-support.sh"
+readonly M17_BRIDGE_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-bridge.py"
 
 COMPONENT=""
 CHILD_SCRIPT=""
@@ -128,6 +129,13 @@ run_m17_support_installer() {
     "$M17_SUPPORT_SCRIPT" --install
 }
 
+run_m17_bridge_installer() {
+    require_root
+    require_executable_script "$M17_BRIDGE_SCRIPT"
+    printf '\n=== USRP2M17 BRIDGE INSTALLER ===\n'
+    "$M17_BRIDGE_SCRIPT"
+}
+
 show_menu() {
     local choice
     require_root
@@ -141,9 +149,10 @@ show_menu() {
         "5) Uninstall all manager-recorded standard components" \
         "6) Install ASL 3 Support" \
         "7) Install M17 private-node switch commands" \
+        "8) Install/configure or uninstall the USRP2M17 M17 bridge" \
         "0) Exit" \
         ""
-    printf 'Choose an option [0/1/2/3/4/5/6/7]: '
+    printf 'Choose an option [0/1/2/3/4/5/6/7/8]: '
     read -r choice
     case "$choice" in
         1) initialize_state; install_requested all ;;
@@ -153,6 +162,7 @@ show_menu() {
         5) initialize_state; uninstall_requested all ;;
         6) run_asl3_support_installer ;;
         7) run_m17_support_installer ;;
+        8) run_m17_bridge_installer ;;
         0) exit 0 ;;
         *) die "Invalid choice" ;;
     esac
