@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.5
+# Version: 1.0.7
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
+# Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
+# Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
 
 """Build and configure nostar/MMDVM_CM's USRP2M17 bridge on ASL3."""
@@ -18,10 +20,11 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.0.5"
+VERSION = "1.0.7"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -233,22 +236,19 @@ def select_reflector(existing: dict[str, dict[str, str]]) -> tuple[str, str, int
 
 
 def private_node_selection(private: dict[str, str]) -> str:
-    saved_path = Path("/etc/dvswitch-asl3-support/private-node")
-    saved = saved_path.read_text(encoding="utf-8").strip() if saved_path.is_file() else ""
-    if not saved:
-        raise SetupError("Run manager option 6 first so ASL Support records which private node belongs to DVSwitch.")
-    if saved not in private:
-        raise SetupError(f"ASL Support selects node {saved}, but it is not a private USRP node in rpt.conf.")
+    saved_path = Path("/etc/dvswitch-m17-support.conf")
+    saved_match = re.search(r"(?m)^DVSWITCH_PRIVATE_NODE=([0-9]+)$", saved_path.read_text(encoding="utf-8")) if saved_path.is_file() else None
+    saved = saved_match.group(1) if saved_match else ""
+    if saved and saved not in private:
+        raise SetupError(f"M17 Support records DVSwitch node {saved}, but it is not a private USRP node in rpt.conf.")
     print("Configured private USRP nodes:")
     for node, channel in private.items():
-        label = "DVSwitch (selected by ASL Support)" if node == saved else "available for another service"
+        label = "DVSwitch (saved by M17 Support)" if node == saved else "available for another service"
         print(f"  {node}: {channel} — {label}")
-    selected = validate_node(prompt("Which private node number is used for DVSwitch?", saved),
+    selected = validate_node(prompt("Which private node number is used for DVSwitch?", saved or None),
                              "DVSwitch private node")
     if selected not in private:
         raise SetupError(f"Node {selected} is not configured as a private USRP node in rpt.conf.")
-    if selected != saved:
-        raise SetupError(f"ASL Support currently selects {saved}; run manager option 6 and select {selected}, then retry.")
     return selected
 
 
@@ -409,7 +409,7 @@ def ensure_install_root() -> bool:
     return True
 
 
-def ensure_source() -> None:
+def ensure_source() -> bytes:
     if not SOURCE_ROOT.exists():
         run(["git", "clone", "--depth", "1", "--branch", "master", REPOSITORY, str(SOURCE_ROOT)])
     else:
@@ -434,10 +434,32 @@ def ensure_source() -> None:
     project = SOURCE_ROOT / "USRP2M17"
     if not (project / "Makefile").is_file():
         raise SetupError("The GitHub source does not contain USRP2M17/Makefile.")
-    run(["make"], cwd=project)
-    if not (project / "USRP2M17").is_file():
-        raise SetupError("The build did not produce the USRP2M17 executable.")
+    # Build a temporary patched copy so the upstream Git checkout stays clean
+    # and later upgrades can still use the installer's fast-forward safety check.
+    with tempfile.TemporaryDirectory(prefix="dvswitch-m17-build-") as temporary:
+        build_project = Path(temporary) / "USRP2M17"
+        shutil.copytree(project, build_project,
+                        ignore=shutil.ignore_patterns("*.o", "*.d", "USRP2M17", "*.bak", "*~"))
+        source = build_project / "USRP2M17.cpp"
+        text = source.read_text(encoding="utf-8")
+        activity_logs = {
+            'LogMessage("M17 received end of voice transmission, %.1f seconds", float(m_m17Frames) / 25.0F);':
+                'LogMessage("M17 received end of voice transmission from %s, %.1f seconds", m_usrpcs.c_str(), float(m_m17Frames) / 25.0F);',
+            'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);':
+                'LogMessage("USRP received end of voice transmission from %s, %.1f seconds", m_usrpcs.c_str(), float(m_usrpFrames) / 50.0F);',
+        }
+        for old, new in activity_logs.items():
+            if text.count(old) != 1:
+                raise SetupError("The checked-out USRP2M17 source has an unsupported activity-log structure; no binary was installed.")
+            text = text.replace(old, new, 1)
+        source.write_text(text, encoding="utf-8")
+        run(["make"], cwd=build_project)
+        built = build_project / "USRP2M17"
+        if not built.is_file():
+            raise SetupError("The build did not produce the USRP2M17 executable.")
+        binary = built.read_bytes()
     ensure_service_directory_access()
+    return binary
 
 
 def ensure_service_directory_access() -> None:
@@ -539,7 +561,7 @@ def install() -> None:
     if not private:
         raise SetupError("No private USRP node was found in rpt.conf.")
     if not SUPPORT_INSTALLER.is_file() or not os.access(SUPPORT_INSTALLER, os.R_OK):
-        raise SetupError("The M17 private-node switching installer is missing or unreadable in this repository.")
+        raise SetupError("The M17-owned private-node switching installer is missing from this repository.")
     imported_node = matching_imported_node(private)
     if INSTALL_ROOT.exists() and not (INSTALL_ROOT / ".dvswitch-m17-bridge-managed").is_file():
         raise SetupError(f"{INSTALL_ROOT} exists and is not marked as owned by this installer; refusing to change it.")
@@ -567,7 +589,7 @@ def install() -> None:
     service_was_enabled = run(["systemctl", "is-enabled", "usrp2m17.service"],
                               check=False, capture=True).returncode == 0
     try:
-        ensure_source()
+        built_binary = ensure_source()
         if previous_state:
             system_changes_started = True
             run(["systemctl", "stop", "usrp2m17.service"], check=False)
@@ -575,8 +597,11 @@ def install() -> None:
             system_changes_started = True
         if legacy_process:
             run(["pkill", "-TERM", "-x", "USRP2M17"], check=False)
-        shutil.copy2(SOURCE_ROOT / "USRP2M17/USRP2M17", BINARY)
-        BINARY.chmod(0o755)
+        fd, binary_tmp = tempfile.mkstemp(prefix='.USRP2M17.', dir=BINARY.parent)
+        with os.fdopen(fd, 'wb') as output:
+            output.write(built_binary)
+        os.chmod(binary_tmp, 0o755)
+        os.replace(binary_tmp, BINARY)
         asl = pwd.getpwnam("asl")
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         os.chown(LOG_DIR, asl.pw_uid, asl.pw_gid)
@@ -590,7 +615,7 @@ def install() -> None:
         added_node = bool(previous_state.get("rpt_added_node")) or added_node
         added_map = bool(previous_state.get("rpt_added_map")) or added_map
         switch_backup = str(previous_state.get("switch_backup", ""))
-        support = run(["bash", str(SUPPORT_INSTALLER), "--install", str(values["m17_node"])], capture=True)
+        support = run(["bash", str(SUPPORT_INSTALLER), "--install", str(values["m17_node"]), str(values["dv_node"])], capture=True)
         print(support.stdout or "", end="")
         match = re.search(r"Backup: (.+)", support.stdout or "")
         if match and not switch_backup:
@@ -684,17 +709,14 @@ def check_only() -> None:
     missing = check_platform()
     if not module_loaded():
         raise SetupError("chan_usrp.so is not Running; enable it in Asterisk before installation.")
-    if not Path("/etc/dvswitch-asl3-support/private-node").is_file():
-        raise SetupError("Run manager option 6 first so the DVSwitch private node is selected.")
     private = discover_private_nodes(RPT_CONF.read_text(encoding="utf-8"))
     if not private:
         raise SetupError("No private USRP node was found in rpt.conf.")
     if not SUPPORT_INSTALLER.is_file() or not os.access(SUPPORT_INSTALLER, os.R_OK):
-        raise SetupError("The M17 switching installer is missing or not executable in this repository.")
-    run(["bash", str(SUPPORT_INSTALLER), "--check"], capture=True)
+        raise SetupError("The M17-owned private-node switching installer is missing from this repository.")
     if missing:
         print("NOTICE: the guided installer will offer to install: " + ", ".join(missing))
-    print("PASS: Debian ASL, Asterisk, chan_usrp, and DVSwitch node selection are ready. No files changed.")
+    print("PASS: Debian, Asterisk, chan_usrp, and M17 node-switch support prerequisites are ready. No files changed.")
 
 
 def menu() -> None:

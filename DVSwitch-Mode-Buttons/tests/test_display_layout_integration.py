@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Regression coverage for the bundled responsive dashboard layout."""
-# Version: 1.1.11
+# Version: 1.1.12
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertIn('#dvs-asl-activity > span { position:relative; top:-1px; }', active_overlay.group(1))
         self.assertIn('body:has(#dvs-asl-activity:not([hidden]))', MODS_LAYOUT)
         self.assertIn('PASS: display-layout targets are present', MODS_LAYOUT)
-        self.assertIn('VERSION="1.0.0-test86"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test88"', INSTALLER)
         for source, old, new in (
             ('$INDEX_FILE', 'background-color:#fafafa; width:100%; table-layout:fixed;', 'table-layout:fixed;'),
             ('$INDEX_FILE', 'width:100%;">', 'background-color:#fafafa;">'),

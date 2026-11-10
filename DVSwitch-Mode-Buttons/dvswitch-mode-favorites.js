@@ -1,4 +1,4 @@
-/* Version: 1.0.6 — show and save favorite names up to the full 35-character limit. */
+/* Version: 1.0.7 — add M17 favorites, friendly target labels, and a larger M17 list. Updated 2026-11-09T23:19:00-05:00 by KE2HNI. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -34,10 +34,13 @@
     let activeMode = '';
     let editing = [];
 
-    // Keep the Buttons favorites editor scoped to the standard digital modes.
+    // M17 is enabled only when its dashboard button is installed.
     function validMode(mode) {
-      return ['BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'].includes(mode);
+      return ['BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'M17'].includes(mode) &&
+        Array.from(modeButtons).some(function (button) { return button.dataset.mode === mode; });
     }
+
+    function favoriteLimit(mode) { return mode === 'M17' ? 250 : 100; }
 
     function validTarget(mode, target) {
       // Keep browser validation aligned with the shared field and server limit.
@@ -74,8 +77,8 @@
       });
       root.hidden = !validMode(activeMode);
       // Use a short hint that fits the compact target field; keep the full accessible label.
-      input.placeholder = 'TG/Ref';
-      input.setAttribute('aria-label', 'Talkgroup or reflector ID');
+      input.placeholder = mode === 'M17' ? 'M17-001-A' : 'TG/Ref';
+      input.setAttribute('aria-label', mode === 'M17' ? 'M17 reflector and module' : 'Talkgroup or reflector ID');
       document.dispatchEvent(new CustomEvent('dvswitch-mode-buttons-mode', { detail: { mode: activeMode } }));
       if (editor.open) return;
       showFavorites();
@@ -88,6 +91,7 @@
       const requestedMode = activeMode;
       try {
         const favorites = await load(requestedMode);
+        const names = requestedMode === 'M17' ? await loadTargetNames(requestedMode) : {};
         // Discard a slow response if another mode became active while it was loading.
         if (activeMode !== requestedMode || !Array.from(modeButtons).some(function (button) {
           return button.dataset.mode === requestedMode && button.classList.contains('selected');
@@ -96,7 +100,8 @@
           if (!favorite || typeof favorite.name !== 'string' || typeof favorite.target !== 'string') return;
           const option = document.createElement('option');
           option.value = favorite.target;
-          option.textContent = favorite.name + ' (' + favorite.target + ')';
+          const friendly = names[favorite.target] || favorite.name;
+          option.textContent = friendly + ' (' + favorite.target + ')';
           favoriteSelect.appendChild(option);
         });
       } catch (error) {
@@ -122,7 +127,8 @@
       target.type = 'text'; target.maxLength = 35; target.value = favorite.target || '';
       // Keep the editor target field compact while allowing up to 35 input characters.
       target.style.boxSizing = 'border-box'; target.style.width = '10ch';
-      target.placeholder = 'TG/Ref'; target.setAttribute('aria-label', 'Talkgroup or reflector ID');
+      target.placeholder = selector.value === 'M17' ? 'M17-001-A' : 'TG/Ref';
+      target.setAttribute('aria-label', selector.value === 'M17' ? 'M17 reflector and module' : 'Talkgroup or reflector ID');
       const remove = document.createElement('button');
       remove.type = 'button'; remove.className = 'button link'; remove.textContent = 'Delete';
       remove.addEventListener('click', function () { row.remove(); });
@@ -167,8 +173,8 @@
         editing = await load(selector.value);
         rows.replaceChildren();
         editing.forEach(makeRow);
-        if (editing.length >= 100) {
-          editorStatus.textContent = 'A mode can have up to 100 favorites.';
+        if (editing.length >= favoriteLimit(activeMode)) {
+          editorStatus.textContent = 'This mode can have up to ' + favoriteLimit(activeMode) + ' favorites.';
           return;
         }
         let friendlyName = '';
@@ -184,7 +190,7 @@
           if (match) friendlyName = match[1] + match[2] + ' ' + match[3];
         }
         // Trim a long network label to the 35-character editor limit.
-        makeRow({ name: friendlyName.slice(0, 35), target: target });
+        makeRow({ name: (activeMode === 'M17' ? (friendlyName || target) : friendlyName).slice(0, 35), target: target });
         rows.lastElementChild.children[0].focus();
         editorStatus.textContent = friendlyName
           ? (activeMode === 'DSTAR'
@@ -210,8 +216,8 @@
     addFavoriteButton.addEventListener('click', addCurrentTargetToFavorites);
     selector.addEventListener('change', loadEditorMode);
     root.querySelector('.dvs-favorites-add').addEventListener('click', function () {
-      if (rows.children.length < 100) makeRow({ name: '', target: '' });
-      else editorStatus.textContent = 'A mode can have up to 100 favorites.';
+      if (rows.children.length < favoriteLimit(selector.value)) makeRow({ name: '', target: '' });
+      else editorStatus.textContent = 'This mode can have up to ' + favoriteLimit(selector.value) + ' favorites.';
     });
     root.querySelector('.dvs-favorites-cancel').addEventListener('click', closeEdit);
     root.querySelector('.dvs-favorites-save').addEventListener('click', async function () {
@@ -240,7 +246,11 @@
       }
     });
 
-    selector.innerHTML = '<option value="BM">BM</option><option value="TGIF">TGIF</option><option value="STFU">STFU</option><option value="YSF">YSF</option><option value="P25">P25</option><option value="NXDN">NXDN</option><option value="DSTAR">D-Star</option>';
+    selector.replaceChildren();
+    Array.from(modeButtons).forEach(function (button) {
+      const option = new Option(button.textContent.trim(), button.dataset.mode);
+      selector.appendChild(option);
+    });
     modeButtons.forEach(function (button) {
       button.addEventListener('click', async function () {
         modeButtons.forEach(function (item) { item.disabled = true; });

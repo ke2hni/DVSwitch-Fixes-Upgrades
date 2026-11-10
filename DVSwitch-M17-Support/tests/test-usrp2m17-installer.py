@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.6
+# Version: 1.0.8
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
+# Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -39,6 +40,10 @@ def main() -> None:
         project = source / "USRP2M17"
         project.mkdir(parents=True)
         (project / "Makefile").write_text("all:\n", encoding="utf-8")
+        (project / "USRP2M17.cpp").write_text(
+            'LogMessage("M17 received end of voice transmission, %.1f seconds", float(m_m17Frames) / 25.0F);\n'
+            'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);\n',
+            encoding="utf-8")
         binary = project / "USRP2M17"
         binary.write_text("old installer build\n", encoding="utf-8")
         old_source_root, old_install_root, old_run = (
@@ -56,14 +61,15 @@ def main() -> None:
             elif command[0] == "git" and "pull" in command:
                 pass
             elif command[0] == "make":
-                binary.write_text("rebuilt executable\n", encoding="utf-8")
+                Path(kwargs["cwd"] / "USRP2M17").write_text("rebuilt executable\n", encoding="utf-8")
             return subprocess.CompletedProcess(command, 0, "", "")
 
         try:
             BRIDGE.SOURCE_ROOT, BRIDGE.INSTALL_ROOT = source, root
             BRIDGE.run = fake_git_run
-            BRIDGE.ensure_source()
-            assert binary.read_text(encoding="utf-8") == "rebuilt executable\n"
+            built = BRIDGE.ensure_source()
+            assert built == b"rebuilt executable\n"
+            assert not binary.exists(), "the clean upstream checkout must not retain the patched temporary build"
             assert any(call[:2] == ["make", "clean"] for call in calls)
             assert any("--untracked-files=all" in call for call in calls)
             assert all(path.stat().st_mode & 0o777 == 0o755
@@ -198,9 +204,9 @@ def main() -> None:
         def fake_source():
             project = paths["SOURCE_ROOT"] / "USRP2M17"
             project.mkdir(parents=True, exist_ok=True)
-            (project / "USRP2M17").write_text("fake executable\n", encoding="utf-8")
             paths["BINARY"].parent.mkdir(parents=True, exist_ok=True)
             paths["SERVICE"].parent.mkdir(parents=True, exist_ok=True)
+            return b"fake executable\n"
 
         old_run = BRIDGE.run
         old_source = BRIDGE.ensure_source

@@ -1,4 +1,4 @@
-"""Version: 1.0.4. Check full-width 35-character names and compact target inputs."""
+"""Version: 1.0.5. Cover M17 favorites, friendly names, and compact target inputs."""
 
 from pathlib import Path
 import re
@@ -22,18 +22,19 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('editor.showModal()', SCRIPT)
         self.assertIn('addCurrentTargetToFavorites', SCRIPT)
         self.assertIn('loadTargetNames(activeMode)', SCRIPT)
-        for mode in ('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'):
-            self.assertIn('value="%s"' % mode, SCRIPT)
+        for mode in ('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'M17'):
+            self.assertIn("'" + mode + "'", SCRIPT)
+        self.assertIn("favoriteLimit(mode) { return mode === 'M17' ? 250 : 100; }", SCRIPT)
         self.assertNotIn('ASL', SCRIPT)
 
     def test_favorites_responses_are_ignored_after_mode_changes(self):
-        self.assertIn("input.placeholder = 'TG/Ref'", SCRIPT)
+        self.assertIn("input.placeholder = mode === 'M17' ? 'M17-001-A' : 'TG/Ref'", SCRIPT)
         self.assertIn('const requestedMode = activeMode;', SCRIPT)
         self.assertIn('if (activeMode !== requestedMode || !Array.from(modeButtons).some(function (button)', SCRIPT)
         self.assertIn("button.classList.contains('selected')", SCRIPT)
 
     def test_shared_target_field_is_compact_and_allows_35_characters(self):
-        self.assertIn("makeRow({ name: friendlyName.slice(0, 35), target: target })", SCRIPT)
+        self.assertIn("makeRow({ name: (activeMode === 'M17' ? (friendlyName || target) : friendlyName).slice(0, 35), target: target })", SCRIPT)
         self.assertIn("name.value = String(favorite.name || '').slice(0, 35)", SCRIPT)
         self.assertIn("name.maxLength = 35", SCRIPT)
         self.assertIn("target.maxLength = 35", SCRIPT)
@@ -64,7 +65,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test86"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test88"', INSTALLER)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -120,7 +121,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test86"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test88"', INSTALLER)
 
 
 if __name__ == '__main__':

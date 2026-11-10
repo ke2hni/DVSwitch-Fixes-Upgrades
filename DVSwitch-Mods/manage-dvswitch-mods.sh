@@ -1,8 +1,9 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.2.14
+# Version: 1.2.16
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
+# Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — keep M17 dashboard add-on optional when Mode Buttons is absent.
 
 # Repository-wide front end. Existing repair/modification files remain the
 # authoritative installers and validators; this manager selects and records
@@ -11,7 +12,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.14"
+readonly SCRIPT_VERSION="1.2.16"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -62,6 +63,7 @@ readonly MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode
 readonly ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-asl3-mod-support.sh"
 readonly M17_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-support.sh"
 readonly M17_BRIDGE_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-bridge.py"
+readonly M17_DASHBOARD_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-dashboard.sh"
 
 COMPONENT=""
 CHILD_SCRIPT=""
@@ -136,6 +138,38 @@ run_m17_bridge_installer() {
     "$M17_BRIDGE_SCRIPT"
 }
 
+run_m17_dashboard_installer() {
+    local mode_dir choice
+    require_root
+    require_executable_script "$M17_DASHBOARD_SCRIPT"
+    printf '\n=== INSTALL M17 DASHBOARD SUPPORT ===\n'
+    printf '1) Install or upgrade M17 dashboard support\n2) Uninstall M17 dashboard support\n0) Return\n'
+    read -r -p 'Choose an option [0/1/2]: ' choice
+    case "$choice" in
+        1) ;;
+        2)
+            "$M17_DASHBOARD_SCRIPT" --uninstall
+            if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php && -x "$MODE_BUTTONS_SCRIPT" ]]; then
+                mode_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")
+                (cd -- "$mode_dir" && ./dvswitch-mode-buttons.sh --install)
+            else
+                printf 'NOTICE: Mode Buttons is absent; its optional dashboard hook was not run.\n'
+            fi
+            return 0
+            ;;
+        0|'') return 0 ;;
+        *) die 'Invalid M17 dashboard choice' ;;
+    esac
+    if [[ ! -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]; then
+        printf 'NOTICE: DVSwitch Mode Buttons is not installed. Install it separately with manager option 2, then rerun option 9 for dashboard integration. M17 bridge and node commands remain independent.\n'
+        return 0
+    fi
+    "$M17_DASHBOARD_SCRIPT" --check
+    "$M17_DASHBOARD_SCRIPT" --install
+    mode_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")
+    (cd -- "$mode_dir" && ./dvswitch-mode-buttons.sh --install)
+}
+
 show_menu() {
     local choice
     require_root
@@ -150,9 +184,10 @@ show_menu() {
         "6) Install ASL 3 Support" \
         "7) Install M17 private-node switch commands" \
         "8) Install/configure or uninstall the USRP2M17 M17 bridge" \
+        "9) Install or remove M17 dashboard support" \
         "0) Exit" \
         ""
-    printf 'Choose an option [0/1/2/3/4/5/6/7/8]: '
+    printf 'Choose an option [0/1/2/3/4/5/6/7/8/9]: '
     read -r choice
     case "$choice" in
         1) initialize_state; install_requested all ;;
@@ -163,6 +198,7 @@ show_menu() {
         6) run_asl3_support_installer ;;
         7) run_m17_support_installer ;;
         8) run_m17_bridge_installer ;;
+        9) run_m17_dashboard_installer ;;
         0) exit 0 ;;
         *) die "Invalid choice" ;;
     esac

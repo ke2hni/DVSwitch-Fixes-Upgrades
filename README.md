@@ -1,6 +1,6 @@
 # DVSwitch Fixes & Upgrades
 
-<!-- Version: 1.0.3; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI -->
+<!-- Version: 1.0.4; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI; Updated: 2026-11-09T23:19:00-05:00 by KE2HNI -->
 
 A combined repository for independently installable DVSwitch repairs, dashboard modifications, ASL 3 support, and M17 private-node switching support.
 
@@ -9,7 +9,7 @@ A combined repository for independently installable DVSwitch repairs, dashboard 
 - `DVSwitch-Mods/` contains the standard repair and modification manager, its standalone Dark Mode and Widescreen Display Layout installers, component scripts, tests, and detailed project documentation.
 - `DVSwitch-Mode-Buttons/` contains the dashboard mode controls, favorites editor, helpers, installer, tests, and detailed project documentation.
 - `DVSwitch-ASL3-Mod-Support/` contains optional ASL 3 support, the ASL-to-digital mode-switch repair, dashboard support, and its own checks and documentation. It detects ASL 3 first and skips cleanly when ASL is absent.
-- `DVSwitch-M17-Support/` contains the M17/DVSwitch private-node switching commands and the guided USRP2M17 bridge installer/uninstaller.
+- `DVSwitch-M17-Support/` contains the M17/DVSwitch private-node switching commands, guided USRP2M17 bridge installer/uninstaller, and optional dashboard integration.
 
 The projects stay in separate directories. They contain files with the same names, including `README.md` and `LICENSE`; keeping each project intact in its own directory prevents collisions. Their installation state and backups remain separately managed. Mode Buttons can optionally use the DVSwitch-Mods network-history helper when installed, and continues to work without it. ASL 3 Support skips cleanly when ASL is not installed.
 
@@ -45,6 +45,7 @@ The menu offers:
    nodes exist, select the node number used for DVSwitch).
 7. Install M17 private-node switch commands.
 8. Install/configure or uninstall the USRP2M17 M17 bridge.
+9. Install, upgrade, or uninstall M17 dashboard support after installing Mode Buttons and USRP2M17.
 0. Exit.
 
 Install or upgrade ASL 3 Support with option 6 before using option 7 or 8.
@@ -61,6 +62,7 @@ The projects can also be used independently from their respective directories. F
 - [DVSwitch-ASL3-Mod-Support README](DVSwitch-ASL3-Mod-Support/README.md)
 - [DVSwitch-M17-Support README](DVSwitch-M17-Support/README.md)
 - [USRP2M17 first-time install guide](DVSwitch-M17-Support/INSTALL-USRP2M17.md)
+- M17 dashboard integration and reflector selection are documented in [DVSwitch-M17-Support README](DVSwitch-M17-Support/README.md).
 
 Each subproject contains its own license and tests. Review its README and safety notes before installing on a node.
 

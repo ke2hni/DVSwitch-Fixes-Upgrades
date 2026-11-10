@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.4
+# Updated: 2026-11-09T23:19:00-05:00 by KE2HNI
 # SPDX-License-Identifier: MIT
 """Validate and atomically save mode-scoped dashboard favorites."""
 
@@ -11,8 +12,7 @@ import tempfile
 from pathlib import Path
 
 PATH = Path('/etc/dvswitch-mode-buttons/favorites.json')
-# This repository stores favorites for standard digital modes only.
-MODES = {'BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR'}
+MODES = {'BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'M17'}
 
 
 def favorite_sort_key(favorite):
@@ -25,7 +25,8 @@ def fail(message):
 
 
 def save_favorites(mode, items, path=PATH):
-    if not isinstance(mode, str) or mode not in MODES or not isinstance(items, list) or len(items) > 100:
+    limit = 250 if mode == 'M17' else 100
+    if not isinstance(mode, str) or mode not in MODES or not isinstance(items, list) or len(items) > limit:
         raise ValueError('invalid mode or favorites list')
     clean = []
     for item in items:

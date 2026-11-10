@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# DVSwitch-M17-Support: exclusive private-node switch helper
+# Version: 1.0.0
+# Created: 2026-11-10T15:00:00-05:00 by KE2HNI
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Jeff Milne, KE2HNI
+
+set -Eeuo pipefail
+umask 077
+
+readonly RPT_CONF="/etc/asterisk/rpt.conf"
+readonly ASTERISK="/usr/sbin/asterisk"
+readonly M17_CONFIG="/etc/dvswitch-m17-support.conf"
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+[[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run through the dashboard sudo rule.'
+[[ $# -eq 0 ]] || die 'This command reads the action and optional target from standard input.'
+[[ -f "$RPT_CONF" && ! -L "$RPT_CONF" ]] || die "Asterisk configuration is unavailable: $RPT_CONF"
+[[ -x "$ASTERISK" ]] || die "Asterisk command is unavailable: $ASTERISK"
+[[ -f "$M17_CONFIG" && ! -L "$M17_CONFIG" ]] || die 'M17 private-node settings are missing.'
+request="$(cat)"; IFS=$'\t' read -r action target extra <<< "$request"
+[[ -z "${extra:-}" ]] || die 'Invalid M17 link request.'
+case "$action" in SWITCH_PRIVATE|SWITCH_DVSWITCH) ;; *) die 'Unsupported M17 link action.' ;; esac
+m17_node=$(sed -n 's/^M17_PRIVATE_NODE=\([0-9][0-9]*\)$/\1/p' "$M17_CONFIG" | head -n 1)
+dv_node=$(sed -n 's/^DVSWITCH_PRIVATE_NODE=\([0-9][0-9]*\)$/\1/p' "$M17_CONFIG" | head -n 1)
+[[ "$m17_node" =~ ^[0-9]{1,8}$ && "$dv_node" =~ ^[0-9]{1,8}$ && "$m17_node" != "$dv_node" ]] || die 'M17 and DVSwitch private node settings must be distinct numeric IDs.'
+private_nodes=$(awk '/^[[:space:]]*\[[0-9]+\]/{node=$0; sub(/^[[:space:]]*\[/,"",node); sub(/\].*/,"",node); usrp=0; next} /^[[:space:]]*\[/{node=""; usrp=0; next} node!="" && /^[[:space:]]*rxchannel[[:space:]]*=/ && tolower($0) ~ /^[[:space:]]*rxchannel[[:space:]]*=[[:space:]]*usrp\// {print node}' "$RPT_CONF")
+grep -Fxq "$m17_node" <<< "$private_nodes" || die "M17 node $m17_node is not configured as a private USRP node."
+grep -Fxq "$dv_node" <<< "$private_nodes" || die "DVSwitch node $dv_node is not configured as a private USRP node."
+public_nodes=$(awk '/^[[:space:]]*\[[0-9]+\]/{if(node!="" && !usrp) print node; node=$0; sub(/^[[:space:]]*\[/,"",node); sub(/\].*/,"",node); usrp=0; next} /^[[:space:]]*\[/{if(node!="" && !usrp) print node; node=""; usrp=0; next} node!="" && /^[[:space:]]*rxchannel[[:space:]]*=/ && tolower($0) ~ /^[[:space:]]*rxchannel[[:space:]]*=[[:space:]]*usrp\// {usrp=1} END{if(node!="" && !usrp) print node}' "$RPT_CONF" | sort -u)
+[[ $(wc -l <<< "$public_nodes") -eq 1 ]] || die 'Could not identify exactly one local public ASL node from rpt.conf.'
+public_node=$(head -n 1 <<< "$public_nodes"); if [[ "$action" == SWITCH_PRIVATE ]]; then selected=$target; else selected=$dv_node; fi
+[[ "$selected" =~ ^[0-9]{1,8}$ ]] && grep -Fxq "$selected" <<< "$private_nodes" || die 'Selected node is not a configured private USRP node.'
+private_node="$dv_node"
+
+switch_private_node() {
+    local selected=$1 links peers peer result attempt cleared=0
+    [[ "$selected" =~ ^[0-9]{1,8}$ ]] || die 'Private node selection is invalid.'
+    grep -Fxq -- "$selected" <<< "$private_nodes" || die "Node $selected is not configured as a private USRP node."
+    links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not list private-node links on public node $public_node: $links"
+    # Disconnect every other private USRP endpoint first; this prevents private-node audio crossfeed.
+    peers=$(awk -v privates="$private_nodes" -v selected="$selected" 'BEGIN { count=split(privates, ids, "\n"); for (i=1; i<=count; i++) private[ids[i]]=1 } $1 ~ /^[0-9]+$/ && private[$1] && $1 != selected { print $1 }' <<< "$links" | sort -u)
+    while IFS= read -r peer; do
+        [[ -n "$peer" ]] || continue
+        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 1 $peer" 2>&1) || die "Could not disconnect private node $peer: $result"
+        printf '%s\n' "$result"
+    done <<< "$peers"
+    # Wait for other private links to clear before connecting the selected endpoint.
+    for attempt in {1..40}; do
+        links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify private-node disconnections: $links"
+        if ! awk -v privates="$private_nodes" -v selected="$selected" 'BEGIN { count=split(privates, ids, "\n"); for (i=1; i<=count; i++) private[ids[i]]=1 } $1 ~ /^[0-9]+$/ && private[$1] && $1 != selected && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
+            cleared=1
+            break
+        fi
+        (( attempt == 40 )) || sleep 0.25
+    done
+    (( cleared == 1 )) || die 'Another private-node link remained established; refusing to connect the selected node.'
+    if ! awk -v node="$selected" '$1 == node && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
+        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 3 $selected" 2>&1) || die "Could not connect private node $selected: $result"
+        printf '%s\n' "$result"
+        wait_for_connection "$selected"
+    else
+        printf 'PASS: private node %s is the only established private link on public node %s.\n' "$selected" "$public_node"
+    fi
+}
+
+ensure_bridge() {
+    local links result attempt active_private
+    links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not list links on local public node $public_node: $links"
+    # Preserve one already-active alternate private node so dashboard actions cannot create audio crossfeed.
+    active_private=$(awk -v privates="$private_nodes" -v keep="$private_node" 'BEGIN { count=split(privates, ids, "\n"); for (i=1; i<=count; i++) private[ids[i]]=1 } $1 ~ /^[0-9]+$/ && private[$1] && $1 != keep && $NF == "ESTABLISHED" { print $1 }' <<< "$links")
+    if [[ -n "$active_private" ]]; then
+        [[ "$active_private" != *$'\n'* ]] || die 'Multiple alternate private nodes are already established; use m17 or dvs-dvswitch to select one.'
+        printf 'PASS: private node %s is active; preserving the exclusive link instead of reconnecting DVSwitch.\n' "$active_private"
+        return 0
+    fi
+    if ! awk -v node="$private_node" '$1 == node && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
+        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 3 $private_node" 2>&1) || die "Could not establish the private-to-public bridge: $result"
+        # Poll at 250ms but keep the original ten-second bridge-establishment limit.
+        for attempt in {1..40}; do
+            links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify the local ASL bridge: $links"
+            if awk -v node="$private_node" '$1 == node && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
+                printf 'PASS: private node %s is established on local public node %s.\n' "$private_node" "$public_node"
+                return 0
+            fi
+            sleep 0.25
+        done
+        die "Private bridge node $private_node did not establish on local public node $public_node."
+    fi
+    printf 'PASS: private node %s is already established on local public node %s.\n' "$private_node" "$public_node"
+}
+
+disconnect_external_links() {
+    local links peers peer result attempt
+    links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not list links on local public node $public_node: $links"
+    peers=$(awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { print $1 }' <<< "$links")
+    while IFS= read -r peer; do
+        [[ -n "$peer" ]] || continue
+        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 1 $peer" 2>&1) || die "Could not disconnect external ASL node $peer: $result"
+        printf '%s\n' "$result"
+    done <<< "$peers"
+    # Verify external links every 250ms for at most five seconds before allowing a mode change.
+    for attempt in {1..21}; do
+        links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify external ASL disconnections: $links"
+        if ! awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { found=1 } END { exit found ? 0 : 1 }' <<< "$links"; then
+            printf 'PASS: external M17 links are disconnected; private node %s remains protected.\n' "$private_node"
+            return 0
+        fi
+        (( attempt == 21 )) || sleep 0.25
+    done
+    die 'An external M17 link remained established after the disconnect request.'
+}
+
+# Verify the remote link on the public node; rpt cmd can return before it is established.
+wait_for_connection() {
+    local target_node=$1 links attempt
+    for attempt in {1..120}; do
+        links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1) || die "Could not verify connection on local public node $public_node: $links"
+        if awk -v node="$target_node" '$1 == node && $NF == "ESTABLISHED" { found=1 } END { exit !found }' <<< "$links"; then
+            printf 'PASS: external node %s is established on local public node %s.\n' "$target_node" "$public_node"
+            return 0
+        fi
+        sleep 0.25
+    done
+    die "Connect was sent to local public node $public_node, but external node $target_node did not reach ESTABLISHED state within 30 seconds."
+}
+
+switch_private_node "$selected"

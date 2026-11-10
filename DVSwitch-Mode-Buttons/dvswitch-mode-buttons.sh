@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# Updated: 2026-11-09T23:19:00-05:00 by KE2HNI
 set -Eeuo pipefail
 
-VERSION="1.0.0-test86"
+VERSION="1.0.0-test88"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -39,7 +40,7 @@ die(){ echo "ERROR: $*" >&2; exit 1; }
 grep -q '^switch_dmr_network(){' ./dvswitch-mode-buttons || die 'unified DMR switch function is missing'
 bash -n ./dvswitch-mode-buttons ./dvswitch-mode-targets ./dvswitch-mode-tune ./install-mode-target-persistence.sh ./install-standalone-dmr-master-card.sh ./dvswitch-display-layout.sh || die 'installer source syntax validation failed'
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-favorites").read_text(), "dvswitch-mode-favorites", "exec")' || die 'favorites helper syntax validation failed'
-python3 -c 'import json; from pathlib import Path; data=json.loads(Path("favorites.json").read_text()); expected={"BM","TGIF","STFU","YSF","P25","NXDN","DSTAR"}; assert set(data)==expected; assert all(isinstance(items,list) and all(isinstance(item,dict) and set(item)=={"name","target"} for item in items) for items in data.values())' || die 'favorites starter file validation failed'
+python3 -c 'import json; from pathlib import Path; data=json.loads(Path("favorites.json").read_text()); expected={"BM","TGIF","STFU","YSF","P25","NXDN","DSTAR","M17"}; assert set(data)==expected; assert all(isinstance(items,list) and all(isinstance(item,dict) and set(item)=={"name","target"} for item in items) for items in data.values())' || die 'favorites starter file validation failed'
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-layout-state").read_text(), "dvswitch-mode-layout-state", "exec")' || die 'display-layout ownership helper syntax validation failed'
 
 BACKUP_DIR=/var/backups/dvswitch-mode-buttons
@@ -421,7 +422,7 @@ install_dashboard_components(){
   install -o root -g root -m 644 /dev/stdin "$ENDPOINT" <<'PHP'
 <?php
 declare(strict_types=1);
-$allowed = array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR');
+$allowed = array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'M17');
 $targetModes = $allowed;
 if (isset($_GET['favorites'])) {
     $mode = strtoupper(trim((string)$_GET['favorites']));
@@ -440,6 +441,31 @@ if (isset($_GET['targetNames'])) {
         $file = '/var/lib/mmdvm/TGList_BM.txt';
     } else {
         $file = '';
+    }
+    if ($mode === 'M17' && is_readable('/var/lib/mmdvm/M17Hosts.json')) {
+        $database = json_decode((string)file_get_contents('/var/lib/mmdvm/M17Hosts.json'), true);
+        if (isset($database['reflectors']) && is_array($database['reflectors'])) {
+            foreach ($database['reflectors'] as $row) {
+                if (!is_array($row) || !isset($row['designator'], $row['modules']) || !is_array($row['modules'])) continue;
+                $designator = trim((string)$row['designator']);
+                $name = isset($row['name']) && is_string($row['name']) ? trim($row['name']) : $designator;
+                $enabledModes = isset($row['enabled_modes']) && is_array($row['enabled_modes']) ? array_map('strtoupper', array_filter($row['enabled_modes'], 'is_string')) : array();
+                foreach ($row['modules'] as $module) {
+                    $moduleMode = '';
+                    if (is_array($module) && isset($module['module'], $module['mode'])) {
+                        $moduleMode = strtoupper(trim((string)$module['mode']));
+                        if ($moduleMode !== 'M17' && !($moduleMode === 'ALL' && in_array('M17', $enabledModes, true))) continue;
+                        $module = $module['module'];
+                    } elseif (is_string($module)) {
+                        if ($enabledModes && !in_array('M17', $enabledModes, true)) continue;
+                    } else { continue; }
+                    $module = strtoupper(trim((string)$module));
+                    $target = $designator.'-'.$module;
+                    if (preg_match('/^[A-Za-z0-9_-]{1,30}$/', $designator) && preg_match('/^[A-Z0-9]$/', $module))
+                        $names[$target] = preg_replace('/\\s+/u', ' ', $name).' '.$module;
+                }
+            }
+        }
     }
     if ($file !== '' && is_readable($file)) {
         foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: array() as $line) {
@@ -515,12 +541,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['target'])) {
             if (in_array($liveValue, array('YSF', 'P25', 'NXDN', 'DSTAR'), true)) { $mode = $liveValue; break; }
         }
     }
+    $selectedMode = is_readable($modeFile) ? strtoupper(trim((string)file_get_contents($modeFile))) : '';
+    if ($selectedMode === 'M17' && is_readable('/etc/USRP2M17.ini')) { $mode = 'M17'; }
     if (!in_array($mode, $allowed, true)) {
         http_response_code(409); header('Content-Type: application/json');
         echo json_encode(array('ok' => false, 'error' => 'Current mode is unavailable. Select a mode with the dashboard buttons first.')); exit;
     }
     $pipes = array();
-    $process = proc_open(array('/usr/bin/sudo', '/usr/local/sbin/dvswitch-mode-tune'),
+    $tuneCommand = $mode === 'M17' ? '/usr/local/sbin/dvswitch-m17-select' : '/usr/local/sbin/dvswitch-mode-tune';
+    $process = proc_open(array('/usr/bin/sudo', $tuneCommand),
         array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w')), $pipes);
     if (!is_resource($process)) {
         http_response_code(500); header('Content-Type: application/json');
@@ -550,6 +579,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['target'])) {
     // of mapping the generic DMR bridge mode back to the BM/TGIF network.
     $selectedModeFile = '/var/lib/dvswitch-mode-buttons/current-mode';
     $selectedMode = is_readable($selectedModeFile) ? strtoupper(trim((string)file_get_contents($selectedModeFile))) : '';
+    if ($selectedMode === 'M17' && is_readable('/etc/USRP2M17.ini')) { $mode = 'M17'; }
     if ($mode === 'DMR' && $selectedMode === 'STFU') { $mode = 'STFU'; }
     $address = '';
     $ini = '/opt/MMDVM_Bridge/MMDVM_Bridge.ini';
@@ -582,6 +612,12 @@ www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons DSTAR
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-tune
 www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-favorites
 SUDO
+  if [[ -f /var/lib/dvswitch-m17-dashboard/install-state.json ]]; then
+    printf '%s\n' \
+      'www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons M17' \
+      'www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-m17-select' >> "$SUDOERS"
+    chmod 440 "$SUDOERS"
+  fi
   visudo -cf "$SUDOERS" >/dev/null || die 'sudoers validation failed'
   php -l "$ENDPOINT" >/dev/null || die 'endpoint PHP validation failed'
   python3 - "$TARGET" <<'PY'
@@ -600,7 +636,7 @@ if owned_matches:
 if marker not in text:
     block='''<!-- DVSwitch-Mode-Buttons 1.0.0-test74 -->
 <div id="dvs-mode-buttons" aria-label="Select Mode"><div class="dvs-mode-buttons-title">Select Mode</div>
-<button type="button" class="button link" data-mode="BM">BM</button><button type="button" class="button link" data-mode="TGIF">TGIF</button><button type="button" class="button link" data-mode="STFU">STFU</button><button type="button" class="button link" data-mode="YSF">YSF</button><button type="button" class="button link" data-mode="P25">P25</button><button type="button" class="button link" data-mode="NXDN">NXDN</button><button type="button" class="button link" data-mode="DSTAR">D-Star</button></div>
+<button type="button" class="button link" data-mode="BM">BM</button><button type="button" class="button link" data-mode="TGIF">TGIF</button><button type="button" class="button link" data-mode="STFU">STFU</button><button type="button" class="button link" data-mode="YSF">YSF</button><button type="button" class="button link" data-mode="P25">P25</button><button type="button" class="button link" data-mode="NXDN">NXDN</button><button type="button" class="button link" data-mode="DSTAR">D-Star</button><?php if (is_file('/var/lib/dvswitch-m17-dashboard/install-state.json')): ?><button type="button" class="button link" data-mode="M17">M17</button><?php endif; ?></div>
 <section id="dvs-favorites" hidden aria-label="Mode favorites"><div class="dvs-favorites-control-line"><div class="dvs-favorites-heading">Favorites</div><label class="dvs-favorites-select-label" for="dvs-favorites-select" hidden>Favorite</label><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="Active mode favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-edit">Edit</button>
 <form id="dvs-target-tuner" aria-label="Tune talkgroup or reflector"><input id="dvs-target-input" name="target" type="text" inputmode="numeric" maxlength="35" autocomplete="off" placeholder="TG/Ref" aria-label="Talkgroup or reflector ID"><button id="dvs-target-submit" type="submit" class="button link">Tune</button><button type="button" class="button link dvs-favorites-add-current" aria-label="Add tuned ID to favorites for the current mode">+ Favorite</button><span id="dvs-target-message" role="status" aria-live="polite"></span></form></div>
 <div class="dvs-favorites-list-status" role="status" aria-live="polite"></div><dialog class="dvs-favorites-editor" aria-labelledby="dvs-favorites-editor-title"><div class="dvs-favorites-dialog-content"><h2 id="dvs-favorites-editor-title">Edit Favorites</h2><p class="dvs-favorites-help">Choose a mode, then edit the favorite name and talkgroup or reflector ID. Use <strong>Add Favorite</strong> for a new row or <strong>Delete</strong> to remove one. Select <strong>Save</strong> to keep your changes. <strong>Cancel or Esc</strong> closes this editor and discards unsaved changes. Changes apply only to the selected mode.</p><label class="dvs-favorites-mode-label">Mode <select class="dvs-favorites-mode"></select></label><div class="dvs-favorites-rows" aria-label="Favorite entries"></div><div class="dvs-favorites-dialog-actions"><button type="button" class="button link dvs-favorites-add">Add Favorite</button><button type="button" class="button link dvs-favorites-save">Save</button><button type="button" class="button link dvs-favorites-cancel">Cancel / Close</button></div><div class="dvs-favorites-status" role="status" aria-live="polite"></div></div></dialog></section>

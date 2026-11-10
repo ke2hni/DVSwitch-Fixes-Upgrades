@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.5
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
+# Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify the optional M17 dashboard dependency path.
 # SPDX-License-Identifier: MIT
 
 """Static safety and coverage checks for the two public managers."""
@@ -70,7 +71,7 @@ def main() -> None:
             "hostname-title does not use its supported backup restore action")
     require("strict reverse" in master,
             "reverse-order uninstall safety notice is missing")
-    # Option 8 adds the full bridge flow while preserving existing option 7.
+    # Options 8 and 9 add the bridge flow and dashboard integration.
     require('"2) Install/launch the DVSwitch Mode Buttons installer"' in master and
             '"3) Install/launch the Dark Mode dashboard installer"' in master and
             '"4) Install/launch the Widescreen Display Layout installer"' in master and
@@ -78,16 +79,19 @@ def main() -> None:
             '"6) Install ASL 3 Support"' in master and
             '"7) Install M17 private-node switch commands"' in master and
             '"8) Install/configure or uninstall the USRP2M17 M17 bridge"' in master and
+            '"9) Install or remove M17 dashboard support"' in master and
             '2) run_mode_buttons_installer ;;' in master and
             '5) initialize_state; uninstall_requested all ;;' in master and
-            'Choose an option [0/1/2/3/4/5/6/7/8]:' in master and
+            'Choose an option [0/1/2/3/4/5/6/7/8/9]:' in master and
             'ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-asl3-mod-support.sh"' in master and
             '6) run_asl3_support_installer ;;' in master and
             '--select-private-node' in master and
             'M17_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-support.sh"' in master and
             'M17_BRIDGE_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-bridge.py"' in master and
+            'M17_DASHBOARD_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-dashboard.sh"' in master and
             '7) run_m17_support_installer ;;' in master and
             '8) run_m17_bridge_installer ;;' in master and
+            '9) run_m17_dashboard_installer ;;' in master and
             '    "$M17_BRIDGE_SCRIPT"\n}' in master and
             'MODE_BUTTONS_SCRIPT="$SCRIPT_DIR/../DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"' in master and
             'script_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")' in master and
@@ -113,6 +117,10 @@ def main() -> None:
     require("active-installs.pre-reinstall-" in master and
             "Refusing to reset valid uninstall records" in master,
             "stale-state archival or valid-state refusal is missing")
+    require('if [[ ! -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]' in master and
+            'M17 bridge and node commands remain independent' in master and
+            'if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php && -x "$MODE_BUTTONS_SCRIPT" ]]' in master,
+            "M17 dashboard management must not require or install Mode Buttons as a side effect")
     require("check_all" in master and "PLAIN-LANGUAGE SUMMARY" in master,
             "complete check-all reporting is missing")
     require("Failed or blocked:" in master and "Required installation order" in master,

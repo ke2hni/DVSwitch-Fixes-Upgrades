@@ -1,6 +1,6 @@
 # Install and Configure the USRP2M17 M17 Bridge
 
-<!-- Version: 1.0.3 | Created: 2026-11-10T19:00:00-05:00 by KE2HNI -->
+<!-- Version: 1.0.4 | Created: 2026-11-10T19:00:00-05:00 by KE2HNI; Updated: 2026-11-09T23:19:00-05:00 by KE2HNI -->
 
 <!-- Version: 1.0.2; Created: 2026-11-09T18:43:31-05:00; Created by KE2HNI -->
 
@@ -29,6 +29,12 @@ The sample port pair on a DVSwitch node is:
 
 Every private USRP node must have its own local port pair. Never reuse the ports that belong to DVSwitch’s Analog_Bridge connection.
 
+## Add the M17 mode to the DVSwitch dashboard
+
+After the M17 bridge works and the regular DVSwitch Mode Buttons are installed, run the combined manager and select option 9. The bridge installer and private-node switching commands do not require either Mode Buttons or the ASL Support add-on; option 9 is an optional dashboard overlay. If the bridge was installed before this dashboard release, first choose manager option 8 and **Install or upgrade USRP2M17** once to add the source callsigns needed by the new activity history. Then choose option 9 and install or upgrade dashboard support. This adds the M17 button, M17 Net card, separate editable reflector favorites, and M17 rows in Gateway Activity and Local Activity. The reflector catalog refreshes weekly from the M17 Project's `M17Hosts.json`; the refresh does not replace edited favorites. Initial favorites include one entry per usable reflector, using module A when available and otherwise the first M17 module. Enter another `reflector-module` target (for example `URF018-B`) and save it as a favorite to use that module. The selector changes reflectors by updating `/etc/USRP2M17.ini` and restarting `usrp2m17.service`. Re-selecting the current reflector avoids a restart.
+
+The bridge installer builds USRP2M17 from an isolated temporary copy of the GitHub source and adds source-call fields to its end-of-transmission log entries. This leaves `/opt/dvswitch-m17/MMDVM_CM` clean for safe upgrades and gives the dashboard the callsigns needed for the M17 activity history.
+
 ## Install
 
 1. Log in to the node with an account that can run sudo.
@@ -36,13 +42,12 @@ Every private USRP node must have its own local port pair. Never reuse the ports
 
        cd ~/DVSwitch-Fixes-Upgrades && sudo ./DVSwitch-Mods/manage-dvswitch-mods.sh
 
-3. Choose **6) Install ASL 3 Support**. When asked, identify the private node used by DVSwitch. This selection is saved for future installs.
-4. Run the manager again and choose **8) Install/configure or uninstall the USRP2M17 M17 bridge**.
+3. Choose **8) Install/configure or uninstall the USRP2M17 M17 bridge**.
 5. In the USRP2M17 menu, choose **1) Install or upgrade USRP2M17**.
-6. Answer each prompt. At the DVSwitch question, enter the actual DVSwitch private node number shown by ASL Support. Select a different node number for M17.
+5. Answer each prompt. At the DVSwitch question, enter the actual DVSwitch private node number. Select a different node number for M17. This M17 installer records both choices itself; you do not need to run the ASL Support installer first.
    If an existing USRP2M17 config and executable match a private node's port pair, the installer recognizes that node and offers its number as the default so you can adopt the manual setup. If the old program is running, the installer asks before stopping it.
-7. Review the summary. Continue only if the node numbers, reflector, and ports are correct.
-8. When asked whether to restart Asterisk, answer **Yes** during a maintenance window. Restarting Asterisk interrupts current calls and links. If you answer **No**, restart Asterisk later before testing the new node.
+6. Review the summary. Continue only if the node numbers, reflector, and ports are correct.
+7. When asked whether to restart Asterisk, answer **Yes** during a maintenance window. Restarting Asterisk interrupts current calls and links. If you answer **No**, restart Asterisk later before testing the new node.
 
 The installer installs build tools if needed, clones or updates the upstream GitHub source, builds USRP2M17, writes /etc/USRP2M17.ini, configures an Asterisk private node, creates usrp2m17.service, starts the service, and installs the m17 and dvs-dvswitch switching commands. It creates a timestamped backup before changing system files.
 
@@ -83,7 +88,6 @@ The uninstaller asks whether to delete the installer-owned MMDVM_CM source check
 
 ## Troubleshooting
 
-- **Run manager option 6 first**: install ASL 3 Support and select the DVSwitch private node before installing the bridge.
 - **chan_usrp.so is not Running**: enable the USRP channel driver in ASL/Asterisk, restart Asterisk, and run menu option 8 again.
 - **The selected port is occupied**: choose a different unused port. Keep the Asterisk side and USRP2M17 side distinct, and do not duplicate another private USRP node’s pair.
 - **A node number already exists**: choose a new unused M17 private node number. The installer does not overwrite an existing node stanza with different settings.

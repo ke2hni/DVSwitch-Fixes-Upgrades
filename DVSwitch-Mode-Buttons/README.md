@@ -1,3 +1,5 @@
+<!-- Version: 1.1.0; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI -->
+
 ![Platform](https://img.shields.io/badge/platform-DVSwitch-24527a)
 ![Debian](https://img.shields.io/badge/tested-Debian%2012%20%7C%2013-a80030)
 ![Architectures](https://img.shields.io/badge/MMDVM-ARM64%20%7C%20AMD64%20%7C%20i386-blue)
@@ -21,7 +23,7 @@ Mode Buttons contains no ASL mode, tune, favorite, or link implementation. An
 upgrade replaces older Mode Buttons dashboard markup and removes its legacy
 embedded ASL button; ASL Support adds its own button and controls when installed.
 
-Seven-mode dashboard selection for DVSwitch: **BM · TGIF · STFU · YSF · P25 · NXDN · D-Star**.
+Seven standard digital-mode buttons are included: **BM · TGIF · STFU · YSF · P25 · NXDN · D-Star**. Optional M17 is added by `DVSwitch-M17-Support` after USRP2M17 is installed; it has its own favorites and reflector selector.
 
 ## 🚀 Quick start — install everything
 
@@ -314,3 +316,5 @@ Version 1.0.0-test85 also sets the TG/reflector field inside Edit Favorites to 1
 Version 1.0.0-test75 restores one-click switching out of ASL after ASL link cleanup. The helper detects ASL from live `ABInfo_*.json` even when the Mode Buttons state file was not updated by the ASL-owned mode button, retries the requested digital mode once when needed, and saves the selection only after the live bridge confirms the new mode. ASL link cleanup remains owned by ASL 3 Support.
 
 Version 1.0.0-test86 expands favorite names from 32 to 35 characters and sizes the Edit Favorites name input to display up to 35 characters within the available dialog width. The target column remains 10 characters wide.
+
+Version 1.0.0-test88 adds optional M17 favorite storage and dashboard endpoint support. M17 is exposed only while the M17 dashboard integration is installed, and supports up to 250 favorites to accommodate the M17 reflector catalog.

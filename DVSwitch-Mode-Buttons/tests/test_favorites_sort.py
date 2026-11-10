@@ -1,4 +1,4 @@
-"""Version: 1.0.3. Favorites sort and preserve names up to 35 characters."""
+"""Version: 1.0.4. Cover M17's larger list and existing per-mode limits."""
 
 import importlib.machinery
 import importlib.util
@@ -49,6 +49,14 @@ class FavoritesSortTests(unittest.TestCase):
             self.assertEqual(len(json.loads(target.read_text())['YSF']), 100)
             with self.assertRaisesRegex(ValueError, 'invalid mode or favorites list'):
                 favorites.save_favorites('YSF', favorites_101, target)
+
+    def test_m17_allows_250_favorites_but_rejects_251(self):
+        items = [{'name': f'Reflector {index:03}', 'target': f'M17-{index:03}-A'} for index in range(250)]
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'favorites.json'
+            self.assertEqual(favorites.save_favorites('M17', items, target), 250)
+            with self.assertRaisesRegex(ValueError, 'invalid mode or favorites list'):
+                favorites.save_favorites('M17', items + [{'name': 'Overflow', 'target': 'M17-999-A'}], target)
 
     def test_save_sorts_names_per_mode_and_keeps_targets_attached(self):
         with tempfile.TemporaryDirectory() as directory:

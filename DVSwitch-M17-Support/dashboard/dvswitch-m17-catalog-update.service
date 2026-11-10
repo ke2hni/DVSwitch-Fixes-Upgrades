@@ -1,0 +1,9 @@
+# DVSwitch-M17-Dashboard v1.0.0; Created 2026-11-09T23:19:00-05:00 by KE2HNI
+[Unit]
+Description=Refresh DVSwitch M17 reflector catalog
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/dvswitch-m17-catalog-update
