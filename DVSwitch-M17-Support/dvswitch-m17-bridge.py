@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.4
-# Created: 2026-11-09T14:06:32-05:00 by KE2HNI
+# Version: 1.0.5
+# Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
 
 """Build and configure nostar/MMDVM_CM's USRP2M17 bridge on ASL3."""
@@ -21,7 +21,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -417,8 +417,17 @@ def ensure_source() -> None:
                      capture=True).stdout.strip()
         if origin.rstrip("/") not in {REPOSITORY.rstrip("/"), "https://github.com/nostar/MMDVM_CM"}:
             raise SetupError(f"Existing source has an unexpected Git remote: {origin}")
-        changes = run(["git", "-C", str(SOURCE_ROOT), "status", "--porcelain"],
-                      capture=True).stdout.strip()
+        tracked_changes = run(["git", "-C", str(SOURCE_ROOT), "status", "--porcelain",
+                               "--untracked-files=no"], capture=True).stdout.strip()
+        if tracked_changes:
+            raise SetupError("The MMDVM_CM source checkout has tracked local changes; save them before updating.")
+        project = SOURCE_ROOT / "USRP2M17"
+        if (project / "Makefile").is_file():
+            # The upstream Makefile clean target removes only its declared compiler outputs.
+            # In particular, this removes USRP2M17, the untracked executable from our prior build.
+            run(["make", "clean"], cwd=project)
+        changes = run(["git", "-C", str(SOURCE_ROOT), "status", "--porcelain",
+                       "--untracked-files=all"], capture=True).stdout.strip()
         if changes:
             raise SetupError("The MMDVM_CM source checkout has local changes; save them before updating.")
         run(["git", "-C", str(SOURCE_ROOT), "pull", "--ff-only", "origin", "master"])

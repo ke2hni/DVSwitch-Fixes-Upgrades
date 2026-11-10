@@ -1,5 +1,7 @@
 # Install and Configure the USRP2M17 M17 Bridge
 
+<!-- Version: 1.0.3 | Created: 2026-11-10T19:00:00-05:00 by KE2HNI -->
+
 <!-- Version: 1.0.2; Created: 2026-11-09T18:43:31-05:00; Created by KE2HNI -->
 
 This guide is for a new operator installing the M17-to-ASL bridge on a Debian-based AllStarLink 3 node that already runs DVSwitch. It uses the upstream nostar/MMDVM_CM project and its USRP2M17 program.
@@ -87,6 +89,7 @@ The uninstaller asks whether to delete the installer-owned MMDVM_CM source check
 - **A node number already exists**: choose a new unused M17 private node number. The installer does not overwrite an existing node stanza with different settings.
 - **The private node does not show after install**: restart Asterisk, then check sudo asterisk -rx "rpt localnodes" and the service log.
 - **Service fails with `status=200/CHDIR` or `Permission denied`**: installer v1.0.4 and later fixes access on the source directories. For an existing installation, run `sudo chmod 755 /opt/dvswitch-m17 /opt/dvswitch-m17/MMDVM_CM /opt/dvswitch-m17/MMDVM_CM/USRP2M17`, then restart `usrp2m17.service`.
+- **Upgrade reports local changes in MMDVM_CM**: installer v1.0.5 and later cleans the executable and compiler outputs created by its previous build, then checks for remaining changes. If the message persists, inspect `/opt/dvswitch-m17/MMDVM_CM` for your own edits before changing or removing them.
 - **The reflector list cannot be downloaded**: confirm Internet access. The installer can continue if you provide the reflector name, numeric IPv4 address, and UDP port from the official M17 host list.
 
 Upstream project: https://github.com/nostar/MMDVM_CM  

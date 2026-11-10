@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.5
-# Created: 2026-11-09T14:06:32-05:00 by KE2HNI
+# Version: 1.0.6
+# Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -31,6 +31,46 @@ def main() -> None:
     assert private == {"1970": "USRP/127.0.0.1:34001:32001"}
     assert BRIDGE.validate_node("1972", "M17 node") == "1972"
     assert BRIDGE.validate_port("34008", "USRP port") == 34008
+
+    with tempfile.TemporaryDirectory() as directory:
+        # Upgrade must clean its prior untracked build binary before the cleanliness check.
+        root = Path(directory) / "opt/dvswitch-m17"
+        source = root / "MMDVM_CM"
+        project = source / "USRP2M17"
+        project.mkdir(parents=True)
+        (project / "Makefile").write_text("all:\n", encoding="utf-8")
+        binary = project / "USRP2M17"
+        binary.write_text("old installer build\n", encoding="utf-8")
+        old_source_root, old_install_root, old_run = (
+            BRIDGE.SOURCE_ROOT, BRIDGE.INSTALL_ROOT, BRIDGE.run)
+        calls = []
+
+        def fake_git_run(command, **kwargs):
+            calls.append(command)
+            if command[3:5] == ["remote", "get-url"]:
+                return subprocess.CompletedProcess(command, 0, BRIDGE.REPOSITORY, "")
+            if command[3:5] == ["status", "--porcelain"]:
+                return subprocess.CompletedProcess(command, 0, "", "")
+            if command[0] == "make" and len(command) > 1 and command[1] == "clean":
+                binary.unlink(missing_ok=True)
+            elif command[0] == "git" and "pull" in command:
+                pass
+            elif command[0] == "make":
+                binary.write_text("rebuilt executable\n", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        try:
+            BRIDGE.SOURCE_ROOT, BRIDGE.INSTALL_ROOT = source, root
+            BRIDGE.run = fake_git_run
+            BRIDGE.ensure_source()
+            assert binary.read_text(encoding="utf-8") == "rebuilt executable\n"
+            assert any(call[:2] == ["make", "clean"] for call in calls)
+            assert any("--untracked-files=all" in call for call in calls)
+            assert all(path.stat().st_mode & 0o777 == 0o755
+                       for path in (root, source, project))
+        finally:
+            BRIDGE.SOURCE_ROOT, BRIDGE.INSTALL_ROOT, BRIDGE.run = (
+                old_source_root, old_install_root, old_run)
 
     settings = {
         "callsign": "KE2HNI",
