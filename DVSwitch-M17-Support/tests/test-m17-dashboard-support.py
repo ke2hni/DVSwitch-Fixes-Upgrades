@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.1.5
+# Version: 1.1.6
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -17,7 +17,8 @@
 # Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — verify equal side columns center Gateway and Local Activity.
 # Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — verify measured outer inset correction and matching inner activity gaps.
 # Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — verify M17 display follows live Analog_Bridge mode after switching away.
-# Updated: 2026-11-11T16:05:00-05:00 by KE2HNI — verify M17 target survives unrelated Analog_Bridge mode values and RX label swaps by selected mode.
+# Updated: 2026-11-11T16:05:00-05:00 by KE2HNI — verify M17 target survives unrelated Analog_Bridge modes and RX label swaps.
+# Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — verify dedicated M17 USRP PCM extraction and installer wiring.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -25,7 +26,9 @@ import io
 import json
 import os
 import re
+import socket
 import stat
+import struct
 import subprocess
 import tempfile
 from unittest.mock import patch
@@ -39,6 +42,9 @@ SPEC.loader.exec_module(SELECT)
 FAVORITES_SPEC = importlib.util.spec_from_file_location('dvswitch_m17_favorites', ROOT / 'dashboard/dvswitch-m17-favorites.py')
 FAVORITES = importlib.util.module_from_spec(FAVORITES_SPEC)
 FAVORITES_SPEC.loader.exec_module(FAVORITES)
+AUDIO_SPEC = importlib.util.spec_from_file_location('dvswitch_m17_audio_monitor', ROOT / 'dashboard/dvswitch-m17-audio-monitor.py')
+AUDIO = importlib.util.module_from_spec(AUDIO_SPEC)
+AUDIO_SPEC.loader.exec_module(AUDIO)
 
 
 def main():
@@ -87,7 +93,41 @@ def main():
     assert parser['M17 Network']['LocalPort'] == '32011'
     assert parser['USRP Network']['DstPort'] == '32008'
 
+    pcm = bytes((index % 256 for index in range(320)))
+    usrp = bytearray(352)
+    usrp[:4] = b'USRP'
+    usrp[4:8] = (1234).to_bytes(4, 'big')
+    usrp[15] = 1
+    usrp[20] = 0
+    usrp[32:] = pcm
+    udp = struct.pack('!HHHH', 34008, 32008, 360, 0) + usrp
+    ip_header = struct.pack('!BBHHHBBH4s4s', 0x45, 0, 380, 1, 0, 64, 17, 0,
+                            socket.inet_aton('127.0.0.1'), socket.inet_aton('127.0.0.1'))
+    packet = ip_header + udp
+    assert AUDIO.extract_pcm(packet, ('127.0.0.1', 34008, 32008)) == (1234, pcm)
+    assert AUDIO.extract_pcm(packet, ('127.0.0.1', 34009, 32008)) is None
+    audio_frame = AUDIO.websocket_frame(pcm)
+    assert audio_frame[:4] == bytes((0x82, 126, 1, 64)) and audio_frame[4:] == pcm
+    usrp[15] = 0
+    assert AUDIO.extract_pcm(ip_header + struct.pack('!HHHH', 34008, 32008, 360, 0) + usrp,
+                             ('127.0.0.1', 34008, 32008)) is None
+    with tempfile.TemporaryDirectory() as directory:
+        audio_config = Path(directory) / 'USRP2M17.ini'
+        audio_config.write_text('[USRP Network]\nAddress=127.0.0.1\nDstPort=32008\nLocalPort=34008\n', encoding='utf-8')
+        assert AUDIO.read_usrp_route(audio_config) == ('127.0.0.1', 34008, 32008)
+        audio_config.write_text('[USRP Network]\nAddress=192.0.2.1\nDstPort=32008\nLocalPort=34008\n', encoding='utf-8')
+        try:
+            AUDIO.read_usrp_route(audio_config)
+        except ValueError as error:
+            assert 'loopback' in str(error)
+        else:
+            raise AssertionError('non-loopback USRP audio destination was accepted')
+
     installer = (ROOT / 'dvswitch-m17-dashboard.sh').read_text(encoding='utf-8')
+    assert 'dvswitch-m17-audio-monitor.service' in installer
+    assert 'dvswitch-m17-audio.conf' in installer
+    assert 'dvswitch-m17-audio.apache' in installer
+    assert 'enable --now dvswitch-m17-audio-monitor.service' in installer
     assert 'Install DVSwitch Mode Buttons through manager option 2 first' not in installer
     assert "readonly STANDALONE_TARGET=/usr/share/dvswitch/dvswitch-m17-standalone.js" in installer
     assert "readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php" in installer
@@ -216,6 +256,12 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'window.setInterval(start' not in layout
     assert 'function updateRxMonitorLabel()' in layout
     assert "selected ? 'M17 RX Monitor' : 'RX Monitor'" in layout
+    assert "'/dvswitch-m17-audio/'" in layout
+    assert 'new window.PCMPlayer' in layout
+    assert 'rx.dvsM17OriginalHandler = rx.onclick' in layout
+    assert 'rx.onclick = rx.dvsM17OriginalHandler || null' in layout
+    assert 'window.dvsp.stop()' in layout
+    assert 'def extract_pcm' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.py').read_text(encoding='utf-8')
     assert 'color:#b5651d!important' in card
     standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
     api = (ROOT / 'dashboard/dvswitch-m17-dashboard.php').read_text(encoding='utf-8')

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.6
+# Version: 1.0.7
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — make dashboard state directory searchable by Apache so the M17 button condition works.
@@ -9,6 +9,7 @@
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — place eight network cards around Gateway Activity and alphabetize mode buttons.
 # Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — prevent duplicate card buildup and match the Analog Bridge panel outline.
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — make M17 dashboard controls and favorites independent of Mode Buttons.
+# Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — install isolated M17 PCM monitoring and the same-origin WebSocket proxy.
 set -Eeuo pipefail
 umask 077
 
@@ -26,6 +27,12 @@ readonly ENDPOINT_SOURCE="$DIR/dashboard/dvswitch-m17-dashboard.php"
 readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php
 readonly FAVORITES_HELPER="$DIR/dashboard/dvswitch-m17-favorites.py"
 readonly MODE_HELPER="$DIR/dashboard/dvswitch-m17-dashboard-mode"
+readonly AUDIO_MONITOR_SOURCE="$DIR/dashboard/dvswitch-m17-audio-monitor.py"
+readonly AUDIO_MONITOR=/usr/local/sbin/dvswitch-m17-audio-monitor
+readonly AUDIO_MONITOR_SERVICE="$DIR/dashboard/dvswitch-m17-audio-monitor.service"
+readonly AUDIO_MONITOR_SERVICE_TARGET=/etc/systemd/system/dvswitch-m17-audio-monitor.service
+readonly AUDIO_PROXY_CONF_SOURCE="$DIR/dashboard/dvswitch-m17-audio.apache"
+readonly AUDIO_PROXY_CONF_TARGET=/etc/apache2/conf-available/dvswitch-m17-audio.conf
 readonly SUDOERS=/etc/sudoers.d/dvswitch-m17-dashboard
 readonly SELECT=/usr/local/sbin/dvswitch-m17-select
 readonly CATALOG_UPDATE=/usr/local/sbin/dvswitch-m17-catalog-update
@@ -41,13 +48,14 @@ if [[ "$action" == --uninstall ]]; then
   [[ -f "$STATE" ]] || die 'No M17 dashboard installation record exists.'
 else
   [[ -f /etc/USRP2M17.ini ]] || die 'Install USRP2M17 through manager option 8 first.'
-  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$STANDALONE_JS" && -f "$ENDPOINT_SOURCE" && -f "$FAVORITES_HELPER" && -f "$MODE_HELPER" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
+  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$STANDALONE_JS" && -f "$ENDPOINT_SOURCE" && -f "$FAVORITES_HELPER" && -f "$MODE_HELPER" && -f "$AUDIO_MONITOR_SOURCE" && -f "$AUDIO_MONITOR_SERVICE" && -f "$AUDIO_PROXY_CONF_SOURCE" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
 fi
 
 if [[ "$action" == --check ]]; then
   php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null && php -l "$ENDPOINT_SOURCE" >/dev/null
   php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null
   python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$FAVORITES_HELPER"
+  python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$AUDIO_MONITOR_SOURCE"
   printf 'PASS: M17 dashboard prerequisites and PHP syntax are ready; --check made no changes.\n'
   exit 0
 fi
@@ -82,13 +90,17 @@ for path in map(Path,sys.argv[1:]):
     os.chown(tmp,st.st_uid,st.st_gid); os.chmod(tmp,stat.S_IMODE(st.st_mode)); os.replace(tmp,path)
 PY_UNINSTALL
   systemctl disable --now dvswitch-m17-catalog-update.timer >/dev/null 2>&1 || true
-  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$SELECT" "$CATALOG_UPDATE" /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-dashboard-mode "$ENDPOINT" "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STANDALONE_TARGET" "$SUDOERS" "$STATE"
+  systemctl disable --now dvswitch-m17-audio-monitor.service >/dev/null 2>&1 || true
+  if command -v a2disconf >/dev/null 2>&1; then a2disconf dvswitch-m17-audio >/dev/null 2>&1 || true; fi
+  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$AUDIO_MONITOR_SERVICE_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$AUDIO_MONITOR" "$SELECT" "$CATALOG_UPDATE" /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-dashboard-mode "$ENDPOINT" "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STANDALONE_TARGET" "$SUDOERS" "$STATE"
   systemctl daemon-reload
+  if command -v apache2ctl >/dev/null 2>&1 && apache2ctl configtest >/dev/null 2>&1; then systemctl reload apache2 >/dev/null 2>&1 || true; fi
   printf 'PASS: M17 dashboard integration removed; favorites, bridge config, and reflector catalog were preserved.\n'
   exit 0
 fi
 
-install -d -o root -g root -m 0755 "$DASH" /usr/local/sbin /etc/systemd/system /var/lib/mmdvm
+for command in a2enmod a2enconf apache2ctl; do command -v "$command" >/dev/null 2>&1 || die "Required command not found for M17 RX audio: $command"; done
+install -d -o root -g root -m 0755 "$DASH" /usr/local/sbin /etc/systemd/system /var/lib/mmdvm /etc/apache2/conf-available
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-activity.php"
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-net-card.php" "$DASH/dvswitch-m17-net-card.php"
 install -o root -g root -m 0644 "$LAYOUT" "$LAYOUT_TARGET"
@@ -98,8 +110,15 @@ install -o root -g root -m 0755 "$DIR/dashboard/dvswitch-m17-select.py" "$SELECT
 install -o root -g root -m 0755 "$FAVORITES_HELPER" /usr/local/sbin/dvswitch-m17-favorites
 install -o root -g root -m 0755 "$MODE_HELPER" /usr/local/sbin/dvswitch-m17-dashboard-mode
 install -o root -g root -m 0755 "$DIR/dashboard/dvswitch-m17-catalog-update.py" "$CATALOG_UPDATE"
+install -o root -g root -m 0755 "$AUDIO_MONITOR_SOURCE" "$AUDIO_MONITOR"
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-catalog-update.service" /etc/systemd/system/dvswitch-m17-catalog-update.service
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-catalog-update.timer" /etc/systemd/system/dvswitch-m17-catalog-update.timer
+install -o root -g root -m 0644 "$AUDIO_MONITOR_SERVICE" "$AUDIO_MONITOR_SERVICE_TARGET"
+install -o root -g root -m 0644 "$AUDIO_PROXY_CONF_SOURCE" "$AUDIO_PROXY_CONF_TARGET"
+a2enmod proxy proxy_wstunnel >/dev/null
+a2enconf dvswitch-m17-audio >/dev/null
+apache2ctl configtest >/dev/null || die 'Apache rejected the M17 audio WebSocket proxy configuration.'
+systemctl reload apache2 || die 'Apache could not reload the M17 audio WebSocket proxy configuration.'
 install -d -o root -g root -m 0755 /etc/dvswitch-m17-dashboard
 if [[ -e "$SUDOERS" || -L "$SUDOERS" ]]; then
   [[ -f "$SUDOERS" && ! -L "$SUDOERS" ]] && grep -q '^# DVSwitch-M17-Dashboard:' "$SUDOERS" || die "Refusing to replace an unowned sudoers file: $SUDOERS"
@@ -278,5 +297,6 @@ PY_SEED
 php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null
 php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null
 systemctl daemon-reload
+systemctl enable --now dvswitch-m17-audio-monitor.service >/dev/null || die 'M17 RX audio monitor service failed to start; check systemctl status dvswitch-m17-audio-monitor.'
 systemctl enable --now dvswitch-m17-catalog-update.timer >/dev/null
-printf 'PASS: M17 dashboard integration installed.\n'
+printf 'PASS: M17 dashboard integration and isolated M17 RX audio monitor installed.\n'

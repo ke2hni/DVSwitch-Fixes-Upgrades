@@ -1,0 +1,5 @@
+# DVSwitch-M17-Audio-Monitor v1.0.0
+# Created: 2026-11-11T16:20:00-05:00 by KE2HNI
+ProxyPreserveHost On
+ProxyPass /dvswitch-m17-audio/ ws://127.0.0.1:8081/ retry=0 timeout=3600
+ProxyPassReverse /dvswitch-m17-audio/ ws://127.0.0.1:8081/

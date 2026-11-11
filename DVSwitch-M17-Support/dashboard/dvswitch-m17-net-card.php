@@ -1,10 +1,11 @@
 <?php
 // DVSwitch-M17-Dashboard: M17 Net card v1
-// Version: 1.0.3; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Version: 1.0.4; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
 // Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — provide the selected M17 target for Analog Bridge status display.
 // Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — keep the M17 room name orange like other Net cards.
 // Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — read standalone M17 mode state when Mode Buttons is absent.
-// Updated: 2026-11-11T16:05:00-05:00 by KE2HNI — keep the selected M17 mode visible unless the bridge has switched to ASL.
+// Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — only show M17 status when the live Analog_Bridge mode is M17.
+// Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — preserve M17 display while Analog_Bridge retains an unrelated previous DV mode.
 
 function dvsM17LiveBridgeMode() {
     $files = glob('/tmp/ABInfo_*.json') ?: array();
@@ -20,9 +21,8 @@ function dvsM17CurrentDisplayTarget() {
         ? '/var/lib/dvswitch-mode-buttons/current-mode'
         : '/var/lib/dvswitch-m17-dashboard/current-mode';
     if (!is_readable($modePath) || strtoupper(trim((string)file_get_contents($modePath))) !== 'M17') { return null; }
-    // The Analog_Bridge reports its prior digital mode while M17 is routed
-    // through the separate USRP2M17 private node. Only ASL is a reliable signal
-    // that the dashboard has explicitly switched away from the M17 bridge.
+    // M17 is routed through a separate USRP2M17 private node, so Analog_Bridge
+    // may still report the previous DV mode. ASL is the signal to suppress M17.
     if (in_array(dvsM17LiveBridgeMode(), array('ASL', 'ASL3'), true)) { return null; }
     $config = @parse_ini_file('/etc/USRP2M17.ini', true, INI_SCANNER_RAW);
     $network = is_array($config) && isset($config['M17 Network']) ? $config['M17 Network'] : array();

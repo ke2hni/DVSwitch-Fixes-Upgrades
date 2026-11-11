@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.1.3
+/* DVSwitch M17 dashboard layout v1.2.0
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -11,7 +11,7 @@
  * Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — keep Analog Bridge labels on one line while preserving equal outer card insets.
  * Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — make both side card columns equal width so the activity panels center between them.
  * Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — correct measured 10-pixel outer inset mismatch and preserve equal inner gaps.
- * Updated: 2026-11-11T16:05:00-05:00 by KE2HNI — relabel the existing RX control as M17 RX Monitor only while M17 is selected.
+ * Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — route M17 RX Monitor to M17 audio and restore the normal monitor outside M17.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -19,6 +19,9 @@
   var cardNames = new Set(['ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net']);
   var moving = false;
   var observer = null;
+  var modeObservers = [];
+  var bodyObserver = null;
+  var m17Audio = {active: false, socket: null, pcm: null, button: null, defaultColor: ''};
 
   function makeLayout() {
     var activity = document.getElementById('lastHerd');
@@ -119,14 +122,71 @@
     moving = false;
   }
 
+  function stopM17Audio() {
+    m17Audio.active = false;
+    if (m17Audio.socket) {
+      var socket = m17Audio.socket;
+      m17Audio.socket = null;
+      socket.close();
+    }
+    if (m17Audio.pcm) {
+      m17Audio.pcm.destroy();
+      m17Audio.pcm = null;
+    }
+    if (m17Audio.button) m17Audio.button.style.backgroundColor = m17Audio.defaultColor;
+  }
+
+  function connectM17Audio(button) {
+    if (!m17Audio.active || !m17Audio.pcm) return;
+    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var socket = new WebSocket(protocol + '//' + window.location.host + '/dvswitch-m17-audio/');
+    socket.binaryType = 'arraybuffer';
+    m17Audio.socket = socket;
+    socket.onopen = function () {
+      if (!m17Audio.active || m17Audio.socket !== socket) { socket.close(); return; }
+      button.style.backgroundColor = '#008000';
+    };
+    socket.onmessage = function (event) {
+      if (m17Audio.active && m17Audio.pcm) m17Audio.pcm.feed(new Uint8Array(event.data));
+    };
+    socket.onerror = function () { socket.close(); };
+    socket.onclose = function () {
+      if (m17Audio.socket === socket) m17Audio.socket = null;
+      if (m17Audio.active) window.setTimeout(function () { connectM17Audio(button); }, 1500);
+      else button.style.backgroundColor = m17Audio.defaultColor;
+    };
+  }
+
+  function toggleM17Audio(button) {
+    if (m17Audio.active) { stopM17Audio(); return; }
+    if (window.dvsp && window.dvsp.isPlaying && window.dvsp.isPlaying()) window.dvsp.stop();
+    if (typeof window.PCMPlayer !== 'function') return;
+    m17Audio.button = button;
+    m17Audio.defaultColor = button.style.backgroundColor;
+    m17Audio.pcm = new window.PCMPlayer({encoding: '16bitInt', channels: 1, sampleRate: 8000, flushingTime: 250});
+    m17Audio.active = true;
+    if (m17Audio.pcm.audioCtx && m17Audio.pcm.audioCtx.resume) m17Audio.pcm.audioCtx.resume();
+    connectM17Audio(button);
+  }
+
   function updateRxMonitorLabel() {
     var rx = Array.from(document.querySelectorAll('button')).find(function (button) {
       return /(?:M17 )?RX Monitor/.test(button.textContent.replace(/\s+/g, ' ').trim());
     });
     if (!rx) return;
-    var shared = document.querySelector('#dvs-mode-buttons [data-mode="M17"], #dvs-asl-mode-buttons [data-mode="M17"]');
     var standalone = document.querySelector('#dvs-m17-standalone .dvs-m17-mode');
-    var selected = (shared && shared.classList.contains('selected')) || (standalone && standalone.classList.contains('selected'));
+    var activeMode = document.querySelector('#dvs-mode-buttons [data-mode].selected, #dvs-asl-mode-buttons [data-mode].selected');
+    var selected = activeMode ? activeMode.dataset.mode === 'M17' : Boolean(standalone && standalone.classList.contains('selected'));
+    if (selected && !rx.dataset.dvsM17MonitorHandler) {
+      rx.dvsM17OriginalHandler = rx.onclick;
+      rx.onclick = function (event) { event.preventDefault(); toggleM17Audio(rx); };
+      rx.dataset.dvsM17MonitorHandler = '1';
+    } else if (!selected && rx.dataset.dvsM17MonitorHandler) {
+      stopM17Audio();
+      rx.onclick = rx.dvsM17OriginalHandler || null;
+      delete rx.dvsM17OriginalHandler;
+      delete rx.dataset.dvsM17MonitorHandler;
+    }
     var walker = document.createTreeWalker(rx, NodeFilter.SHOW_TEXT);
     var text;
     while ((text = walker.nextNode())) {
@@ -136,22 +196,32 @@
     }
   }
 
+  function observeModeControls() {
+    ['dvs-mode-buttons', 'dvs-asl-mode-buttons', 'dvs-m17-standalone'].forEach(function (id) {
+      var controls = document.getElementById(id);
+      if (!controls || controls.dataset.dvsM17RxObserved) return;
+      var controlObserver = new MutationObserver(updateRxMonitorLabel);
+      controlObserver.observe(controls, {attributes: true, childList: true, subtree: true, attributeFilter: ['class']});
+      controls.dataset.dvsM17RxObserved = '1';
+      modeObservers.push(controlObserver);
+    });
+    updateRxMonitorLabel();
+  }
+
   function start() {
     makeLayout();
     placeCards();
-    updateRxMonitorLabel();
+    observeModeControls();
     var info = document.getElementById('modeInfo');
     if (info && !info.dataset.dvsM17LayoutObserved) {
       observer = new MutationObserver(placeCards);
       observer.observe(info, { childList: true, subtree: true });
       info.dataset.dvsM17LayoutObserved = '1';
     }
-    ['dvs-mode-buttons', 'dvs-asl-mode-buttons', 'dvs-m17-standalone'].forEach(function (id) {
-      var controls = document.getElementById(id);
-      if (!controls || controls.dataset.dvsM17RxObserved) return;
-      new MutationObserver(updateRxMonitorLabel).observe(controls, { attributes: true, childList: true, subtree: true, attributeFilter: ['class'] });
-      controls.dataset.dvsM17RxObserved = '1';
-    });
+    if (!bodyObserver && document.body) {
+      bodyObserver = new MutationObserver(observeModeControls);
+      bodyObserver.observe(document.body, {attributes: true, childList: true, subtree: true, attributeFilter: ['class']});
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
