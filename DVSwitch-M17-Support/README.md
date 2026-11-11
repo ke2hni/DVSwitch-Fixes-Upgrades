@@ -34,4 +34,4 @@ Selecting a favorite updates `/etc/USRP2M17.ini` and restarts `usrp2m17.service`
 Uninstall dashboard support with manager option 9 and select **Uninstall M17 dashboard support**. This removes its card/history hooks, mode button, catalog timer, and helper commands. It preserves USRP2M17, the M17 configuration, reflector catalog, and user favorites.
 
 
-The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
+The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The left stack begins below the Analog Bridge Info table, and refreshed status data replaces old card renders instead of accumulating copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.

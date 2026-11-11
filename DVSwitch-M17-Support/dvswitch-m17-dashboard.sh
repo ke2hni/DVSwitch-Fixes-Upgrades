@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.4
+# Version: 1.0.5
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — make dashboard state directory searchable by Apache so the M17 button condition works.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — display the active M17 mode and reflector in Analog Bridge status rows.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — place eight network cards around Gateway Activity and alphabetize mode buttons.
+# Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — prevent duplicate card buildup and match the Analog Bridge panel outline.
 set -Eeuo pipefail
 umask 077
 
