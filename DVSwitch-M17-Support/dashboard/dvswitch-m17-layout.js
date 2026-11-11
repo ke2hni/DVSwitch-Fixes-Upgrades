@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.1.2
+/* DVSwitch M17 dashboard layout v1.1.3
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -11,6 +11,7 @@
  * Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — keep Analog Bridge labels on one line while preserving equal outer card insets.
  * Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — make both side card columns equal width so the activity panels center between them.
  * Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — correct measured 10-pixel outer inset mismatch and preserve equal inner gaps.
+ * Updated: 2026-11-11T16:05:00-05:00 by KE2HNI — relabel the existing RX control as M17 RX Monitor only while M17 is selected.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -118,15 +119,39 @@
     moving = false;
   }
 
+  function updateRxMonitorLabel() {
+    var rx = Array.from(document.querySelectorAll('button')).find(function (button) {
+      return /(?:M17 )?RX Monitor/.test(button.textContent.replace(/\s+/g, ' ').trim());
+    });
+    if (!rx) return;
+    var shared = document.querySelector('#dvs-mode-buttons [data-mode="M17"], #dvs-asl-mode-buttons [data-mode="M17"]');
+    var standalone = document.querySelector('#dvs-m17-standalone .dvs-m17-mode');
+    var selected = (shared && shared.classList.contains('selected')) || (standalone && standalone.classList.contains('selected'));
+    var walker = document.createTreeWalker(rx, NodeFilter.SHOW_TEXT);
+    var text;
+    while ((text = walker.nextNode())) {
+      if (!/(?:M17 )?RX Monitor/.test(text.nodeValue)) continue;
+      text.nodeValue = text.nodeValue.replace(/(?:M17 )?RX Monitor/, selected ? 'M17 RX Monitor' : 'RX Monitor');
+      break;
+    }
+  }
+
   function start() {
     makeLayout();
     placeCards();
+    updateRxMonitorLabel();
     var info = document.getElementById('modeInfo');
     if (info && !info.dataset.dvsM17LayoutObserved) {
       observer = new MutationObserver(placeCards);
       observer.observe(info, { childList: true, subtree: true });
       info.dataset.dvsM17LayoutObserved = '1';
     }
+    ['dvs-mode-buttons', 'dvs-asl-mode-buttons', 'dvs-m17-standalone'].forEach(function (id) {
+      var controls = document.getElementById(id);
+      if (!controls || controls.dataset.dvsM17RxObserved) return;
+      new MutationObserver(updateRxMonitorLabel).observe(controls, { attributes: true, childList: true, subtree: true, attributeFilter: ['class'] });
+      controls.dataset.dvsM17RxObserved = '1';
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
