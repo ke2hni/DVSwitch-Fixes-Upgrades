@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.3.4; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — document dashboard independence from Mode Buttons. -->
+<!-- Version: 1.3.5; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — place the first four network cards beneath the status panels in the sidebar. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -34,4 +34,4 @@ Selecting a favorite updates `/etc/USRP2M17.ini` and restarts `usrp2m17.service`
 Uninstall dashboard support with manager option 9 and select **Uninstall M17 dashboard support**. This removes its card/history hooks, M17 controls, catalog timer, and dashboard helpers. It preserves USRP2M17, the M17 configuration, reflector catalog, and user favorites.
 
 
-The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The left stack begins below the Analog Bridge Info table, and refreshed status data replaces old card renders instead of accumulating copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
+The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The first four cards sit in the left status sidebar below Analog Bridge Info and TRX Info; the other four sit to the right of Gateway Activity. Refreshed status data replaces old card renders without making the cards flash or accumulate copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
