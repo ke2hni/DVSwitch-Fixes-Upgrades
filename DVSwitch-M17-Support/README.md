@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.3.9; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — lower the right card stack to align with the left status panels. -->
+<!-- Version: 1.4.0; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — fine-tune right-card alignment and increase Local Activity spacing. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -34,4 +34,4 @@ Selecting a favorite updates `/etc/USRP2M17.ini` and restarts `usrp2m17.service`
 Uninstall dashboard support with manager option 9 and select **Uninstall M17 dashboard support**. This removes its card/history hooks, M17 controls, catalog timer, and dashboard helpers. It preserves USRP2M17, the M17 configuration, reflector catalog, and user favorites.
 
 
-The M17 dashboard layout places the eight network cards in alphabetical order around Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The first three cards sit in the left status sidebar below Analog Bridge Info and TRX Info; M17 Net and the remaining four cards sit in the right column, offset down 20 pixels to line up with the left status stack. Gateway Activity and Local Activity share the same centered width, with equal gaps to the left and right card columns. The side status cards are inset from the dashboard border to match the Networks and Hardware Info panels. Refreshed status data replaces old card renders without making the cards flash or accumulate copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
+The M17 dashboard layout places the eight network cards in alphabetical order around Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The first three cards sit in the left status sidebar below Analog Bridge Info and TRX Info; M17 Net and the remaining four cards sit in the right column, offset down 21 pixels to line up with the left status stack. Gateway Activity and Local Activity share the same centered width, with equal gaps to the left and right card columns. Local Activity has additional separation below Gateway Activity. The side status cards are inset from the dashboard border to match the Networks and Hardware Info panels. Refreshed status data replaces old card renders without making the cards flash or accumulate copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.

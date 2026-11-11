@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.0.8
+/* DVSwitch M17 dashboard layout v1.0.9
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -7,6 +7,7 @@
  * Updated: 2026-11-11T13:45:00-05:00 by KE2HNI — center activity, match activity widths, and inset side cards from the page border.
  * Updated: 2026-11-11T14:00:00-05:00 by KE2HNI — equalize activity-to-card gaps and align right-card outer insets.
  * Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — lower the right card stack by 20 pixels to align with the left status cards.
+ * Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — add one pixel to the right stack offset and give Local Activity more separation.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -42,10 +43,10 @@
     style.id = 'dvs-m17-network-layout-style';
     style.textContent = [
       '#dvs-network-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,220px);align-items:start;gap:10px;width:100%;box-sizing:border-box}',
-      '#dvs-gateway-activity{grid-column:1;min-width:0;width:calc(100% - 16px);justify-self:start;display:flex;flex-direction:column;align-items:center}#dvs-gateway-activity #lastHerd,#dvs-gateway-activity #localTxs{width:100%;max-width:100%;box-sizing:border-box}#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset{width:100%!important;box-sizing:border-box;margin-left:0!important;margin-right:0!important}',
+      '#dvs-gateway-activity{grid-column:1;min-width:0;width:calc(100% - 16px);justify-self:start;display:flex;flex-direction:column;align-items:center}#dvs-gateway-activity #lastHerd,#dvs-gateway-activity #localTxs{width:100%;max-width:100%;box-sizing:border-box}#dvs-gateway-activity #localTxs{margin-top:8px}#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset{width:100%!important;box-sizing:border-box;margin-left:0!important;margin-right:0!important}',
       '#dvs-network-sidebar-cards{width:calc(100% - 24px);box-sizing:border-box;margin:8px 0 0 24px}',
       '.dvs-network-cards{min-width:0;text-align:center}',
-      '.dvs-network-cards-right{padding:20px 32px 0 0;box-sizing:border-box}',
+      '.dvs-network-cards-right{padding:21px 32px 0 0;box-sizing:border-box}',
       '.nav #modeInfo>fieldset{margin-left:24px!important;width:calc(100% - 24px)!important;box-sizing:border-box}',
       '.dvs-network-card-panel{background-color:#e8e8e8e8;width:100%;box-sizing:border-box;margin:6px 0 8px;padding:4px;font-size:12px;border-radius:10px}',
       '.dvs-network-card-panel table{width:100%;table-layout:fixed;margin:0}',
