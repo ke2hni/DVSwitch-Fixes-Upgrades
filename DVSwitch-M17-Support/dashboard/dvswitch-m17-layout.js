@@ -1,7 +1,8 @@
-/* DVSwitch M17 dashboard layout v1.0.2
+/* DVSwitch M17 dashboard layout v1.0.3
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
+ * Updated: 2026-11-11T12:55:00-05:00 by KE2HNI — align the left card stack below both Analog Bridge and TRX status panels.
  * Keeps the eight network cards alphabetized around Gateway Activity without flicker or duplicate panels.
  */
 (function () {
@@ -47,12 +48,15 @@
   }
 
   function alignLeftCards(info, layout, left) {
-    var abTable = Array.from(info.querySelectorAll('table')).find(function (table) {
+    var statusTables = Array.from(info.querySelectorAll('table')).filter(function (table) {
       var heading = table.querySelector('th');
-      return heading && /Analog Bridge Info/i.test(heading.textContent.replace(/\s+/g, ' '));
+      return heading && /^(Analog Bridge Info|TRX Info)$/i.test(heading.textContent.replace(/\s+/g, ' ').trim());
     });
-    if (!abTable) return;
-    var offset = Math.max(0, abTable.getBoundingClientRect().bottom - layout.getBoundingClientRect().top);
+    if (!statusTables.length) return;
+    var statusBottom = Math.max.apply(null, statusTables.map(function (table) {
+      return table.getBoundingClientRect().bottom;
+    }));
+    var offset = Math.max(0, statusBottom - layout.getBoundingClientRect().top);
     left.style.paddingTop = offset + 'px';
   }
 

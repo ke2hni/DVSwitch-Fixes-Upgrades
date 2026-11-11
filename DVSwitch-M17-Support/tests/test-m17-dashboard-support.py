@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.4
+# Version: 1.0.5
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -7,6 +7,7 @@
 # Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — cover live-refresh replacement and Analog Bridge-style card frames.
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — verify standalone install path and optional Mode Buttons handoff.
 # Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — prevent network cards from flashing during status refreshes.
+# Updated: 2026-11-11T12:55:00-05:00 by KE2HNI — verify left cards begin below the complete status stack.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -187,7 +188,9 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'if (observer) observer.observe(info, { childList: true, subtree: true });' in layout
     assert 'item.dataset.cardName === card.name' in layout
     assert "document.createElement('fieldset')" in layout and 'dvs-network-card-panel' in layout
-    assert 'abTable.getBoundingClientRect().bottom' in layout
+    assert 'statusTables.map(function (table)' in layout
+    assert "Analog Bridge Info|TRX Info" in layout
+    assert 'statusBottom - layout.getBoundingClientRect().top' in layout
     assert 'window.setInterval(start' not in layout
     assert 'color:#b5651d!important' in card
     standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
