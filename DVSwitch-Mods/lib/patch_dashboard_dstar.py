@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
+# Updated: 2026-11-11T12:08:00-05:00 by KE2HNI — accept the M17 dashboard's Tx TG/Ref display wrapper.
 # SPDX-License-Identifier: MIT
 
 """Surgically add D-Star Tx TG/reflector display to status.php."""
@@ -25,6 +26,7 @@ TOOLTIP_NEW = '''    echo "<br>&nbsp;&nbsp;&nbsp;txTG: ".$txValue;'''
 
 ROW_OLD = '''    echo "<tr><th width=50%>Tx TG</th><td style=\\"background: #f9f9f9;font-weight: bold;color:#ef7215;\\">".$abinfo['digital']['tg']."</td></tr>\\n";'''
 ROW_NEW = '''    echo "<tr><th width=50%>Tx TG/Ref</th><td style=\\"background: #f9f9f9;font-weight: bold;color:#ef7215;\\">".$txValue."</td></tr>\\n";'''
+ROW_M17 = ROW_NEW.replace('".$txValue."', '".$displayTarget."')
 
 
 class PatchError(RuntimeError):
@@ -43,7 +45,8 @@ def patch_text(text: str) -> str:
     if marker_count > 1:
         raise PatchError("duplicate D-Star marker")
     if marker_count == 1:
-        if text.count(INSERTION) != 1 or text.count(TOOLTIP_NEW) != 1 or text.count(ROW_NEW) != 2:
+        valid_tx_rows = text.count(ROW_NEW) + text.count(ROW_M17)
+        if text.count(INSERTION) != 1 or text.count(TOOLTIP_NEW) != 1 or valid_tx_rows != 2:
             raise PatchError("incomplete or ambiguous D-Star modification")
         if text.count(TOOLTIP_OLD) or text.count(ROW_OLD):
             raise PatchError("mixed D-Star modification state")
