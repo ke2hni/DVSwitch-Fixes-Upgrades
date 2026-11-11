@@ -32,3 +32,6 @@ When M17 is the selected dashboard mode, the Analog Bridge Info card shows `M17`
 Selecting a favorite updates `/etc/USRP2M17.ini` and restarts `usrp2m17.service`. Selecting the already-active room does not restart it. The installer makes a dated config backup for each reflector change and restores the prior config if the service fails to restart. M17 uses the private node already configured by manager option 8, and the mode button switches the public node between the selected M17 and DVSwitch private links.
 
 Uninstall dashboard support with manager option 9 and select **Uninstall M17 dashboard support**. This removes its card/history hooks, mode button, catalog timer, and helper commands. It preserves USRP2M17, the M17 configuration, reflector catalog, and user favorites.
+
+
+The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.

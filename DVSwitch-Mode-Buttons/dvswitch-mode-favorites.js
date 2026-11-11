@@ -1,8 +1,19 @@
-/* Version: 1.0.7 — add M17 favorites, friendly target labels, and a larger M17 list. Updated 2026-11-09T23:19:00-05:00 by KE2HNI. */
+/* Version: 1.0.8 — alphabetize the mode button bar as optional modes appear. Updated 2026-11-10T21:35:00-05:00 by KE2HNI. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
+  function sortModeButtons() {
+    document.querySelectorAll('[aria-label="Select Mode"]').forEach(function (bar) {
+      const buttons = Array.from(bar.querySelectorAll(':scope > button[data-mode]'));
+      const sorted = buttons.slice().sort(function (left, right) {
+        return left.textContent.trim().localeCompare(right.textContent.trim(), 'en', { sensitivity: 'base' });
+      });
+      if (buttons.some(function (button, index) { return button !== sorted[index]; })) sorted.forEach(function (button) { bar.appendChild(button); });
+    });
+  }
   document.addEventListener('DOMContentLoaded', function () {
+    sortModeButtons();
+    new MutationObserver(sortModeButtons).observe(document.body, { childList: true, subtree: true });
     const root = document.getElementById('dvs-favorites');
     const modeButtons = document.querySelectorAll('#dvs-mode-buttons button');
     const tuner = document.getElementById('dvs-target-tuner');

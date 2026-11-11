@@ -3,6 +3,7 @@
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
+# Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — verify dashboard layout hook install and removal.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -108,6 +109,7 @@ def main():
         functions = root / 'functions.php'
         status = root / 'status.php'
         localtx = root / 'localtx.php'
+        index = root / 'index.php'
         state = root / 'install-state.json'
         backups = root / 'backups'
         functions.write_text('$lastHeard = dvsModsStfuMergeActivity($lastHeard);\n', encoding='utf-8')
@@ -128,12 +130,13 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
 ?>
 ''', encoding='utf-8')
         localtx.write_text('$counter = 0;\nif ($listElem[5] == "LNet" && ($listElem[1] == "STFU")) {\n', encoding='utf-8')
-        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(state), str(backups)], check=True,
+        index.write_text('<html><body></body></html>\n', encoding='utf-8')
+        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(index), str(state), str(backups)], check=True,
                        preexec_fn=lambda: os.umask(0o077))
         assert stat.S_IMODE(state.parent.stat().st_mode) == 0o755
         assert stat.S_IMODE(state.stat().st_mode) == 0o600
         state.parent.chmod(0o700)
-        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(state), str(backups)], check=True,
+        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(index), str(state), str(backups)], check=True,
                        preexec_fn=lambda: os.umask(0o077))
         assert stat.S_IMODE(state.parent.stat().st_mode) == 0o755
         assert stat.S_IMODE(state.stat().st_mode) == 0o600
@@ -146,19 +149,26 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert patched_status.count('$displayTarget') == 4
         assert 'dvswitchASL3ShowNetCard' not in status.read_text()
         assert '$listElem[1] == "M17"' in localtx.read_text()
-        subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx)], check=True)
+        assert '<script src="/dvswitch/dvswitch-m17-layout.js"></script>' in index.read_text()
+        subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
         assert 'dvsM17ShowNetCard' not in status.read_text()
         assert 'dvsM17CurrentDisplayTarget' not in status.read_text()
         assert "$abinfo['tlv']['ambe_mode']" in status.read_text()
         assert '$listElem[1] == "M17"' not in localtx.read_text()
+        assert 'dvswitch-m17-layout.js' not in index.read_text()
     with tempfile.TemporaryDirectory() as directory:
         root=Path(directory); catalog=root/'M17Hosts.json'; config=root/'USRP2M17.ini'; history=root/'history.tsv'
         catalog.write_text(json.dumps({'reflectors':[{'designator':'M17-123','name':'Friendly Room','modules':['C']}]}),encoding='utf-8')
         config.write_text('[M17 Network]\nName=M17-123 C\n',encoding='utf-8')
         subprocess.run(['python3','-c',blocks['PY_CURRENT'],str(catalog),str(config),str(history)],check=True)
         assert 'M17-123-C\tFriendly Room C' in history.read_text()
-    print('PASS: M17 string/object module validation, config preservation, and installer install/uninstall patching.')
+    layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
+    card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
+    assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
+    assert 'dvs-network-cards-left' in layout and 'dvs-network-cards-right' in layout
+    assert 'color:#b5651d!important' in card
+    print('PASS: M17 reflector, dashboard install/uninstall hooks, and eight-card layout.')
 
 
 if __name__ == '__main__':

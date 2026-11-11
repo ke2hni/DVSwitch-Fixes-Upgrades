@@ -2,6 +2,7 @@
 // DVSwitch-M17-Dashboard: M17 Net card v1
 // Version: 1.0.1; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
 // Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — provide the selected M17 target for Analog Bridge status display.
+// Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — keep the M17 room name orange like other Net cards.
 
 function dvsM17CurrentDisplayTarget() {
     $modePath = '/var/lib/dvswitch-mode-buttons/current-mode';
@@ -54,7 +55,7 @@ function dvsM17ShowNetCard() {
     $isActive = function_exists('isProcessRunning') ? isProcessRunning('USRP2M17') : false;
     $label = htmlspecialchars($room, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     echo '<br /><table><tr><th colspan="2">M17 Net</th></tr>';
-    echo '<tr><td colspan="2" style="background:#ffffed;color:#b5651d;font-weight:bold;white-space:normal;overflow-wrap:anywhere;text-align:center;">Room<br />'.$label.'</td></tr>';
+    echo '<tr><td colspan="2" style="background:#ffffed;font-weight:bold;white-space:normal;overflow-wrap:anywhere;text-align:center;">Room<br /><span style="color:#b5651d!important;">'.$label.'</span></td></tr>';
     echo '<tr><td colspan="2" style="background:'.($isActive ? '#0b0' : '#ffffed').';color:'.($isActive ? '#030' : '#b0b0b0').';font-weight:bold;text-align:center;">'.($isActive ? 'Connected' : 'OFFLINE').'</td></tr></table>';
 }
 ?>

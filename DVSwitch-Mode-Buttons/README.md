@@ -318,3 +318,6 @@ Version 1.0.0-test75 restores one-click switching out of ASL after ASL link clea
 Version 1.0.0-test86 expands favorite names from 32 to 35 characters and sizes the Edit Favorites name input to display up to 35 characters within the available dialog width. The target column remains 10 characters wide.
 
 Version 1.0.0-test88 adds optional M17 favorite storage and dashboard endpoint support. M17 is exposed only while the M17 dashboard integration is installed, and supports up to 250 favorites to accommodate the M17 reflector catalog.
+
+
+Version 1.0.0-test89 keeps the mode buttons in alphabetical order as optional ASL and M17 buttons are added to the dashboard.

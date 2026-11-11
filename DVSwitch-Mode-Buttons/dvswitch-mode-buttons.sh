@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — bump installer for alphabetical mode button display.
 set -Eeuo pipefail
 
-VERSION="1.0.0-test88"
+VERSION="1.0.0-test89"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"

@@ -65,7 +65,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test88"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test89"', INSTALLER)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -121,7 +121,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test88"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test89"', INSTALLER)
 
 
 if __name__ == '__main__':
