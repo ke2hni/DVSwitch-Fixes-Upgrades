@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.1.1
+/* DVSwitch M17 dashboard layout v1.1.2
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -10,6 +10,7 @@
  * Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — add one pixel to the right stack offset and give Local Activity more separation.
  * Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — keep Analog Bridge labels on one line while preserving equal outer card insets.
  * Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — make both side card columns equal width so the activity panels center between them.
+ * Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — correct measured 10-pixel outer inset mismatch and preserve equal inner gaps.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -45,17 +46,17 @@
     style.id = 'dvs-m17-network-layout-style';
     style.textContent = [
       '#dvs-network-layout{display:grid;grid-template-columns:minmax(0,1fr) 192px;align-items:start;gap:10px;width:100%;box-sizing:border-box}',
-      '#dvs-gateway-activity{grid-column:1;min-width:0;width:calc(100% - 16px);justify-self:start;display:flex;flex-direction:column;align-items:center}#dvs-gateway-activity #lastHerd,#dvs-gateway-activity #localTxs{width:100%;max-width:100%;box-sizing:border-box}#dvs-gateway-activity #localTxs{margin-top:8px}#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset{width:100%!important;box-sizing:border-box;margin-left:0!important;margin-right:0!important}',
+      '#dvs-gateway-activity{grid-column:1;min-width:0;width:calc(100% - 4px);justify-self:start;display:flex;flex-direction:column;align-items:center}#dvs-gateway-activity #lastHerd,#dvs-gateway-activity #localTxs{width:100%;max-width:100%;box-sizing:border-box}#dvs-gateway-activity #localTxs{margin-top:8px}#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset{width:100%!important;box-sizing:border-box;margin-left:0!important;margin-right:0!important}',
       '#dvs-network-sidebar-cards{width:calc(100% - 24px);box-sizing:border-box;margin:8px 0 0 24px}',
       '.dvs-network-cards{min-width:0;text-align:center}',
-      '.dvs-network-cards-right{padding:21px 32px 0 0;box-sizing:border-box}',
+      '.dvs-network-cards-right{position:relative;left:10px;padding:21px 32px 0 0;box-sizing:border-box}',
       '.nav #modeInfo>fieldset{margin-left:24px!important;width:calc(100% - 24px)!important;box-sizing:border-box}',
       '.nav #modeInfo>fieldset table th:first-child{white-space:nowrap}',
       '.dvs-network-card-panel{background-color:#e8e8e8e8;width:100%;box-sizing:border-box;margin:6px 0 8px;padding:4px;font-size:12px;border-radius:10px}',
       '.dvs-network-card-panel table{width:100%;table-layout:fixed;margin:0}',
       '.dvs-network-card-panel th,.dvs-network-card-panel td{overflow-wrap:anywhere;word-break:normal}',
       'body.theme-dark .dvs-network-cards *,body.theme-auto.dvs-prefers-dark .dvs-network-cards *{border-color:#374151!important}',
-      '@media(max-width:1100px){#dvs-network-layout{grid-template-columns:minmax(0,1fr)}#dvs-gateway-activity{grid-column:1;grid-row:1;width:100%}.dvs-network-cards-right{grid-column:1;grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:0 8px;padding:0}}',
+      '@media(max-width:1100px){#dvs-network-layout{grid-template-columns:minmax(0,1fr)}#dvs-gateway-activity{grid-column:1;grid-row:1;width:100%}.dvs-network-cards-right{grid-column:1;grid-row:2;left:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:0 8px;padding:0}}',
       '@media(max-width:650px){.dvs-network-cards-right{grid-template-columns:repeat(2,minmax(0,1fr))}}'
     ].join('');
     document.head.appendChild(style);

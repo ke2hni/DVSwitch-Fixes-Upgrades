@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.4.2; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — equalize side column widths to center the activity panels. -->
+<!-- Version: 1.4.3; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — correct measured left and right card inset mismatch. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
