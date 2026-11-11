@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.9
+# Version: 1.1.0
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -11,6 +11,7 @@
 # Updated: 2026-11-11T13:25:00-05:00 by KE2HNI — verify M17 Net is placed in the right column for visual balance.
 # Updated: 2026-11-11T13:45:00-05:00 by KE2HNI — verify centered matching activity panels and consistent side-card insets.
 # Updated: 2026-11-11T14:00:00-05:00 by KE2HNI — verify equal activity gaps and right-card edge alignment.
+# Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — verify the desktop right card stack is lowered by 20 pixels.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -193,7 +194,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert "grid-template-columns:minmax(0,1fr) minmax(180px,220px)" in layout
     assert "#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset" in layout
     assert "width:calc(100% - 16px);justify-self:start" in layout
-    assert "padding-right:32px" in layout and "margin:8px 0 0 24px" in layout
+    assert "margin:8px 0 0 24px" in layout
+    assert ".dvs-network-cards-right{padding:20px 32px 0 0" in layout
     assert "dvs-network-layout-spacer" not in layout
     assert 'left.replaceChildren()' not in layout and 'right.replaceChildren()' not in layout
     assert 'if (observer) observer.disconnect();' in layout
