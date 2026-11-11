@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.4
+# Updated: 2026-11-11T00:35:00-05:00 by KE2HNI — cover permanent disconnect for private node switching.
 # Created: 2026-11-09T00:41:12-05:00 by KE2HNI
 
 """Verify private-node switching disconnects before connecting another mode."""
@@ -29,8 +30,6 @@ rxPort = 34001
 
 
 def main() -> None:
-    if os.geteuid() != 0:
-        raise SystemExit("Run this test as root to exercise the link helper safely in its temporary fixture.")
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         rpt_conf = root / "rpt.conf"
@@ -56,7 +55,7 @@ def main() -> None:
             "log = Path(os.environ['ASL_TEST_CALLS'])\n"
             "if command[:2] == ['rpt', 'lstats']:\n"
             "    print(state.read_text(), end='')\n"
-            "elif command[:3] == ['rpt', 'cmd', '446901'] and command[3:5] == ['ilink', '1']:\n"
+            "elif command[:3] == ['rpt', 'cmd', '446901'] and command[3:5] == ['ilink', '11']:\n"
             "    peer = command[5]\n"
             "    with log.open('a') as output: output.write('DISCONNECT ' + peer + '\\n')\n"
             "    state.write_text(''.join(line for line in state.read_text().splitlines(keepends=True) if not line.split() or line.split()[0] != peer))\n"
@@ -77,6 +76,7 @@ def main() -> None:
             .replace('readonly ASTERISK="/usr/sbin/asterisk"', f'readonly ASTERISK="{mock_asterisk}"')
             .replace('readonly RPT_CONF_TOOL="/usr/local/lib/dvswitch-asl3-support/asl3_rpt_conf.py"', f'readonly RPT_CONF_TOOL="{ROOT / "lib" / "asl3_rpt_conf.py"}"')
             .replace('readonly PRIVATE_NODE_CONFIG="/etc/dvswitch-asl3-support/private-node"', f'readonly PRIVATE_NODE_CONFIG="{selection_conf}"')
+            .replace("[[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run through the dashboard sudo rule.'", ':')
             .replace('sleep 0.25', 'sleep 0.01')
         )
         helper = root / "dvswitch-asl3-node-link"

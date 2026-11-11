@@ -1,4 +1,5 @@
-/* Version: 1.1.7 — preserve confirmed mode state across live status refreshes. */
+/* Version: 1.1.9 — derive the displayed ASL node from live activity or its network card. */
+/* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
 (function () {
   'use strict';
 
@@ -11,6 +12,22 @@
   var activityStarted = Object.create(null);
   var controlEndpoint = '/dvswitch/dvswitch-asl3-control.php';
   var digitalModePending = '';
+
+  function currentAslNodes() {
+    var nodes = connectedNodes.slice();
+    if (!nodes.length) {
+      document.querySelectorAll('#modeInfo table, #dvs-network-layout table').forEach(function (table) {
+        var heading = table.querySelector('th');
+        if (!heading || normalizeHeader(heading.textContent) !== 'ASL Net') return;
+        var matches = table.textContent.match(/\(([0-9]{1,8})\)/g) || [];
+        matches.forEach(function (item) {
+          var node = item.slice(1, -1);
+          if (!nodes.includes(node)) nodes.push(node);
+        });
+      });
+    }
+    return nodes;
+  }
 
   function routeRxMonitorOverHttps() {
     var player = window.DVSwitchPlayer;
@@ -31,7 +48,8 @@
       var heading = row.querySelector('th');
       var value = row.querySelector('td');
       if (heading && value && normalizeHeader(heading.textContent) === 'Node') {
-        var nodeText = connectedNodes.length ? connectedNodes.join(', ') : '-';
+        var nodes = currentAslNodes();
+        var nodeText = nodes.length ? nodes.join(', ') : '-';
         if (value.textContent !== nodeText) value.textContent = nodeText;
       }
     });
@@ -51,7 +69,8 @@
       if (heading && value && (current === 'Tx TG/Ref' || current === 'Node')) {
         if (current !== label) heading.textContent = label;
         if (mode === 'ASL') {
-          var nodeText = connectedNodes.length ? connectedNodes.join(', ') : '-';
+          var nodes = currentAslNodes();
+          var nodeText = nodes.length ? nodes.join(', ') : '-';
           if (value.textContent !== nodeText) value.textContent = nodeText;
         }
       }
@@ -87,7 +106,8 @@
       input.setAttribute('aria-label', activeMode === 'ASL' ? 'AllStar node number' : 'Talkgroup or reflector');
       // The field stays 10 characters wide while allowing long target text where needed.
       input.maxLength = 35;
-      input.style.width = '10ch';
+      input.style.boxSizing = 'border-box';
+      input.style.width = 'calc(10ch + 18px)';
     }
     document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]').forEach(function (button) {
       if (button.dataset.mode === 'ASL') button.classList.toggle('selected', activeMode === 'ASL');
@@ -100,7 +120,7 @@
     var activity = document.getElementById('dvs-asl-activity');
     if (activity) activity.hidden = activeMode !== 'ASL';
     updateAnalogBridgeNode();
-    if (activeMode === 'ASL') loadAslFavorites();
+    if (activeMode === 'ASL') { loadAslFavorites(); refreshActivity(); }
   }
 
   function modeFromAnalogBridge() {
@@ -171,7 +191,7 @@
     root = document.createElement('section');
     root.id = 'dvs-favorites';
     root.style.cssText = 'text-align:center;margin:0 auto 8px';
-    root.innerHTML = '<div class="dvs-favorites-control-line" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap"><span class="dvs-favorites-heading">Favorites</span><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="ASL favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-add-current">+ Favorite</button><form id="dvs-target-tuner" aria-label="Tune AllStar node" style="display:inline-flex;align-items:center;gap:6px"><input id="dvs-target-input" type="text" inputmode="numeric" maxlength="35" autocomplete="off" placeholder="Node #" aria-label="AllStar node number" style="box-sizing:border-box;width:10ch;height:32px;padding:4px 8px"><button id="dvs-target-submit" type="submit" class="button link">Tune</button><span id="dvs-target-message" role="status" aria-live="polite"></span></form></div>';
+    root.innerHTML = '<div class="dvs-favorites-control-line" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap"><span class="dvs-favorites-heading">Favorites</span><select id="dvs-favorites-select" class="dvs-favorites-select" aria-label="ASL favorite"><option value="">Select favorite</option></select><button type="button" class="button link dvs-favorites-add-current">+ Favorite</button><form id="dvs-target-tuner" aria-label="Tune AllStar node" style="display:inline-flex;align-items:center;gap:6px"><input id="dvs-target-input" type="text" inputmode="numeric" maxlength="35" autocomplete="off" placeholder="Node #" aria-label="AllStar node number" style="box-sizing:border-box;width:calc(10ch + 18px);height:32px;padding:4px 8px"><button id="dvs-target-submit" type="submit" class="button link">Tune</button><span id="dvs-target-message" role="status" aria-live="polite"></span></form></div>';
     var bar = document.getElementById('dvs-asl-mode-buttons');
     bar.insertAdjacentElement('afterend', root);
     return root;
@@ -398,7 +418,7 @@
     var name = document.createElement('input'); name.type = 'text'; name.maxLength = 64; name.value = favorite.name || ''; name.placeholder = 'Friendly name'; name.setAttribute('aria-label', 'Favorite name');
     var node = document.createElement('input'); node.type = 'text'; node.inputMode = 'numeric'; node.maxLength = 8; node.value = favorite.node || '';
     // Keep ASL favorite node inputs compact without changing their 8-digit validation.
-    node.style.boxSizing = 'border-box'; node.style.width = '10ch'; node.placeholder = 'Node #'; node.setAttribute('aria-label', 'AllStar node number');
+    node.style.boxSizing = 'border-box'; node.style.width = 'calc(10ch + 18px)'; node.placeholder = 'Node #'; node.setAttribute('aria-label', 'AllStar node number');
     var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button link'; remove.textContent = 'Delete'; remove.addEventListener('click', function () { row.remove(); });
     row.append(name, node, remove); elements.rows.appendChild(row);
   }

@@ -80,3 +80,7 @@ Version 1.1.2 clears old-mode favorites immediately when ASL is selected and dis
 Version 1.1.6 keeps both the shared ASL node field and the ASL favorite editor node field 10 characters wide, shows the short `Node #` hint, and has a 35-character HTML input allowance. ASL node validation remains numeric and limited to the existing 8-digit application limit.
 
 Version 1.1.7 preserves the confirmed ASL selection while the dashboard status table refreshes. This prevents a stale mode value from replacing the selected mode and causing the in-flight ASL favorites request to be discarded. It also continues to infer the mode from the live table when Mode Buttons is not installed.
+
+Version 1.1.9 switches the public AllStar node back to the configured DVSwitch private node before selecting ASL. The shared target field leaves room for all ten visible characters after padding, and the Analog Bridge `Node` row refreshes from active ASL links with a fallback to the live ASL Net card.
+
+The private-node switch helper uses Asterisk's permanent disconnect command for alternate private USRP links, so a node marked permanent in `rpt.conf` cannot immediately reconnect and compete for the public node.

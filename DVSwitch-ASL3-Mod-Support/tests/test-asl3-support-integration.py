@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.10
+# Version: 1.0.11
+# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — verify unique M17 exit hook and ASL return path.
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -53,9 +54,9 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         "getElementById('dvs-target-input')" in DASHBOARD and "'Node #'" in DASHBOARD and
         "'TG/Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
         'ASL dashboard must own its mode button and reuse the shared target form')
-require("input.maxLength = 35" in DASHBOARD and "input.style.width = '10ch'" in DASHBOARD and
-        "node.style.width = '10ch'" in DASHBOARD and
-        'maxlength="35"' in DASHBOARD and 'width:10ch' in DASHBOARD,
+require("input.maxLength = 35" in DASHBOARD and "input.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
+        "node.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
+        'maxlength="35"' in DASHBOARD and 'width:calc(10ch + 18px)' in DASHBOARD,
         'ASL shared tuner must stay compact and accept the 35-character field limit')
 require("select.replaceChildren(new Option('Select favorite', ''));" in DASHBOARD and
         DASHBOARD.index("select.replaceChildren(new Option('Select favorite', ''));", DASHBOARD.index('function loadAslFavorites')) <
@@ -70,8 +71,9 @@ require("window.setInterval(refreshActivity, 5000)" in DASHBOARD and
         'ASL mode selection must not poll stale digital-button state or let it hide the shared tuner')
 require('watchAnalogBridgeInfo()' in DASHBOARD and 'new MutationObserver' in DASHBOARD and
         "mode === 'ASL' ? 'Node' : 'Tx TG/Ref'" in DASHBOARD and
-        "connectedNodes.join(', ') : '-'" in DASHBOARD,
-        'the Analog_Bridge target row must survive status refreshes and show connected ASL nodes or a hyphen')
+        "nodes.join(', ') : '-'" in DASHBOARD and 'function currentAslNodes()' in DASHBOARD and
+        "normalizeHeader(heading.textContent) !== 'ASL Net'" in DASHBOARD,
+        'the Analog_Bridge target row must survive refreshes and use live activity or the ASL Net card')
 require("var mode = modeFromAnalogBridge();" in DASHBOARD and
         "if (document.getElementById('dvs-mode-buttons') && activeMode)" in DASHBOARD and
         'updateAnalogBridgeTarget(activeMode);' in DASHBOARD and
@@ -92,11 +94,15 @@ require('wait_for_connection "$target"' in LINK and 'did not reach ESTABLISHED s
 require('disconnect external links before leaving ASL' in PATCHER and
         'dvswitch-asl3-node-link || return 1' in PATCHER,
         'ASL-owned dvswitch.sh repair must remove external links on every ASL exit')
-require("# Version: 1.0.0-test75" in BUTTON_HELPER and
+require("# Version: 1.0.0-test90" in BUTTON_HELPER and
         "previous_live_mode=$(read_live_mode)" in BUTTON_HELPER and
         'if [[ "$previous_mode" == ASL || "$previous_live_mode" == ASL ]]; then' in BUTTON_HELPER and
         "NOTICE: retrying the mode command after ASL link cleanup." in BUTTON_HELPER and
-        "mode_is_live \"$live_mode\" || die 'Analog_Bridge did not confirm the requested mode after leaving ASL.'" in BUTTON_HELPER,
+        "mode_is_live \"$live_mode\" || die 'Analog_Bridge did not confirm the requested mode after leaving ASL.'" in BUTTON_HELPER and
+        'if [[ "$previous_mode" == M17 && "$mode" != M17 ]]; then' in BUTTON_HELPER and
+        BUTTON_HELPER.count('if [[ "$previous_mode" == M17 && "$mode" != M17 ]]; then') == 1 and
+        '/usr/local/bin/dvs-dvswitch' in BUTTON_HELPER and
+        '"SWITCH_DVSWITCH\\n"' in CONTROL,
         'digital mode selection must detect a live ASL state, retry once, and confirm the bridge before saving button state')
 match = re.search(r"python3 - \"\$FAVORITES_FILE\" <<'PY_ASL_FAVORITES_MIGRATE'\n(.*?)^PY_ASL_FAVORITES_MIGRATE$", SUPPORT, re.M | re.S)
 require(match is not None, 'ASL installer must migrate prior user-saved ASL favorites')

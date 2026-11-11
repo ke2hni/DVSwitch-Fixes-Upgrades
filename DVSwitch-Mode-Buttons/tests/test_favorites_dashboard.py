@@ -1,4 +1,5 @@
-"""Version: 1.0.5. Cover M17 favorites, friendly names, and compact target inputs."""
+"""Version: 1.0.6. Cover M17 favorites, friendly names, and ten-character target inputs."""
+# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI.
 
 from pathlib import Path
 import re
@@ -40,12 +41,12 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn("target.maxLength = 35", SCRIPT)
         self.assertIn("width:min(35ch,55vw)", INSTALLER)
         self.assertIn("width:min(35ch,calc(100vw - 220px))", INSTALLER)
-        self.assertIn("target.style.width = '10ch'", SCRIPT)
-        self.assertIn('.dvs-favorite-edit-row input:nth-child(2){box-sizing:border-box;width:10ch}', INSTALLER)
+        self.assertIn("target.style.width = 'calc(10ch + 18px)'", SCRIPT)
+        self.assertIn('.dvs-favorite-edit-row input:nth-child(2){box-sizing:border-box;width:calc(10ch + 18px)}', INSTALLER)
         self.assertIn("/^[A-Za-z0-9_-]{1,35}$/", SCRIPT)
         self.assertIn('maxlength="35"', INSTALLER)
         self.assertIn('placeholder="TG/Ref"', INSTALLER)
-        self.assertIn('width:10ch', INSTALLER)
+        self.assertIn('width:calc(10ch + 18px)', INSTALLER)
         self.assertIn("'/^[A-Za-z0-9_-]{1,35}$/D'", ENDPOINT)
         self.assertIn('{1,35}', TARGETS)
         self.assertIn('{1,35}', TUNE)
@@ -65,7 +66,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test89"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test90"', INSTALLER)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -121,7 +122,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test89"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test90"', INSTALLER)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
+# Updated: 2026-11-11T00:35:00-05:00 by KE2HNI — require permanent disconnect for alternate private links.
 # Created: 2026-11-10T15:30:00-05:00 by KE2HNI
 # DVSwitch-M17-Support: verify exclusive link switching without ASL add-on files.
 """Exercise the M17-owned helper against several private nodes and fake Asterisk."""
@@ -18,7 +19,7 @@ def main() -> None:
 cmd="$2"
 case "$cmd" in
   "rpt lstats 446901") printf 'NODE PEER RECONNECTS DIRECTION CONNECT TIME CONNECT STATE\\n'; cat "$STATE_FILE" ;;
-  "rpt cmd 446901 ilink 1 "*) node=${cmd##* }; sed -i "/^$node /d" "$STATE_FILE"; printf 'disconnected %s\\n' "$node" ;;
+  "rpt cmd 446901 ilink 11 "*) node=${cmd##* }; sed -i "/^$node /d" "$STATE_FILE"; printf 'disconnected %s\\n' "$node" ;;
   "rpt cmd 446901 ilink 3 "*) node=${cmd##* }; printf '%s 127.0.0.1 0 OUT 00:00 ESTABLISHED\\n' "$node" >> "$STATE_FILE"; printf 'connected %s\\n' "$node" ;;
   *) exit 1 ;;
 esac

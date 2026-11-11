@@ -1,4 +1,4 @@
-/* Version: 1.0.8 — alphabetize the mode button bar as optional modes appear. Updated 2026-11-10T21:35:00-05:00 by KE2HNI. */
+/* Version: 1.0.9 — fit ten visible characters after field padding. Updated 2026-11-11T00:25:00-05:00 by KE2HNI. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -137,7 +137,7 @@
       const target = document.createElement('input');
       target.type = 'text'; target.maxLength = 35; target.value = favorite.target || '';
       // Keep the editor target field compact while allowing up to 35 input characters.
-      target.style.boxSizing = 'border-box'; target.style.width = '10ch';
+      target.style.boxSizing = 'border-box'; target.style.width = 'calc(10ch + 18px)';
       target.placeholder = selector.value === 'M17' ? 'M17-001-A' : 'TG/Ref';
       target.setAttribute('aria-label', selector.value === 'M17' ? 'M17 reflector and module' : 'Talkgroup or reflector ID');
       const remove = document.createElement('button');

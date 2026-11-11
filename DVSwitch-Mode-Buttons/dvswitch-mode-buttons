@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test88
-# Updated: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Version: 1.0.0-test90
+# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — switch away from M17 once before selecting another digital mode.
 set -u
 MODE_CMD=/opt/MMDVM_Bridge/dvswitch.sh
 STATE_DIR=/var/lib/dvswitch-mode-buttons
@@ -142,12 +142,6 @@ install -d -m 755 -o root -g root "$STATE_DIR"
 previous_mode=''
 [[ -r "$STATE_FILE" ]] && previous_mode=$(tr -d '[:space:]' < "$STATE_FILE")
 
-# Move the public ASL node back to DVSwitch before switching away from M17.
-if [[ "$previous_mode" == M17 && "$mode" != M17 ]]; then
-  [[ -x /usr/local/bin/dvs-dvswitch ]] || die 'M17 mode is active but the DVSwitch private-node switch command is missing.'
-  /usr/local/bin/dvs-dvswitch || die 'Could not disconnect the M17 private node and reconnect DVSwitch.'
-fi
-
 # Record the live bridge mode before switching; ASL Support owns the exit cleanup.
 read_live_mode() {
   python3 - "$ABINFO_DIR" <<'PY_ASL_MODE_STATUS'
@@ -207,6 +201,13 @@ else
   rm -f "$STATE_DIR/dmr-tune-pending"
 fi
 if [[ "$mode" != BM && "$mode" != TGIF ]]; then rm -f "$STATE_DIR/dmr-tune-pending"; fi
+# M17 uses a second private USRP node. Return the public node to the configured
+# DVSwitch private node before selecting any other digital mode, preventing audio
+# from continuing through the M17 bridge. This hook is optional and M17-owned.
+if [[ "$previous_mode" == M17 && "$mode" != M17 ]]; then
+  [[ -x /usr/local/bin/dvs-dvswitch ]] || die 'M17 was active, but its return-to-DVSwitch command is missing.'
+  /usr/local/bin/dvs-dvswitch || die 'Could not switch the public ASL node back to the DVSwitch private node.'
+fi
 case "$mode" in
   BM|TGIF) switch_dmr_network "$mode" ;;
   M17)

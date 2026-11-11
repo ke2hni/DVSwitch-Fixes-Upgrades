@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.3.3; Created: 2026-11-09T00:41:12-05:00; Created by KE2HNI; Updated: 2026-11-10T19:16:00-05:00 by KE2HNI -->
+<!-- Version: 1.3.4; Created: 2026-11-09T00:41:12-05:00; Created by KE2HNI; Updated: 2026-11-11T00:50:00-05:00 by KE2HNI -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -35,3 +35,7 @@ Uninstall dashboard support with manager option 9 and select **Uninstall M17 das
 
 
 The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The left stack begins below the Analog Bridge Info table, and refreshed status data replaces old card renders instead of accumulating copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
+
+Dashboard support 1.0.7 keeps the first four alphabetized cards beneath the Analog Bridge and TRX status cards in the left status rail; the remaining four appear beside Gateway Activity. Card rendering is deduplicated across live refreshes, and a versioned script URL ensures browsers load layout updates.
+
+The private-node switch helper permanently disconnects alternate private USRP links before connecting the requested node, which handles configured permanent links such as the DVSwitch node.

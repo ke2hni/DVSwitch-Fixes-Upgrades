@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — verify dashboard layout hook install and removal.
-# Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — cover live-refresh replacement and Analog Bridge-style card frames.
+# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — cover idempotent rendering and cache-busted layout upgrades.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -150,7 +150,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert patched_status.count('$displayTarget') == 4
         assert 'dvswitchASL3ShowNetCard' not in status.read_text()
         assert '$listElem[1] == "M17"' in localtx.read_text()
-        assert '<script src="/dvswitch/dvswitch-m17-layout.js"></script>' in index.read_text()
+        assert '<script src="/dvswitch/dvswitch-m17-layout.js?v=1.0.3"></script>' in index.read_text()
         subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
         assert 'dvsM17ShowNetCard' not in status.read_text()
@@ -167,10 +167,13 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
     card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
-    assert 'dvs-network-cards-left' in layout and 'dvs-network-cards-right' in layout
-    assert 'left.replaceChildren()' in layout and 'right.replaceChildren()' in layout
-    assert "document.createElement('fieldset')" in layout and 'dvs-network-card-panel' in layout
-    assert 'abTable.getBoundingClientRect().bottom' in layout
+    assert 'dvs-modeInfo-network-cards' in layout and 'dvs-network-cards-right' in layout
+    assert 'right.replaceChildren()' in layout and "document.createElement('fieldset')" in layout
+    assert 'grid-template-columns:minmax(0,1fr) minmax(180px,220px)' in layout
+    assert 'box-shadow:0 0 10px #999' in layout
+    assert 'window.__dvsM17LayoutInstalled' in layout and 'setTimeout(renderCards, 60)' in layout
+    assert 'card.table.closest(\'#modeInfo\')' in layout
+    assert 'dvswitch-m17-layout.js?v=1.0.3' in installer
     assert 'window.setInterval(start' not in layout
     assert 'color:#b5651d!important' in card
     print('PASS: M17 reflector, dashboard install/uninstall hooks, and eight-card layout.')

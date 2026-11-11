@@ -1,5 +1,7 @@
 <?php
-// Version: 1.0.0
+// Version: 1.0.1
+// Updated: 2026-11-11T00:25:00-05:00 by KE2HNI — switch the exclusive public-node bridge back to DVSwitch before ASL mode.
+// Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — retain the selected DVSwitch private node through ASL activation.
 declare(strict_types=1);
 
 // ASL Support owns its mode, node-link, and favorite dashboard requests independently of Mode Buttons.
@@ -50,6 +52,8 @@ if (!is_array($request) || !isset($request['action']) || !is_string($request['ac
 }
 try {
     if ($request['action'] === 'mode') {
+        [$status, $stdout, $stderr] = $run(array('/usr/bin/sudo', '/usr/local/sbin/dvswitch-asl3-node-link'), "SWITCH_DVSWITCH\n");
+        if ($status !== 0) { throw new RuntimeException($stderr !== '' ? $stderr : 'Could not switch the public node back to the DVSwitch private node.'); }
         [$status, $stdout, $stderr] = $run(array('/usr/bin/sudo', '/opt/MMDVM_Bridge/dvswitch.sh', 'mode', 'ASL'));
         if ($status !== 0) { throw new RuntimeException($stderr !== '' ? $stderr : 'DVSwitch could not select ASL mode.'); }
         [$status, $stdout, $stderr] = $run(array('/usr/bin/sudo', '/usr/local/sbin/dvswitch-asl3-node-link'), "ENSURE_BRIDGE\n");
