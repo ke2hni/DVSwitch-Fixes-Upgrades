@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.5
+# Version: 1.0.6
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
-# Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify the optional M17 dashboard dependency path.
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — verify M17 dashboard install does not require Mode Buttons.
 # SPDX-License-Identifier: MIT
 
 """Static safety and coverage checks for the two public managers."""
@@ -117,10 +117,12 @@ def main() -> None:
     require("active-installs.pre-reinstall-" in master and
             "Refusing to reset valid uninstall records" in master,
             "stale-state archival or valid-state refusal is missing")
-    require('if [[ ! -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]' in master and
-            'M17 bridge and node commands remain independent' in master and
-            'if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php && -x "$MODE_BUTTONS_SCRIPT" ]]' in master,
-            "M17 dashboard management must not require or install Mode Buttons as a side effect")
+    m17_dashboard = master[master.index('run_m17_dashboard_installer()'):master.index('\nshow_menu()')]
+    require('"$M17_DASHBOARD_SCRIPT" --check' in m17_dashboard and
+            '"$M17_DASHBOARD_SCRIPT" --install' in m17_dashboard and
+            'dvswitch-mode-buttons.sh' not in m17_dashboard and
+            'if [[ ! -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]' not in m17_dashboard,
+            "M17 dashboard option 9 must install without requiring or invoking Mode Buttons")
     require("check_all" in master and "PLAIN-LANGUAGE SUMMARY" in master,
             "complete check-all reporting is missing")
     require("Failed or blocked:" in master and "Required installation order" in master,

@@ -3,9 +3,12 @@
 // Version: 1.0.1; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
 // Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — provide the selected M17 target for Analog Bridge status display.
 // Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — keep the M17 room name orange like other Net cards.
+// Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — read standalone M17 mode state when Mode Buttons is absent.
 
 function dvsM17CurrentDisplayTarget() {
-    $modePath = '/var/lib/dvswitch-mode-buttons/current-mode';
+    $modePath = is_readable('/var/lib/dvswitch-mode-buttons/current-mode')
+        ? '/var/lib/dvswitch-mode-buttons/current-mode'
+        : '/var/lib/dvswitch-m17-dashboard/current-mode';
     if (!is_readable($modePath) || strtoupper(trim((string)file_get_contents($modePath))) !== 'M17') { return null; }
     $config = @parse_ini_file('/etc/USRP2M17.ini', true, INI_SCANNER_RAW);
     $network = is_array($config) && isset($config['M17 Network']) ? $config['M17 Network'] : array();

@@ -1,8 +1,10 @@
-"""Version: 1.0.6. Cover M17 favorites, friendly names, and ten-character target inputs."""
-# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI.
+"""Version: 1.0.6. Cover M17 favorites, friendly names, and compact target inputs."""
+
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — verify optional import from standalone M17 favorites.
 
 from pathlib import Path
 import re
+import json
 import subprocess
 import tempfile
 import unittest
@@ -41,12 +43,12 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn("target.maxLength = 35", SCRIPT)
         self.assertIn("width:min(35ch,55vw)", INSTALLER)
         self.assertIn("width:min(35ch,calc(100vw - 220px))", INSTALLER)
-        self.assertIn("target.style.width = 'calc(10ch + 18px)'", SCRIPT)
-        self.assertIn('.dvs-favorite-edit-row input:nth-child(2){box-sizing:border-box;width:calc(10ch + 18px)}', INSTALLER)
+        self.assertIn("target.style.width = '10ch'", SCRIPT)
+        self.assertIn('.dvs-favorite-edit-row input:nth-child(2){box-sizing:border-box;width:10ch}', INSTALLER)
         self.assertIn("/^[A-Za-z0-9_-]{1,35}$/", SCRIPT)
         self.assertIn('maxlength="35"', INSTALLER)
         self.assertIn('placeholder="TG/Ref"', INSTALLER)
-        self.assertIn('width:calc(10ch + 18px)', INSTALLER)
+        self.assertIn('width:10ch', INSTALLER)
         self.assertIn("'/^[A-Za-z0-9_-]{1,35}$/D'", ENDPOINT)
         self.assertIn('{1,35}', TARGETS)
         self.assertIn('{1,35}', TUNE)
@@ -123,6 +125,20 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
         self.assertIn('VERSION="1.0.0-test90"', INSTALLER)
+
+    def test_first_install_imports_standalone_m17_favorites_optionally(self):
+        match = re.search(r"python3 - \"\$FAVORITES_STARTER\" /etc/dvswitch-m17-dashboard/favorites\.json > \"\$favorite_tmp\" <<'PY_M17_IMPORT'\n(.*?)\nPY_M17_IMPORT", INSTALLER, re.S)
+        self.assertIsNotNone(match)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            starter = root / 'starter.json'
+            standalone = root / 'm17.json'
+            starter.write_text(json.dumps({'BM': [], 'M17': []}), encoding='utf-8')
+            standalone.write_text(json.dumps([{'name': 'Test room A', 'target': 'M17-001-A'}]), encoding='utf-8')
+            result = subprocess.run(['python3', '-c', match.group(1), str(starter), str(standalone)],
+                                    capture_output=True, text=True, check=True)
+            self.assertEqual(json.loads(result.stdout)['M17'],
+                             [{'name': 'Test room A', 'target': 'M17-001-A'}])
 
 
 if __name__ == '__main__':

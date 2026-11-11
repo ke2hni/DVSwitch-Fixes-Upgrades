@@ -1,4 +1,4 @@
-<!-- Version: 1.1.1; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI; Updated: 2026-11-11T00:50:00-05:00 by KE2HNI -->
+<!-- Version: 1.1.1; Created: 2026-11-09T23:19:00-05:00 by KE2HNI; Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — document optional M17 favorites handoff. -->
 
 ![Platform](https://img.shields.io/badge/platform-DVSwitch-24527a)
 ![Debian](https://img.shields.io/badge/tested-Debian%2012%20%7C%2013-a80030)
@@ -24,6 +24,8 @@ upgrade replaces older Mode Buttons dashboard markup and removes its legacy
 embedded ASL button; ASL Support adds its own button and controls when installed.
 
 Seven standard digital-mode buttons are included: **BM · TGIF · STFU · YSF · P25 · NXDN · D-Star**. Optional M17 is added by `DVSwitch-M17-Support` after USRP2M17 is installed; it has its own favorites and reflector selector.
+
+Mode Buttons remains independently installable. If M17 dashboard support is installed first, a first-time Mode Buttons installation optionally imports its M17 favorites; without M17 support, installation proceeds with the normal starter favorites.
 
 ## 🚀 Quick start — install everything
 
@@ -322,4 +324,4 @@ Version 1.0.0-test88 adds optional M17 favorite storage and dashboard endpoint s
 
 Version 1.0.0-test89 keeps the mode buttons in alphabetical order as optional ASL and M17 buttons are added to the dashboard.
 
-Version 1.0.0-test90 sizes the shared target and favorite-edit inputs for ten visible characters including their padding. When leaving M17 for another digital mode, the optional M17-owned return command switches the public node back to the DVSwitch private node first.
+Version 1.0.0-test90 imports favorites from an already-installed standalone M17 dashboard on first install; the import is optional and does not make M17 a Mode Buttons prerequisite.

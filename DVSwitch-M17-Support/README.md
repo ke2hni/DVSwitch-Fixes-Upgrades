@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.3.4; Created: 2026-11-09T00:41:12-05:00; Created by KE2HNI; Updated: 2026-11-11T00:50:00-05:00 by KE2HNI -->
+<!-- Version: 1.3.4; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — document dashboard independence from Mode Buttons. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -23,19 +23,15 @@ Follow [INSTALL-USRP2M17.md](INSTALL-USRP2M17.md) for the complete first-time in
 
 ## M17 dashboard integration
 
-After USRP2M17 is installed and DVSwitch Mode Buttons is installed, choose manager option 9 and select **Install or upgrade M17 dashboard support**. This dashboard overlay is optional and only attaches to Mode Buttons when that separate component is present; the M17 bridge and node commands remain usable without it. If the bridge was installed before this dashboard release, run manager option 8 and choose **Install or upgrade USRP2M17** once so the bridge logs include callsigns for activity history. The dashboard adds an M17 mode button, an M17 Net card, reflector favorites, and M17 events in Gateway Activity and Local Activity. Reflectors are downloaded from the M17 Project's `M17Hosts.json` catalog weekly; that catalog refresh does not rewrite the editable favorites file. Initial favorites are seeded once with one entry per usable reflector (module A when available, otherwise its first M17 module), and subsequent edits and deletions are kept. To use another module, tune with `reflector-module` (for example `URF018-B`) and save it as a favorite.
+After USRP2M17 and the M17 private-node commands are installed, choose manager option 9 and select **Install or upgrade M17 dashboard support**. Option 9 is independent of DVSwitch Mode Buttons (option 2): with Mode Buttons installed, M17 uses its shared toolbar and favorites editor; without it, this component supplies its own M17 button, tuning controls, and editable favorites. You can install option 2 before or after option 9. If the bridge was installed before this dashboard release, run manager option 8 and choose **Install or upgrade USRP2M17** once so the bridge logs include callsigns for activity history. The dashboard adds an M17 Net card and M17 events in Gateway Activity and Local Activity. Reflectors are downloaded from the M17 Project's `M17Hosts.json` catalog weekly; catalog refreshes do not rewrite editable favorites. Initial favorites are seeded once with one entry per usable reflector (module A when available, otherwise its first M17 module), and subsequent edits and deletions are kept. To use another module, tune with a `reflector-module` target (for example `URF018-B`) and save it as a favorite.
 
-The install-state directory is set to mode `0755` so Apache can test whether M17 dashboard support is installed and show the M17 mode button. The install-state file remains root-only (`0600`).
+The install-state directory is set to mode `0755` so Apache can test whether M17 dashboard support is installed and show the M17 mode button in the shared toolbar. The install-state file remains root-only (`0600`). When the shared toolbar is absent, the M17-owned dashboard script renders a standalone M17 control row instead.
 
 When M17 is the selected dashboard mode, the Analog Bridge Info card shows `M17` and the configured M17 reflector/module in its visible mode and target rows. The diagnostic tooltip continues to show Analog_Bridge's actual telemetry.
 
 Selecting a favorite updates `/etc/USRP2M17.ini` and restarts `usrp2m17.service`. Selecting the already-active room does not restart it. The installer makes a dated config backup for each reflector change and restores the prior config if the service fails to restart. M17 uses the private node already configured by manager option 8, and the mode button switches the public node between the selected M17 and DVSwitch private links.
 
-Uninstall dashboard support with manager option 9 and select **Uninstall M17 dashboard support**. This removes its card/history hooks, mode button, catalog timer, and helper commands. It preserves USRP2M17, the M17 configuration, reflector catalog, and user favorites.
+Uninstall dashboard support with manager option 9 and select **Uninstall M17 dashboard support**. This removes its card/history hooks, M17 controls, catalog timer, and dashboard helpers. It preserves USRP2M17, the M17 configuration, reflector catalog, and user favorites.
 
 
 The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The left stack begins below the Analog Bridge Info table, and refreshed status data replaces old card renders instead of accumulating copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
-
-Dashboard support 1.0.7 keeps the first four alphabetized cards beneath the Analog Bridge and TRX status cards in the left status rail; the remaining four appear beside Gateway Activity. Card rendering is deduplicated across live refreshes, and a versioned script URL ensures browsers load layout updates.
-
-The private-node switch helper permanently disconnects alternate private USRP links before connecting the requested node, which handles configured permanent links such as the DVSwitch node.

@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.7
+# Version: 1.0.6
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — make dashboard state directory searchable by Apache so the M17 button condition works.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — display the active M17 mode and reflector in Analog Bridge status rows.
-# Updated: 2026-11-11T00:20:00-05:00 by KE2HNI — install the two-column card arrangement with four cards below status.
-# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — cache-bust layout script updates and prevent duplicate card renders.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — place eight network cards around Gateway Activity and alphabetize mode buttons.
 # Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — prevent duplicate card buildup and match the Analog Bridge panel outline.
-# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — cache-bust layout script updates and prevent duplicate card renders.
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — make M17 dashboard controls and favorites independent of Mode Buttons.
 set -Eeuo pipefail
 umask 077
 
@@ -22,6 +20,13 @@ readonly LOCALTX=$DASH/localtx.php
 readonly INDEX=/usr/share/dvswitch/index.php
 readonly LAYOUT="$DIR/dashboard/dvswitch-m17-layout.js"
 readonly LAYOUT_TARGET=/usr/share/dvswitch/dvswitch-m17-layout.js
+readonly STANDALONE_JS="$DIR/dashboard/dvswitch-m17-standalone.js"
+readonly STANDALONE_TARGET=/usr/share/dvswitch/dvswitch-m17-standalone.js
+readonly ENDPOINT_SOURCE="$DIR/dashboard/dvswitch-m17-dashboard.php"
+readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php
+readonly FAVORITES_HELPER="$DIR/dashboard/dvswitch-m17-favorites.py"
+readonly MODE_HELPER="$DIR/dashboard/dvswitch-m17-dashboard-mode"
+readonly SUDOERS=/etc/sudoers.d/dvswitch-m17-dashboard
 readonly SELECT=/usr/local/sbin/dvswitch-m17-select
 readonly CATALOG_UPDATE=/usr/local/sbin/dvswitch-m17-catalog-update
 readonly STATE=/var/lib/dvswitch-m17-dashboard/install-state.json
@@ -30,19 +35,19 @@ action=${1:---install}
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run this installer with sudo.'
-for command in install php python3 systemctl; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
+for command in install php python3 systemctl visudo; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
 for path in "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX"; do [[ -f "$path" && ! -L "$path" ]] || die "Dashboard file unavailable or unsafe: $path"; done
 if [[ "$action" == --uninstall ]]; then
   [[ -f "$STATE" ]] || die 'No M17 dashboard installation record exists.'
 else
   [[ -f /etc/USRP2M17.ini ]] || die 'Install USRP2M17 through manager option 8 first.'
-  [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]] || die 'Install DVSwitch Mode Buttons through manager option 2 first.'
-  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
+  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$STANDALONE_JS" && -f "$ENDPOINT_SOURCE" && -f "$FAVORITES_HELPER" && -f "$MODE_HELPER" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
 fi
 
 if [[ "$action" == --check ]]; then
-  php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null
+  php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null && php -l "$ENDPOINT_SOURCE" >/dev/null
   php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null
+  python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$FAVORITES_HELPER"
   printf 'PASS: M17 dashboard prerequisites and PHP syntax are ready; --check made no changes.\n'
   exit 0
 fi
@@ -70,13 +75,14 @@ for path in map(Path,sys.argv[1:]):
             if text.count(addition)!=1: raise SystemExit('ERROR: M17 Local Activity filter is ambiguous; no files were changed.')
             text=text.replace(addition,'',1)
     else:
-        text=re.sub(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?v=[^"]*)?"></script>\s*', '', text)
+        for tag in ('<script src="/dvswitch/dvswitch-m17-layout.js"></script>', '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>'):
+            text=text.replace(tag+'\n','',1)
     st=path.stat(); fd,tmp=tempfile.mkstemp(dir=path.parent)
     with os.fdopen(fd,'w',encoding='utf-8',newline='') as output: output.write(text)
     os.chown(tmp,st.st_uid,st.st_gid); os.chmod(tmp,stat.S_IMODE(st.st_mode)); os.replace(tmp,path)
 PY_UNINSTALL
   systemctl disable --now dvswitch-m17-catalog-update.timer >/dev/null 2>&1 || true
-  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$SELECT" "$CATALOG_UPDATE" "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STATE"
+  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$SELECT" "$CATALOG_UPDATE" /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-dashboard-mode "$ENDPOINT" "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STANDALONE_TARGET" "$SUDOERS" "$STATE"
   systemctl daemon-reload
   printf 'PASS: M17 dashboard integration removed; favorites, bridge config, and reflector catalog were preserved.\n'
   exit 0
@@ -86,10 +92,28 @@ install -d -o root -g root -m 0755 "$DASH" /usr/local/sbin /etc/systemd/system /
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-activity.php"
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-net-card.php" "$DASH/dvswitch-m17-net-card.php"
 install -o root -g root -m 0644 "$LAYOUT" "$LAYOUT_TARGET"
+install -o root -g root -m 0644 "$STANDALONE_JS" "$STANDALONE_TARGET"
+install -o root -g root -m 0644 "$ENDPOINT_SOURCE" "$ENDPOINT"
 install -o root -g root -m 0755 "$DIR/dashboard/dvswitch-m17-select.py" "$SELECT"
+install -o root -g root -m 0755 "$FAVORITES_HELPER" /usr/local/sbin/dvswitch-m17-favorites
+install -o root -g root -m 0755 "$MODE_HELPER" /usr/local/sbin/dvswitch-m17-dashboard-mode
 install -o root -g root -m 0755 "$DIR/dashboard/dvswitch-m17-catalog-update.py" "$CATALOG_UPDATE"
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-catalog-update.service" /etc/systemd/system/dvswitch-m17-catalog-update.service
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-catalog-update.timer" /etc/systemd/system/dvswitch-m17-catalog-update.timer
+install -d -o root -g root -m 0755 /etc/dvswitch-m17-dashboard
+if [[ -e "$SUDOERS" || -L "$SUDOERS" ]]; then
+  [[ -f "$SUDOERS" && ! -L "$SUDOERS" ]] && grep -q '^# DVSwitch-M17-Dashboard:' "$SUDOERS" || die "Refusing to replace an unowned sudoers file: $SUDOERS"
+fi
+install -o root -g root -m 0440 /dev/stdin "$SUDOERS" <<'SUDOERS_M17'
+# DVSwitch-M17-Dashboard: standalone dashboard actions v1
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-m17-select
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-m17-favorites
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-m17-dashboard-mode
+SUDOERS_M17
+if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php && -x /usr/local/sbin/dvswitch-mode-buttons ]]; then
+  printf '%s\n' 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/dvswitch-mode-buttons M17' >> "$SUDOERS"
+fi
+visudo -cf "$SUDOERS" >/dev/null || die 'M17 dashboard sudoers validation failed.'
 
 python3 - "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX" "$STATE" "$BACKUPS" <<'PY_INSTALL'
 import json, os, re, stat, sys, tempfile
@@ -157,10 +181,12 @@ for path in (functions,status,localtx,index):
             text=text.replace('$counter = 0;',marker+'\n$counter = 0;',1)
         elif text.count(marker)!=1: raise SystemExit('ERROR: duplicate M17 Local Activity markers.')
     else:
-        tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.0.3"></script>'
-        text=re.sub(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?v=[^"]*)?"></script>\s*', '', text)
-        if text.count('</body>')!=1: raise SystemExit('ERROR: index.php body ending is missing or ambiguous.')
-        text=text.replace('</body>',tag+'\n</body>',1)
+        tags=('<script src="/dvswitch/dvswitch-m17-layout.js"></script>', '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>')
+        for tag in tags:
+            if tag not in text:
+                if text.count('</body>')!=1: raise SystemExit('ERROR: index.php body ending is missing or ambiguous.')
+                text=text.replace('</body>',tag+'\n</body>',1)
+            elif text.count(tag)!=1: raise SystemExit('ERROR: duplicate M17 dashboard script tags.')
     changes.append((path,text))
 for path,text in changes:
     st=path.stat(); fd,tmp=tempfile.mkstemp(dir=path.parent)
@@ -200,7 +226,12 @@ if not history_path.exists() or not history_path.stat().st_size:
                 history.write(f"{int(time.time())}\t{designator}-{desired_module}\t{friendly.strip()} {desired_module}\n")
             break
 PY_CURRENT
-python3 - /var/lib/mmdvm/M17Hosts.json /etc/dvswitch-mode-buttons/favorites.json /var/lib/dvswitch-m17-dashboard/m17-favorites-seeded <<'PY_SEED'
+if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]; then
+  M17_FAVORITES=/etc/dvswitch-mode-buttons/favorites.json
+else
+  M17_FAVORITES=/etc/dvswitch-m17-dashboard/favorites.json
+fi
+python3 - /var/lib/mmdvm/M17Hosts.json "$M17_FAVORITES" /var/lib/dvswitch-m17-dashboard/m17-favorites-seeded <<'PY_SEED'
 import json, os, re, sys, tempfile
 import ipaddress
 from pathlib import Path

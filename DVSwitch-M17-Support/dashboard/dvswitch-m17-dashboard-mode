@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Version: 1.0.0
+# Created: 2026-11-11T11:30:00-05:00 by KE2HNI
+# M17-owned activation entry point used when shared Mode Buttons are absent.
+set -Eeuo pipefail
+[[ ${EUID:-$(id -u)} -eq 0 ]] || { echo 'ERROR: run through the dashboard sudo rule.' >&2; exit 1; }
+[[ $# -eq 0 ]] || { echo 'ERROR: this command takes no arguments.' >&2; exit 1; }
+[[ -x /usr/local/bin/m17 ]] || { echo 'ERROR: install M17 private-node switching commands with manager option 7.' >&2; exit 1; }
+systemctl is-active --quiet usrp2m17.service || { echo 'ERROR: USRP2M17 service is not running; start it before selecting M17.' >&2; exit 1; }
+/usr/local/bin/m17
+install -d -o root -g root -m 0755 /var/lib/dvswitch-m17-dashboard
+printf 'M17\n' > /var/lib/dvswitch-m17-dashboard/current-mode
+chmod 0644 /var/lib/dvswitch-m17-dashboard/current-mode
+echo 'PASS: M17 private node is active.'

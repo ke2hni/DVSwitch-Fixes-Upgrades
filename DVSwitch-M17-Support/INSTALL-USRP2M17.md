@@ -1,6 +1,6 @@
 # Install and Configure the USRP2M17 M17 Bridge
 
-<!-- Version: 1.0.4 | Created: 2026-11-10T19:00:00-05:00 by KE2HNI; Updated: 2026-11-09T23:19:00-05:00 by KE2HNI -->
+<!-- Version: 1.0.5 | Created: 2026-11-10T19:00:00-05:00 by KE2HNI; Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — document independent option 9 install path. -->
 
 <!-- Version: 1.0.2; Created: 2026-11-09T18:43:31-05:00; Created by KE2HNI -->
 
@@ -31,7 +31,7 @@ Every private USRP node must have its own local port pair. Never reuse the ports
 
 ## Add the M17 mode to the DVSwitch dashboard
 
-After the M17 bridge works and the regular DVSwitch Mode Buttons are installed, run the combined manager and select option 9. The bridge installer and private-node switching commands do not require either Mode Buttons or the ASL Support add-on; option 9 is an optional dashboard overlay. If the bridge was installed before this dashboard release, first choose manager option 8 and **Install or upgrade USRP2M17** once to add the source callsigns needed by the new activity history. Then choose option 9 and install or upgrade dashboard support. This adds the M17 button, M17 Net card, separate editable reflector favorites, and M17 rows in Gateway Activity and Local Activity. The reflector catalog refreshes weekly from the M17 Project's `M17Hosts.json`; the refresh does not replace edited favorites. Initial favorites include one entry per usable reflector, using module A when available and otherwise the first M17 module. Enter another `reflector-module` target (for example `URF018-B`) and save it as a favorite to use that module. The selector changes reflectors by updating `/etc/USRP2M17.ini` and restarting `usrp2m17.service`. Re-selecting the current reflector avoids a restart.
+After the M17 bridge and private-node switch commands work, run the combined manager and select option 9. M17 dashboard support installs independently of DVSwitch Mode Buttons: if option 2 is present, M17 uses its shared toolbar and favorites editor; otherwise, the M17 component supplies its own button, tuning controls, and editable favorites. Either install order works. If the bridge was installed before this dashboard release, first choose manager option 8 and **Install or upgrade USRP2M17** once to add the source callsigns needed by the new activity history. Option 9 adds the M17 Net card, reflector favorites, and M17 rows in Gateway Activity and Local Activity. The reflector catalog refreshes weekly from the M17 Project's `M17Hosts.json`; the refresh does not replace edited favorites. Initial favorites include one entry per usable reflector, using module A when available and otherwise the first M17 module. Enter another `reflector-module` target (for example `URF018-B`) and save it as a favorite to use that module. The selector changes reflectors by updating `/etc/USRP2M17.ini` and restarting `usrp2m17.service`. Re-selecting the current reflector avoids a restart.
 
 The bridge installer builds USRP2M17 from an isolated temporary copy of the GitHub source and adds source-call fields to its end-of-transmission log entries. This leaves `/opt/dvswitch-m17/MMDVM_CM` clean for safe upgrades and gives the dashboard the callsigns needed for the M17 activity history.
 

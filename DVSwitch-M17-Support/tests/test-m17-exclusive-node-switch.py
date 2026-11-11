@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Version: 1.0.1
-# Updated: 2026-11-11T00:35:00-05:00 by KE2HNI — require permanent disconnect for alternate private links.
 # Created: 2026-11-10T15:30:00-05:00 by KE2HNI
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — assert permanent disconnects for persistent ASL links.
 # DVSwitch-M17-Support: verify exclusive link switching without ASL add-on files.
 """Exercise the M17-owned helper against several private nodes and fake Asterisk."""
 from pathlib import Path

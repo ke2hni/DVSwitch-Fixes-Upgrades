@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regression coverage for the bundled responsive dashboard layout."""
-# Version: 1.1.13
-# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — align installer version assertion with test90.
+# Version: 1.1.12
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — track optional M17 favorites import installer release.
 
 from __future__ import annotations
 

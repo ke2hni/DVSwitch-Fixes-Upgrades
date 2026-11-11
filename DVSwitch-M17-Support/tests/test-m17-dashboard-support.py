@@ -4,16 +4,19 @@
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — verify dashboard layout hook install and removal.
-# Updated: 2026-11-11T00:50:00-05:00 by KE2HNI — cover idempotent rendering and cache-busted layout upgrades.
+# Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — cover live-refresh replacement and Analog Bridge-style card frames.
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — verify standalone install path and optional Mode Buttons handoff.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
+import io
 import json
 import os
 import re
 import stat
 import subprocess
 import tempfile
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +24,9 @@ SELECT_PATH = ROOT / 'dashboard/dvswitch-m17-select.py'
 SPEC = importlib.util.spec_from_file_location('dvswitch_m17_select', SELECT_PATH)
 SELECT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SELECT)
+FAVORITES_SPEC = importlib.util.spec_from_file_location('dvswitch_m17_favorites', ROOT / 'dashboard/dvswitch-m17-favorites.py')
+FAVORITES = importlib.util.module_from_spec(FAVORITES_SPEC)
+FAVORITES_SPEC.loader.exec_module(FAVORITES)
 
 
 def main():
@@ -70,6 +76,11 @@ def main():
     assert parser['USRP Network']['DstPort'] == '32008'
 
     installer = (ROOT / 'dvswitch-m17-dashboard.sh').read_text(encoding='utf-8')
+    assert 'Install DVSwitch Mode Buttons through manager option 2 first' not in installer
+    assert "readonly STANDALONE_TARGET=/usr/share/dvswitch/dvswitch-m17-standalone.js" in installer
+    assert "readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php" in installer
+    assert "M17_FAVORITES=/etc/dvswitch-m17-dashboard/favorites.json" in installer
+    assert 'DVSwitch Mode Buttons is not installed. Install it separately' not in installer
     blocks = {}
     for marker in ('PY_UNINSTALL', 'PY_INSTALL', 'PY_CURRENT', 'PY_SEED'):
         match = re.search(r"<<'" + marker + r"'\n(.*?)\n" + marker + r"\n", installer, re.S)
@@ -150,7 +161,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert patched_status.count('$displayTarget') == 4
         assert 'dvswitchASL3ShowNetCard' not in status.read_text()
         assert '$listElem[1] == "M17"' in localtx.read_text()
-        assert '<script src="/dvswitch/dvswitch-m17-layout.js?v=1.0.3"></script>' in index.read_text()
+        assert '<script src="/dvswitch/dvswitch-m17-layout.js"></script>' in index.read_text()
+        assert '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>' in index.read_text()
         subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
         assert 'dvsM17ShowNetCard' not in status.read_text()
@@ -158,6 +170,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert "$abinfo['tlv']['ambe_mode']" in status.read_text()
         assert '$listElem[1] == "M17"' not in localtx.read_text()
         assert 'dvswitch-m17-layout.js' not in index.read_text()
+        assert 'dvswitch-m17-standalone.js' not in index.read_text()
     with tempfile.TemporaryDirectory() as directory:
         root=Path(directory); catalog=root/'M17Hosts.json'; config=root/'USRP2M17.ini'; history=root/'history.tsv'
         catalog.write_text(json.dumps({'reflectors':[{'designator':'M17-123','name':'Friendly Room','modules':['C']}]}),encoding='utf-8')
@@ -167,15 +180,38 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
     card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
-    assert 'dvs-modeInfo-network-cards' in layout and 'dvs-network-cards-right' in layout
-    assert 'right.replaceChildren()' in layout and "document.createElement('fieldset')" in layout
-    assert 'grid-template-columns:minmax(0,1fr) minmax(180px,220px)' in layout
-    assert 'box-shadow:0 0 10px #999' in layout
-    assert 'window.__dvsM17LayoutInstalled' in layout and 'setTimeout(renderCards, 60)' in layout
-    assert 'card.table.closest(\'#modeInfo\')' in layout
-    assert 'dvswitch-m17-layout.js?v=1.0.3' in installer
+    assert 'dvs-network-cards-left' in layout and 'dvs-network-cards-right' in layout
+    assert 'left.replaceChildren()' in layout and 'right.replaceChildren()' in layout
+    assert "document.createElement('fieldset')" in layout and 'dvs-network-card-panel' in layout
+    assert 'abTable.getBoundingClientRect().bottom' in layout
     assert 'window.setInterval(start' not in layout
     assert 'color:#b5651d!important' in card
+    standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
+    api = (ROOT / 'dashboard/dvswitch-m17-dashboard.php').read_text(encoding='utf-8')
+    favorites_helper = (ROOT / 'dashboard/dvswitch-m17-favorites.py').read_text(encoding='utf-8')
+    assert "if (document.getElementById('dvs-mode-buttons')" in standalone
+    assert 'dvs-m17-edit' in standalone and 'dvs-m17-add' in standalone
+    assert "'/usr/local/sbin/dvswitch-m17-dashboard-mode'" in api
+    assert "'/usr/local/sbin/dvswitch-m17-select'" in api
+    assert '/etc/dvswitch-m17-dashboard/favorites.json' in api
+    assert 'at most 250 entries' in favorites_helper
+    with tempfile.TemporaryDirectory() as directory:
+        favorite_path = Path(directory) / 'favorites.json'
+        FAVORITES.DEST = favorite_path
+        with patch('os.geteuid', return_value=0), patch('os.chown'), patch('sys.stdin', io.StringIO('[{"name":"Room A","target":"M17-001-A"}]')):
+            FAVORITES.main()
+        assert json.loads(favorite_path.read_text(encoding='utf-8')) == [{'name': 'Room A', 'target': 'M17-001-A'}]
+        with patch('os.geteuid', return_value=0), patch('os.chown'), patch('sys.stdin', io.StringIO('[{"name":"One","target":"M17-001-A"},{"name":"Two","target":"M17-001-A"}]')):
+            try:
+                FAVORITES.main()
+            except SystemExit as error:
+                assert 'duplicate M17 target' in str(error)
+            else:
+                raise AssertionError('duplicate favorite target was accepted')
+    manager = (ROOT.parent / 'DVSwitch-Mods/manage-dvswitch-mods.sh').read_text(encoding='utf-8')
+    manager_hook = manager[manager.index('run_m17_dashboard_installer()'):manager.index('\nshow_menu()')]
+    assert 'dvswitch-mode-buttons.sh' not in manager_hook
+    assert 'if [[ ! -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]' not in manager_hook
     print('PASS: M17 reflector, dashboard install/uninstall hooks, and eight-card layout.')
 
 

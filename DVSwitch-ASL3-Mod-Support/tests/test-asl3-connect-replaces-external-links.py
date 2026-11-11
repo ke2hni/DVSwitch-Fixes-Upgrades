@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
+# Created: 2026-11-11T11:30:00-05:00 by KE2HNI
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — model permanent disconnect commands for existing links.
 # SPDX-License-Identifier: MIT
 
 """Verify default Connect replacement drops external links before connecting."""
@@ -47,7 +49,7 @@ def main() -> None:
             "log = Path(os.environ['ASL_TEST_CALLS'])\n"
             "if command[:2] == ['rpt', 'lstats']:\n"
             "    print(state.read_text(), end='')\n"
-            "elif command[:3] == ['rpt', 'cmd', '446901'] and command[3:5] == ['ilink', '1']:\n"
+            "elif command[:3] == ['rpt', 'cmd', '446901'] and command[3:5] == ['ilink', '11']:\n"
             "    peer = command[5]\n"
             "    with log.open('a') as output: output.write('DISCONNECT ' + peer + '\\n')\n"
             "    state.write_text(''.join(line for line in state.read_text().splitlines(keepends=True) if not line.split() or line.split()[0] != peer))\n"

@@ -2,7 +2,7 @@
 # DVSwitch-M17-Support: exclusive private-node switch helper
 # Version: 1.0.1
 # Created: 2026-11-10T15:00:00-05:00 by KE2HNI
-# Updated: 2026-11-11T00:35:00-05:00 by KE2HNI — permanently disconnect alternate private links to prevent configured-link retries.
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — permanently disconnect alternate private links before selecting a mode.
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -42,7 +42,6 @@ switch_private_node() {
     peers=$(awk -v privates="$private_nodes" -v selected="$selected" 'BEGIN { count=split(privates, ids, "\n"); for (i=1; i<=count; i++) private[ids[i]]=1 } $1 ~ /^[0-9]+$/ && private[$1] && $1 != selected { print $1 }' <<< "$links" | sort -u)
     while IFS= read -r peer; do
         [[ -n "$peer" ]] || continue
-        # Permanent-link nodes must be permanently disconnected or Asterisk may re-establish them.
         result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 11 $peer" 2>&1) || die "Could not permanently disconnect private node $peer: $result"
         printf '%s\n' "$result"
     done <<< "$peers"
@@ -97,7 +96,7 @@ disconnect_external_links() {
     peers=$(awk -v keep="$private_node" '$1 ~ /^[0-9]+$/ && $1 != keep { print $1 }' <<< "$links")
     while IFS= read -r peer; do
         [[ -n "$peer" ]] || continue
-        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 1 $peer" 2>&1) || die "Could not disconnect external ASL node $peer: $result"
+        result=$("$ASTERISK" -rx "rpt cmd $public_node ilink 11 $peer" 2>&1) || die "Could not permanently disconnect external ASL node $peer: $result"
         printf '%s\n' "$result"
     done <<< "$peers"
     # Verify external links every 250ms for at most five seconds before allowing a mode change.

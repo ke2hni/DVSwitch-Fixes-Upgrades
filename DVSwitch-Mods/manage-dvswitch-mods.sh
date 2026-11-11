@@ -1,9 +1,9 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.2.16
+# Version: 1.2.17
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
-# Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — keep M17 dashboard add-on optional when Mode Buttons is absent.
+# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — make M17 dashboard option 9 independent of Mode Buttons.
 
 # Repository-wide front end. Existing repair/modification files remain the
 # authoritative installers and validators; this manager selects and records
@@ -12,7 +12,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.16"
+readonly SCRIPT_VERSION="1.2.17"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -139,7 +139,7 @@ run_m17_bridge_installer() {
 }
 
 run_m17_dashboard_installer() {
-    local mode_dir choice
+    local choice
     require_root
     require_executable_script "$M17_DASHBOARD_SCRIPT"
     printf '\n=== INSTALL M17 DASHBOARD SUPPORT ===\n'
@@ -149,25 +149,13 @@ run_m17_dashboard_installer() {
         1) ;;
         2)
             "$M17_DASHBOARD_SCRIPT" --uninstall
-            if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php && -x "$MODE_BUTTONS_SCRIPT" ]]; then
-                mode_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")
-                (cd -- "$mode_dir" && ./dvswitch-mode-buttons.sh --install)
-            else
-                printf 'NOTICE: Mode Buttons is absent; its optional dashboard hook was not run.\n'
-            fi
             return 0
             ;;
         0|'') return 0 ;;
         *) die 'Invalid M17 dashboard choice' ;;
     esac
-    if [[ ! -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]; then
-        printf 'NOTICE: DVSwitch Mode Buttons is not installed. Install it separately with manager option 2, then rerun option 9 for dashboard integration. M17 bridge and node commands remain independent.\n'
-        return 0
-    fi
     "$M17_DASHBOARD_SCRIPT" --check
     "$M17_DASHBOARD_SCRIPT" --install
-    mode_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")
-    (cd -- "$mode_dir" && ./dvswitch-mode-buttons.sh --install)
 }
 
 show_menu() {
