@@ -1,9 +1,10 @@
-/* DVSwitch M17 dashboard layout v1.0.4
+/* DVSwitch M17 dashboard layout v1.0.5
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
  * Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — place the left card stack in the status sidebar below Analog Bridge and TRX.
- * Keeps the eight network cards alphabetized around Gateway Activity without flicker or duplicate panels.
+ * Updated: 2026-11-11T13:25:00-05:00 by KE2HNI — place M17 Net in the right column to balance the sidebar card stack.
+ * Keeps the eight network cards ordered around Gateway Activity without flicker or duplicate panels.
  */
 (function () {
   'use strict';
@@ -26,7 +27,7 @@
     center.id = 'dvs-gateway-activity';
     var right = document.createElement('div');
     right.className = 'dvs-network-cards dvs-network-cards-right';
-    right.setAttribute('aria-label', 'Network status, last four alphabetically');
+      right.setAttribute('aria-label', 'Network status, right column including M17');
     layout.append(spacer, center, right);
     center.appendChild(activity);
     oldCenter.parentNode.replaceChild(layout, oldCenter);
@@ -54,7 +55,7 @@
       host = document.createElement('div');
       host.id = 'dvs-network-sidebar-cards';
       host.className = 'dvs-network-cards dvs-network-cards-left';
-      host.setAttribute('aria-label', 'Network status, first four alphabetically');
+      host.setAttribute('aria-label', 'Network status, first three alphabetically');
       info.parentNode.insertBefore(host, info.nextSibling);
     }
     return host;
@@ -80,7 +81,7 @@
     if (observer) observer.disconnect();
     cards.sort(function (a, b) { return a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }); });
     cards.forEach(function (card, index) {
-      var target = index < 4 ? left : right;
+      var target = index < 3 && card.name !== 'M17 Net' ? left : right;
       var panel = Array.from(document.querySelectorAll('.dvs-network-card-panel')).find(function (item) {
         return item.dataset.cardName === card.name;
       });

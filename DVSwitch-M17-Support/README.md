@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.3.5; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — place the first four network cards beneath the status panels in the sidebar. -->
+<!-- Version: 1.3.6; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T13:25:00-05:00 by KE2HNI — place M17 Net in the right column to balance the sidebar card stack. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -34,4 +34,4 @@ Selecting a favorite updates `/etc/USRP2M17.ini` and restarts `usrp2m17.service`
 Uninstall dashboard support with manager option 9 and select **Uninstall M17 dashboard support**. This removes its card/history hooks, M17 controls, catalog timer, and dashboard helpers. It preserves USRP2M17, the M17 configuration, reflector catalog, and user favorites.
 
 
-The M17 dashboard layout places the eight network cards in alphabetical order, four on each side of Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The first four cards sit in the left status sidebar below Analog Bridge Info and TRX Info; the other four sit to the right of Gateway Activity. Refreshed status data replaces old card renders without making the cards flash or accumulate copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
+The M17 dashboard layout places the eight network cards in alphabetical order around Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The first three cards sit in the left status sidebar below Analog Bridge Info and TRX Info; M17 Net and the remaining four cards sit in the right column. Refreshed status data replaces old card renders without making the cards flash or accumulate copies. Mode buttons are alphabetized, and M17 reflector text matches the other cards’ orange label color.
