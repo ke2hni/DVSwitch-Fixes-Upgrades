@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.0.9
+/* DVSwitch M17 dashboard layout v1.1.0
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -8,6 +8,7 @@
  * Updated: 2026-11-11T14:00:00-05:00 by KE2HNI — equalize activity-to-card gaps and align right-card outer insets.
  * Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — lower the right card stack by 20 pixels to align with the left status cards.
  * Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — add one pixel to the right stack offset and give Local Activity more separation.
+ * Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — keep Analog Bridge labels on one line while preserving equal outer card insets.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -48,6 +49,7 @@
       '.dvs-network-cards{min-width:0;text-align:center}',
       '.dvs-network-cards-right{padding:21px 32px 0 0;box-sizing:border-box}',
       '.nav #modeInfo>fieldset{margin-left:24px!important;width:calc(100% - 24px)!important;box-sizing:border-box}',
+      '.nav #modeInfo>fieldset table th:first-child{white-space:nowrap}',
       '.dvs-network-card-panel{background-color:#e8e8e8e8;width:100%;box-sizing:border-box;margin:6px 0 8px;padding:4px;font-size:12px;border-radius:10px}',
       '.dvs-network-card-panel table{width:100%;table-layout:fixed;margin:0}',
       '.dvs-network-card-panel th,.dvs-network-card-panel td{overflow-wrap:anywhere;word-break:normal}',
