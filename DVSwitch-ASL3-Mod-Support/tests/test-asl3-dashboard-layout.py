@@ -2,6 +2,7 @@
 """Test the ASL Net card patch in the dashboard's left status column."""
 # Version: 1.0.1
 # SPDX-License-Identifier: MIT
+# Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — verify the Analog Bridge Node row reads the relocated ASL Net card.
 
 from __future__ import annotations
 
@@ -61,6 +62,8 @@ require("max-width:1400px" not in js and "width:min(95%,1400px)" not in js,
 require("activity.style.cssText = 'margin:8px auto'" in js and "width:95%" in js,
         "ASL activity panel does not use fluid sizing")
 require("setTargetLabel" in js and "dvswitch-asl3-net-status" not in js, "dashboard JS must retain Node label only, not the misplaced cell")
+require("#dvs-network-sidebar-cards table" in js,
+        "Analog Bridge Node lookup must include the relocated ASL Net sidebar card")
 require("dvswitch-asl3-node-links" in card and "astdb.txt" in card and "ASL Net" in card and
         "Status unavailable" in card,
         "ASL Net card must render live connection state and ASTDB friendly names")

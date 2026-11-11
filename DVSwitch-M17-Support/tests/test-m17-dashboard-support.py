@@ -16,6 +16,7 @@
 # Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — verify Analog Bridge first-column labels do not wrap.
 # Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — verify equal side columns center Gateway and Local Activity.
 # Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — verify measured outer inset correction and matching inner activity gaps.
+# Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — verify M17 display follows live Analog_Bridge mode after switching away.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -189,6 +190,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert 'M17-123-C\tFriendly Room C' in history.read_text()
     layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
     card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
+    assert 'function dvsM17LiveBridgeMode()' in card
+    assert "dvsM17LiveBridgeMode() !== 'M17'" in card
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
     assert 'dvs-network-cards-left' in layout and 'dvs-network-cards-right' in layout
     assert "info.parentNode.insertBefore(host, info.nextSibling)" in layout

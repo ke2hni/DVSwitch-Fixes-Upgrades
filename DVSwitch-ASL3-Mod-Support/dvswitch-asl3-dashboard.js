@@ -1,5 +1,6 @@
-/* Version: 1.1.9 — derive the displayed ASL node from live activity or its network card. */
+/* Version: 1.2.0 — derive the displayed ASL node from the relocated network card. */
 /* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
+/* Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — search the relocated sidebar card for connected ASL nodes. */
 (function () {
   'use strict';
 
@@ -16,7 +17,7 @@
   function currentAslNodes() {
     var nodes = connectedNodes.slice();
     if (!nodes.length) {
-      document.querySelectorAll('#modeInfo table, #dvs-network-layout table').forEach(function (table) {
+      document.querySelectorAll('#modeInfo table, #dvs-network-layout table, #dvs-network-sidebar-cards table').forEach(function (table) {
         var heading = table.querySelector('th');
         if (!heading || normalizeHeader(heading.textContent) !== 'ASL Net') return;
         var matches = table.textContent.match(/\(([0-9]{1,8})\)/g) || [];
