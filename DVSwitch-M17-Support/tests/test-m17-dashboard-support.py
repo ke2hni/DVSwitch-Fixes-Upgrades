@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.2
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
+# Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
 import json
+import os
 import re
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -107,16 +111,46 @@ def main():
         state = root / 'install-state.json'
         backups = root / 'backups'
         functions.write_text('$lastHeard = dvsModsStfuMergeActivity($lastHeard);\n', encoding='utf-8')
-        status.write_text('?>\n', encoding='utf-8')
+        status.write_text('''<?php
+if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
+    $abinfo = getABInfo('/tmp/ABInfo_'.ABINFO.'.json');
+    $txValue = $abinfo['digital']['tg'];
+    if ($abinfo['tlv']['ambe_mode'] == "DSTAR") {
+        $txValue = getDSTARLinks();
+    }
+    echo "<table style=\"margin-top:4px;\">\n";
+    echo "<tr><th width=50%>Mode</th><td style=\"background: #f9f9f9;font-weight: bold;color:#b44010;\">".$abinfo['tlv']['ambe_mode']."</td></tr>\n";
+    echo "<tr><th width=50%>Mode</th><td style=\"background: #f9f9f9;font-weight: bold;color:#b44010;\">".$abinfo['tlv']['ambe_mode']."</td></tr>\n";
+    echo "<tr><th width=50%>Tx TG/Ref</th><td style=\"background: #f9f9f9;font-weight: bold;color:#ef7215;\">".$txValue."</td></tr>\n";
+    echo "<tr><th width=50%>Tx TG/Ref</th><td style=\"background: #f9f9f9;font-weight: bold;color:#ef7215;\">".$txValue."</td></tr>\n";
+
+}
+?>
+''', encoding='utf-8')
         localtx.write_text('$counter = 0;\nif ($listElem[5] == "LNet" && ($listElem[1] == "STFU")) {\n', encoding='utf-8')
-        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(state), str(backups)], check=True)
+        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(state), str(backups)], check=True,
+                       preexec_fn=lambda: os.umask(0o077))
+        assert stat.S_IMODE(state.parent.stat().st_mode) == 0o755
+        assert stat.S_IMODE(state.stat().st_mode) == 0o600
+        state.parent.chmod(0o700)
+        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(state), str(backups)], check=True,
+                       preexec_fn=lambda: os.umask(0o077))
+        assert stat.S_IMODE(state.parent.stat().st_mode) == 0o755
+        assert stat.S_IMODE(state.stat().st_mode) == 0o600
         assert 'dvsM17MergeActivity($lastHeard)' in functions.read_text()
         assert 'dvsM17ShowNetCard()' in status.read_text()
+        patched_status=status.read_text()
+        assert 'dvsM17CurrentDisplayTarget()' in patched_status
+        assert "htmlspecialchars($m17Display['target']" in patched_status
+        assert patched_status.count('$displayMode') == 4
+        assert patched_status.count('$displayTarget') == 4
         assert 'dvswitchASL3ShowNetCard' not in status.read_text()
         assert '$listElem[1] == "M17"' in localtx.read_text()
         subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
         assert 'dvsM17ShowNetCard' not in status.read_text()
+        assert 'dvsM17CurrentDisplayTarget' not in status.read_text()
+        assert "$abinfo['tlv']['ambe_mode']" in status.read_text()
         assert '$listElem[1] == "M17"' not in localtx.read_text()
     with tempfile.TemporaryDirectory() as directory:
         root=Path(directory); catalog=root/'M17Hosts.json'; config=root/'USRP2M17.ini'; history=root/'history.tsv'

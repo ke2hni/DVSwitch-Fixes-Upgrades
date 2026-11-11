@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.1
+# Version: 1.0.3
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
+# Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — make dashboard state directory searchable by Apache so the M17 button condition works.
+# Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — display the active M17 mode and reflector in Analog Bridge status rows.
 set -Eeuo pipefail
 umask 077
 
@@ -49,6 +51,9 @@ for path in map(Path,sys.argv[1:]):
         text=re.sub(r"(?m)^// DVSwitch-M17-Dashboard: merge activity v1\ninclude_once dirname\(__FILE__\)\.'/dvswitch-m17-activity\.php';\n\$lastHeard = dvsM17MergeActivity\(\$lastHeard\);\n",'',text)
     elif path.name=='status.php':
         text=re.sub(r"(?m)^// DVSwitch-M17-Dashboard: M17 Net card v1\ninclude_once dirname\(__FILE__\)\.'/dvswitch-m17-net-card\.php'; dvsM17ShowNetCard\(\);\n",'',text)
+        text=re.sub(r"(?ms)^// DVSwitch-M17-Dashboard: Analog Bridge mode display v1\n.*?^    if \(is_array\(\$m17Display\)\) \{.*\}\n",'',text,count=1)
+        text=text.replace('$displayMode', "$abinfo['tlv']['ambe_mode']")
+        text=text.replace('$displayTarget', '$txValue')
     else:
         marker='// DVSwitch-M17-Dashboard: Local Activity includes M17 v1\n'
         if marker in text:
@@ -76,7 +81,7 @@ install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-catalog-update.serv
 install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-catalog-update.timer" /etc/systemd/system/dvswitch-m17-catalog-update.timer
 
 python3 - "$FUNCTIONS" "$STATUS" "$LOCALTX" "$STATE" "$BACKUPS" <<'PY_INSTALL'
-import json, os, stat, sys, tempfile
+import json, os, re, stat, sys, tempfile
 from datetime import datetime
 from pathlib import Path
 functions,status,localtx,state_path,backup_root=map(Path,sys.argv[1:])
@@ -90,6 +95,9 @@ if not state_path.exists():
         import shutil; shutil.copy2(path,backup/path.name)
     state_path.parent.mkdir(mode=0o755,parents=True,exist_ok=True)
     state_path.write_text(json.dumps({'version':'1.0.0','backup':str(backup)},indent=2)+'\n',encoding='utf-8'); state_path.chmod(0o600)
+# umask 077 would otherwise create this directory as 0700, hiding the M17 button
+# from Apache's is_file() check. Keep the JSON file private; only allow traversal.
+state_path.parent.chmod(0o755)
 changes=[]
 for path in (functions,status,localtx):
     text=path.read_text(encoding='utf-8')
@@ -110,6 +118,22 @@ for path in (functions,status,localtx):
             if marker_pos < 0: raise SystemExit('ERROR: status.php PHP closing tag is missing.')
             text=text[:marker_pos]+block+'\n'+text[marker_pos:]
         elif text.count(marker)!=1: raise SystemExit('ERROR: duplicate M17 Net card markers.')
+        display_marker='// DVSwitch-M17-Dashboard: Analog Bridge mode display v1'
+        if display_marker not in text:
+            anchor=re.search(r'(?m)^\s*echo .*<table.*margin-top:4px.*$',text)
+            block=(display_marker+"\n    $displayMode = $abinfo['tlv']['ambe_mode'];\n"
+                   "    $displayTarget = $txValue;\n"
+                   "    include_once dirname(__FILE__).'/dvswitch-m17-net-card.php';\n"
+                   "    $m17Display = dvsM17CurrentDisplayTarget();\n"
+                   "    if (is_array($m17Display)) { $displayMode = $m17Display['mode']; $displayTarget = htmlspecialchars($m17Display['target'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }\n")
+            if not anchor: raise SystemExit('ERROR: Analog Bridge display anchor missing or ambiguous.')
+            text=text[:anchor.start()]+block+text[anchor.start():]
+            mode_rows=re.findall(r"(?m)^.*<th width=50%>Mode</th>.*\$abinfo\[['\"]tlv['\"]\]\[['\"]ambe_mode['\"]\].*$",text)
+            target_rows=re.findall(r"(?m)^.*<th width=50%>Tx TG/Ref</th>.*\$txValue.*$",text)
+            if len(mode_rows)!=2 or len(target_rows)!=2: raise SystemExit('ERROR: Analog Bridge display rows are missing or ambiguous.')
+            text=re.sub(r"(?m)(^.*<th width=50%>Mode</th>.*)\$abinfo\[['\"]tlv['\"]\]\[['\"]ambe_mode['\"]\](.*$)",r"\1$displayMode\2",text)
+            text=re.sub(r"(?m)(^.*<th width=50%>Tx TG/Ref</th>.*)\$txValue(.*$)",r"\1$displayTarget\2",text)
+        elif text.count(display_marker)!=1: raise SystemExit('ERROR: duplicate M17 Analog Bridge display markers.')
     else:
         marker='// DVSwitch-M17-Dashboard: Local Activity includes M17 v1'
         if marker not in text:

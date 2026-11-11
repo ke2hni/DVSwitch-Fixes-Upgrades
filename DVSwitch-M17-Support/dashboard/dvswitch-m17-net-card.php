@@ -1,6 +1,25 @@
 <?php
 // DVSwitch-M17-Dashboard: M17 Net card v1
-// Version: 1.0.0; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Version: 1.0.1; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — provide the selected M17 target for Analog Bridge status display.
+
+function dvsM17CurrentDisplayTarget() {
+    $modePath = '/var/lib/dvswitch-mode-buttons/current-mode';
+    if (!is_readable($modePath) || strtoupper(trim((string)file_get_contents($modePath))) !== 'M17') { return null; }
+    $config = @parse_ini_file('/etc/USRP2M17.ini', true, INI_SCANNER_RAW);
+    $network = is_array($config) && isset($config['M17 Network']) ? $config['M17 Network'] : array();
+    $name = isset($network['Name']) ? trim((string)$network['Name']) : '';
+    if ($name === '') { return array('mode' => 'M17', 'target' => 'Not linked'); }
+    if (preg_match('/^(.+)\s+([A-Z0-9])$/', $name, $parts) && is_readable('/var/lib/mmdvm/M17Hosts.json')) {
+        $catalog = json_decode((string)file_get_contents('/var/lib/mmdvm/M17Hosts.json'), true);
+        foreach (is_array($catalog['reflectors'] ?? null) ? $catalog['reflectors'] : array() as $row) {
+            if (!is_array($row) || ($row['designator'] ?? '') !== $parts[1]) { continue; }
+            if (is_string($row['name'] ?? null) && trim($row['name']) !== '') { $name = trim($row['name']).' '.$parts[2]; }
+            break;
+        }
+    }
+    return array('mode' => 'M17', 'target' => $name);
+}
 
 function dvsM17ShowNetCard() {
     $configPath = '/etc/USRP2M17.ini';
