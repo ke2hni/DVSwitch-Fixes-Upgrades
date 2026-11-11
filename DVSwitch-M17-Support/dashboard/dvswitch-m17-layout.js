@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.1.0
+/* DVSwitch M17 dashboard layout v1.1.1
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -9,6 +9,7 @@
  * Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — lower the right card stack by 20 pixels to align with the left status cards.
  * Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — add one pixel to the right stack offset and give Local Activity more separation.
  * Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — keep Analog Bridge labels on one line while preserving equal outer card insets.
+ * Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — make both side card columns equal width so the activity panels center between them.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -43,7 +44,7 @@
     var style = document.createElement('style');
     style.id = 'dvs-m17-network-layout-style';
     style.textContent = [
-      '#dvs-network-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,220px);align-items:start;gap:10px;width:100%;box-sizing:border-box}',
+      '#dvs-network-layout{display:grid;grid-template-columns:minmax(0,1fr) 192px;align-items:start;gap:10px;width:100%;box-sizing:border-box}',
       '#dvs-gateway-activity{grid-column:1;min-width:0;width:calc(100% - 16px);justify-self:start;display:flex;flex-direction:column;align-items:center}#dvs-gateway-activity #lastHerd,#dvs-gateway-activity #localTxs{width:100%;max-width:100%;box-sizing:border-box}#dvs-gateway-activity #localTxs{margin-top:8px}#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset{width:100%!important;box-sizing:border-box;margin-left:0!important;margin-right:0!important}',
       '#dvs-network-sidebar-cards{width:calc(100% - 24px);box-sizing:border-box;margin:8px 0 0 24px}',
       '.dvs-network-cards{min-width:0;text-align:center}',
