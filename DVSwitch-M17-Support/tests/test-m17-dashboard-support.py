@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.0.7
+# Version: 1.0.8
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -9,6 +9,7 @@
 # Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — prevent network cards from flashing during status refreshes.
 # Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — verify left cards occupy the status sidebar below the status panels.
 # Updated: 2026-11-11T13:25:00-05:00 by KE2HNI — verify M17 Net is placed in the right column for visual balance.
+# Updated: 2026-11-11T13:45:00-05:00 by KE2HNI — verify centered matching activity panels and consistent side-card insets.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -187,7 +188,11 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert "info.parentNode.insertBefore(host, info.nextSibling)" in layout
     assert "host.id = 'dvs-network-sidebar-cards'" in layout
     assert "index < 3 && card.name !== 'M17 Net'" in layout
-    assert "spacer.className = 'dvs-network-layout-spacer'" in layout
+    assert "center.appendChild(localActivity)" in layout
+    assert "grid-template-columns:minmax(0,1fr) minmax(180px,220px)" in layout
+    assert "#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset" in layout
+    assert "padding-right:24px" in layout and "margin:8px 0 0 24px" in layout
+    assert "dvs-network-layout-spacer" not in layout
     assert 'left.replaceChildren()' not in layout and 'right.replaceChildren()' not in layout
     assert 'if (observer) observer.disconnect();' in layout
     assert 'if (observer) observer.observe(info, { childList: true, subtree: true });' in layout
