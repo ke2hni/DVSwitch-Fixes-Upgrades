@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.7
+# Version: 1.0.8
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00-05:00 by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00-05:00 by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
@@ -12,6 +12,7 @@
 # Updated: 2026-11-12T17:15:00-05:00 by KE2HNI — archive and remove the residual DVSwitch dashboard tree after package purge.
 # Updated: 2026-11-12T17:30:00-05:00 by KE2HNI — remove Buttons helpers without mutating shared dashboard or bridge files.
 # Updated: 2026-11-12T18:40:00-05:00 by KE2HNI — final teardown removes owned files without creating backups or using legacy restore.
+# Updated: 2026-11-12T18:42:00-05:00 by KE2HNI — recognize legacy USRP2M17 config and service signatures during removal.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
@@ -96,8 +97,12 @@ remove_addons(){
   # The M17 bridge's normal uninstall creates a rollback archive. Remove its
   # marked service/config/binary directly for this confirmed final teardown.
   systemctl disable --now usrp2m17.service >/dev/null 2>&1 || true
-  if [[ -f /etc/USRP2M17.ini ]]; then grep -q '^# DVSwitch-M17-Bridge managed configuration ' /etc/USRP2M17.ini || die 'USRP2M17.ini is not marked as repository-owned.'; fi
-  if [[ -f /etc/systemd/system/usrp2m17.service ]]; then grep -q 'DVSwitch-M17-Bridge managed service' /etc/systemd/system/usrp2m17.service || die 'usrp2m17.service is not marked as repository-owned.'; fi
+  if [[ -f /etc/USRP2M17.ini ]]; then
+    grep -q '^# DVSwitch-M17-Bridge managed configuration ' /etc/USRP2M17.ini || { grep -q '^\[M17 Network\]$' /etc/USRP2M17.ini && grep -q '^\[USRP Network\]$' /etc/USRP2M17.ini; } || die 'USRP2M17.ini does not match a recognized bridge config; stopped.'
+  fi
+  if [[ -f /etc/systemd/system/usrp2m17.service ]]; then
+    grep -q 'DVSwitch-M17-Bridge managed service' /etc/systemd/system/usrp2m17.service || { grep -q '^Description=USRP2M17 M17 to ASL bridge$' /etc/systemd/system/usrp2m17.service && grep -q '^ExecStart=/usr/local/bin/USRP2M17$' /etc/systemd/system/usrp2m17.service; } || die 'usrp2m17.service does not match the recognized bridge unit; stopped.'
+  fi
   rm -f /etc/USRP2M17.ini /usr/local/bin/USRP2M17 /etc/systemd/system/usrp2m17.service
   if [[ -f /opt/dvswitch-m17/.dvswitch-m17-bridge-managed ]]; then rm -rf /opt/dvswitch-m17; fi
   rm -rf /var/lib/dvswitch-m17-bridge /var/log/usrp2m17
@@ -153,7 +158,7 @@ remove_packages(){
   for p in "${CORE_PACKAGES[@]}"; do has_pkg "$p" && installed+=("$p"); done
   if (( ${#installed[@]} )); then apt-get purge "${installed[@]}"; fi
 }
-if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.0.7\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.0.8\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
 [[ $EUID -eq 0 ]] || die 'Run with sudo.'
 plan
