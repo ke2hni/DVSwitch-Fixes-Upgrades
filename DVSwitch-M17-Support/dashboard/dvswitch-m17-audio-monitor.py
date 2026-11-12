@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.1
+# Version: 1.0.2
 # Created: 2026-11-11T16:20:00-05:00 by KE2HNI
 # Updated: 2026-11-12T19:00:00-05:00 by KE2HNI — capture all loopback packet protocols; filter M17 USRP packets in extract_pcm.
+# Updated: 2026-11-12T19:15:00-05:00 by KE2HNI — use a raw IPv4 UDP socket because AF_PACKET captured no loopback traffic on pi4test.
 """Mirror decoded M17 USRP PCM to a local-only dashboard WebSocket."""
 from __future__ import annotations
 import base64, configparser, hashlib, socket, struct, threading
@@ -120,10 +121,10 @@ class AudioMonitor:
     def run(self):
         listener=socket.socket(socket.AF_INET,socket.SOCK_STREAM); listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         listener.bind((LISTEN_HOST,LISTEN_PORT)); listener.listen(8); listener.settimeout(1.0)
-        # Loopback packets were visible to tcpdump but not to a socket filtered
-        # at creation/bind time for ETH_P_IP. Capture all protocols on lo and
-        # let extract_pcm enforce the configured IPv4/UDP/USRP route.
-        capture=socket.socket(socket.AF_PACKET,socket.SOCK_DGRAM,socket.htons(0x0003)); capture.bind(('lo',socket.htons(0x0003))); capture.settimeout(1.0)
+        # AF_PACKET returned no packets on pi4test even though tcpdump saw the
+        # loopback stream. Use the kernel's raw IPv4 UDP socket instead; the
+        # parser still filters by the configured source/destination ports.
+        capture=socket.socket(socket.AF_INET,socket.SOCK_RAW,socket.IPPROTO_UDP); capture.bind((self.route[0],0)); capture.settimeout(1.0)
         print(f'M17 monitor ready on {LISTEN_HOST}:{LISTEN_PORT}; USRP {self.route[1]}->{self.route[2]}',flush=True)
         threading.Thread(target=self._accept_clients,args=(listener,),daemon=True).start(); last_sequence=None
         while True:
