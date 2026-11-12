@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.6
+# Version: 1.0.7
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00-05:00 by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00-05:00 by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
@@ -11,6 +11,7 @@
 # Updated: 2026-11-12T12:30:00-05:00 by KE2HNI — include the M17 support command directory in the final application cleanup.
 # Updated: 2026-11-12T17:15:00-05:00 by KE2HNI — archive and remove the residual DVSwitch dashboard tree after package purge.
 # Updated: 2026-11-12T17:30:00-05:00 by KE2HNI — remove Buttons helpers without mutating shared dashboard or bridge files.
+# Updated: 2026-11-12T18:40:00-05:00 by KE2HNI — final teardown removes owned files without creating backups or using legacy restore.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
@@ -20,8 +21,6 @@ readonly BUTTONS="$ROOT/DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"
 readonly M17="$ROOT/DVSwitch-M17-Support"
 readonly ASL_BACKUPS=/var/backups/dvswitch-mods/asl3-support
 readonly ASL_REPAIR_BACKUPS=/var/backups/dvswitch-mods/asl-mode-switch
-readonly M17_SUPPORT_BACKUPS=/var/backups/dvswitch-mods/m17-private-node-switch
-readonly RECOVERY_ROOT=/var/backups/dvswitch-mods/repo-uninstall
 readonly CORE_PACKAGES=(dvswitch-server dvswitch-dashboard mmdvm-bridge analog-bridge quantar-bridge ysfgateway p25gateway nxdngateway ircddbgateway stfu nxdnparrot p25parrot ysfparrot)
 readonly CORE_DIRS=(/opt/MMDVM_Bridge /opt/Analog_Bridge /opt/YSFClients /opt/P25Clients /opt/NXDNClients /opt/STFU /opt/dvswitch-m17 /usr/local/lib/dvswitch-m17-support /usr/share/dvswitch)
 readonly REPO_DATA=(/etc/dvswitch-mode-buttons /var/lib/dvswitch-mode-buttons /etc/dvswitch-asl3-support /var/lib/dvswitch-m17-dashboard /var/lib/dvswitch-m17-bridge /var/lib/dvswitch-mods /etc/dvswitch-m17-dashboard /var/lib/mmdvm/M17Hosts.json /var/log/usrp2m17)
@@ -52,13 +51,13 @@ plan(){
       [[ $base != asterisk && $base != asl3-asterisk ]] || die "APT simulation would remove protected ASL/Asterisk package $removed."
     done < <(printf '%s\n' "$simulated" | awk '$1=="Remv" || $1=="Purg"')
   fi
-  printf 'Existing DVSwitch application directories (will be archived, then removed):\n'
+  printf 'Existing DVSwitch application directories (will be removed):\n'
   for p in "${CORE_DIRS[@]}"; do [[ ! -e $p ]] || printf '  %s\n' "$p"; done
-  printf 'Repository-owned state/favorites/catalog paths will also be archived, then removed.\n'
-  printf 'Will not autoremove dependencies or remove Debian, ASL 3/Asterisk, Allmon3, user data, or backups.\n'
+  printf 'Repository-owned state, catalogs, and prior repository backups will be removed; no new backups will be created.\n'
+  printf 'Will not autoremove dependencies or remove Debian, ASL 3/Asterisk, Allmon3, or unrelated user data.\n'
 }
 restore_asl(){
-  local b name state target recovery stamp
+  local b name state target
   b=$(latest_install_backup "$ASL_BACKUPS")
   [[ -n $b ]] || { printf 'NOTICE: no ASL support snapshot; skipped.\n'; return; }
   b="$ASL_BACKUPS/$b"
@@ -75,11 +74,7 @@ restore_asl(){
     /etc/asterisk/rpt.conf /opt/Analog_Bridge/Analog_Bridge.ini
   )
   for target in "${targets[@]}"; do name=$(printf '%s' "$target" | sed 's#^/##;s#/#__#g'); [[ -f "$b/$name.state" ]] || die "ASL snapshot incomplete at $name.state; stopped."; done
-  stamp=$(date +%Y%m%d-%H%M%S); recovery="$RECOVERY_ROOT/pre-asl-restore-$stamp"; install -d -o root -g root -m 0700 "$recovery"
-  for target in "${targets[@]}"; do
-    name=$(printf '%s' "$target" | sed 's#^/##;s#/#__#g')
-    if [[ -e $target || -L $target ]]; then cp -a -- "$target" "$recovery/$name"; printf 'present\n' > "$recovery/$name.state"; else printf 'absent\n' > "$recovery/$name.state"; fi
-  done
+  # Restore directly from the pre-existing installation snapshot; do not make a recovery copy.
   a2disconf dvswitch-asl3-webproxy >/dev/null 2>&1 || true
   for target in "${targets[@]}"; do
     name=$(printf '%s' "$target" | sed 's#^/##;s#/#__#g'); state=$(cat "$b/$name.state")
@@ -90,16 +85,45 @@ restore_asl(){
     esac
   done
   printf 'PASS: restored ASL add-on snapshot %s; ASL 3 retained.\n' "$(basename "$b")"
-  printf 'Recovery copy of pre-restore files: %s\n' "$recovery"
 }
 remove_addons(){
-  [[ ! -f /var/lib/dvswitch-m17-dashboard/install-state.json ]] || bash "$M17/dvswitch-m17-dashboard.sh" --uninstall
-  [[ ! -f /var/lib/dvswitch-m17-bridge/install-state.json ]] || printf 'y\ny\n' | python3 "$M17/dvswitch-m17-bridge.py" --uninstall
-  local b
-  b=$(find "$M17_SUPPORT_BACKUPS" -mindepth 1 -maxdepth 1 -type d -name 'install-*' -printf '%f\n' 2>/dev/null | sort | head -n 1 || true)
-  [[ -z $b ]] || bash "$M17/dvswitch-m17-support.sh" --restore "$b"
+  if [[ -f /var/lib/dvswitch-m17-dashboard/install-state.json ]]; then bash "$M17/dvswitch-m17-dashboard.sh" --uninstall; fi
+  # Clean any dashboard audio/catalog units left behind by an earlier partial uninstall.
+  systemctl disable --now dvswitch-m17-catalog-update.timer dvswitch-m17-audio-monitor.service >/dev/null 2>&1 || true
+  a2disconf dvswitch-m17-audio >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer /etc/systemd/system/dvswitch-m17-audio-monitor.service /etc/apache2/conf-available/dvswitch-m17-audio.conf
+  rm -f /usr/local/sbin/dvswitch-m17-audio-monitor /usr/local/sbin/dvswitch-m17-select /usr/local/sbin/dvswitch-m17-catalog-update /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-dashboard-mode /etc/sudoers.d/dvswitch-m17-dashboard
+  # The M17 bridge's normal uninstall creates a rollback archive. Remove its
+  # marked service/config/binary directly for this confirmed final teardown.
+  systemctl disable --now usrp2m17.service >/dev/null 2>&1 || true
+  if [[ -f /etc/USRP2M17.ini ]]; then grep -q '^# DVSwitch-M17-Bridge managed configuration ' /etc/USRP2M17.ini || die 'USRP2M17.ini is not marked as repository-owned.'; fi
+  if [[ -f /etc/systemd/system/usrp2m17.service ]]; then grep -q 'DVSwitch-M17-Bridge managed service' /etc/systemd/system/usrp2m17.service || die 'usrp2m17.service is not marked as repository-owned.'; fi
+  rm -f /etc/USRP2M17.ini /usr/local/bin/USRP2M17 /etc/systemd/system/usrp2m17.service
+  if [[ -f /opt/dvswitch-m17/.dvswitch-m17-bridge-managed ]]; then rm -rf /opt/dvswitch-m17; fi
+  rm -rf /var/lib/dvswitch-m17-bridge /var/log/usrp2m17
+  [[ ! -f /etc/dvswitch-m17-support.conf ]] || grep -q '^# DVSwitch-M17-Support: ' /etc/dvswitch-m17-support.conf || die 'M17 support config is not marked as repository-owned.'
+  [[ ! -f /usr/local/sbin/dvswitch-m17-node-link ]] || grep -q '^# DVSwitch-M17-Support:' /usr/local/sbin/dvswitch-m17-node-link || die 'M17 node-link helper is not marked as repository-owned.'
+  [[ ! -L /usr/local/bin/m17 || $(readlink /usr/local/bin/m17) == /usr/local/lib/dvswitch-m17-support/m17 ]] || die 'Refusing to remove an unrelated /usr/local/bin/m17.'
+  [[ ! -L /usr/local/bin/dvs-dvswitch || $(readlink /usr/local/bin/dvs-dvswitch) == /usr/local/lib/dvswitch-m17-support/dvs-dvswitch ]] || die 'Refusing to remove an unrelated /usr/local/bin/dvs-dvswitch.'
+  rm -f /etc/dvswitch-m17-support.conf /usr/local/sbin/dvswitch-m17-node-link /usr/local/bin/m17 /usr/local/bin/dvs-dvswitch
+  rm -rf /usr/local/lib/dvswitch-m17-support
   [[ ! -f "$BUTTONS" ]] || (cd "$(dirname "$BUTTONS")" && bash ./dvswitch-mode-buttons.sh --uninstall-for-final-removal)
   restore_asl
+  # The restored ASL snapshot can contain the M17 bridge's marked node stanza.
+  # Strip only that owned block after restoring the ASL 3 configuration.
+  python3 - /etc/asterisk/rpt.conf <<'PY_M17_NODE_REMOVE'
+from pathlib import Path
+import re, sys
+p=Path(sys.argv[1]); text=p.read_text(encoding='utf-8')
+begin='; BEGIN DVSwitch-M17-Bridge managed private node v1'
+end='; END DVSwitch-M17-Bridge managed private node v1'
+if begin in text or end in text:
+    if text.count(begin)!=1 or text.count(end)!=1: raise SystemExit('ERROR: M17-managed rpt.conf block is ambiguous; stopped before editing.')
+    text=re.sub(r'(?ms)^'+re.escape(begin)+r'\n.*?^'+re.escape(end)+r'\n?', '', text, count=1)
+marker='; DVSwitch-M17-Bridge v1'
+text='\n'.join(line for line in text.splitlines() if marker not in line)+'\n'
+p.write_text(text,encoding='utf-8')
+PY_M17_NODE_REMOVE
   if [[ -f /opt/MMDVM_Bridge/dvswitch.sh ]]; then
     b=$(find "$ASL_REPAIR_BACKUPS" -mindepth 1 -maxdepth 1 -type d -name 'install-*' -printf '%f\n' 2>/dev/null | sort | head -n 1 || true)
     [[ -z $b ]] || bash "$ROOT/DVSwitch-ASL3-Mod-Support/repair-dvswitch-asl-mode-switch.sh" --restore "$b"
@@ -111,29 +135,25 @@ remove_addons(){
   apache2ctl configtest >/dev/null 2>&1 && systemctl reload apache2 >/dev/null 2>&1 || true
 }
 remove_core_directories(){
-  local d archive stamp
-  stamp=$(date +%Y%m%d-%H%M%S); install -d -o root -g root -m 0700 "$RECOVERY_ROOT"; archive="$RECOVERY_ROOT/dvswitch-apps-$stamp.tar.gz"
-  local -a existing=()
-  for d in "${CORE_DIRS[@]}"; do [[ ! -e $d && ! -L $d ]] || existing+=("$d"); done
-  if (( ${#existing[@]} )); then tar -czpf "$archive" -- "${existing[@]}"; for d in "${existing[@]}"; do rm -rf -- "$d"; done; printf 'Archived and removed DVSwitch application directories: %s\n' "$archive"; fi
+  local d
+  for d in "${CORE_DIRS[@]}"; do [[ ! -e $d && ! -L $d ]] || rm -rf -- "$d"; done
 }
 stop_dvswitch_services(){
   local unit
   for unit in mmdvm_bridge.service analog_bridge.service ysfgateway.service p25gateway.service nxdngateway.service ircddbgateway.service stfu.service usrp2m17.service; do systemctl stop "$unit" >/dev/null 2>&1 || true; done
 }
 remove_repo_data(){
-  local p archive stamp
-  stamp=$(date +%Y%m%d-%H%M%S); install -d -o root -g root -m 0700 "$RECOVERY_ROOT"; archive="$RECOVERY_ROOT/repo-data-$stamp.tar.gz"
-  local -a existing=()
-  for p in "${REPO_DATA[@]}"; do [[ ! -e $p && ! -L $p ]] || existing+=("$p"); done
-  if (( ${#existing[@]} )); then tar -czpf "$archive" -- "${existing[@]}"; for p in "${existing[@]}"; do rm -rf -- "$p"; done; printf 'Archived and removed repository data/state: %s\n' "$archive"; fi
+  local p
+  for p in "${REPO_DATA[@]}"; do [[ ! -e $p && ! -L $p ]] || rm -rf -- "$p"; done
+  for p in /var/backups/dvswitch-mods /var/backups/dvswitch-mode-buttons; do [[ ! -e $p && ! -L $p ]] || rm -rf -- "$p"; done
+  [[ ! -d /var/backups/dvswitch-mods ]] || rmdir /var/backups/dvswitch-mods 2>/dev/null || true
 }
 remove_packages(){
   local -a installed=(); local p
   for p in "${CORE_PACKAGES[@]}"; do has_pkg "$p" && installed+=("$p"); done
   if (( ${#installed[@]} )); then apt-get purge "${installed[@]}"; fi
 }
-if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.0.6\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.0.7\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
 [[ $EUID -eq 0 ]] || die 'Run with sudo.'
 plan
