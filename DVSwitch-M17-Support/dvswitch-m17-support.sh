@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.3
+# Version: 1.0.4
 # Created: 2026-11-09T00:41:12-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own both node choices and exclusive switching helper.
+# Updated: 2026-11-12T12:20:00-05:00 by KE2HNI — migrate pre-helper backups safely when restoring M17 switch support.
 
 set -Eeuo pipefail
 umask 077
@@ -123,7 +124,15 @@ run_restore() {
     # Validate every saved state before creating a recovery point or restoring any target.
     for path in "${targets[@]}"; do
         backup_name=$(printf '%s' "$path" | sed 's#^/##; s#/#__#g')
-        [[ -f "$backup_dir/$backup_name.state" && ! -L "$backup_dir/$backup_name.state" ]] || die "Backup state is missing: $backup_name.state"
+        if [[ ! -f "$backup_dir/$backup_name.state" || -L "$backup_dir/$backup_name.state" ]]; then
+            if [[ "$path" == "$LINK_HELPER" ]]; then
+                if [[ ! -e "$path" && ! -L "$path" ]] || { [[ -f "$path" && ! -L "$path" ]] && grep -q '^# DVSwitch-M17-Support:' "$path"; }; then
+                    printf 'NOTICE: treating missing legacy helper state as absent: %s\n' "$backup_name"
+                    continue
+                fi
+            fi
+            die "Backup state is missing: $backup_name.state"
+        fi
         state=$(cat "$backup_dir/$backup_name.state")
         case "$state" in
             absent) ;;
@@ -157,7 +166,11 @@ run_restore() {
     done
     for path in "${targets[@]}"; do
         backup_name=$(printf '%s' "$path" | sed 's#^/##; s#/#__#g')
-        state=$(cat "$backup_dir/$backup_name.state")
+        if [[ "$path" == "$LINK_HELPER" && ! -f "$backup_dir/$backup_name.state" && ! -L "$backup_dir/$backup_name.state" ]]; then
+            state=absent
+        else
+            state=$(cat "$backup_dir/$backup_name.state")
+        fi
         if [[ "$state" == present ]]; then
             install -d -o root -g root -m 0755 "$(dirname "$path")"
             rm -f -- "$path"

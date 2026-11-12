@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# Version: 1.0.5
+# Version: 1.0.6
 # Created: 2026-11-09T00:53:07-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
+# Updated: 2026-11-12T12:20:00-05:00 by KE2HNI — cover legacy backup restore when the M17 helper state record is absent.
 
 """Exercise M17 support installer check, fresh, upgrade, resume, restore, and collision paths in a temporary tree."""
 
@@ -114,6 +115,17 @@ def main() -> None:
         assert not config.exists() and not m17_link.exists() and not dvs_link.exists()
         assert not (root / "usr/local/lib/dvswitch-m17-support/m17").exists()
         assert list(backup_root.glob("pre-restore-*")), "restore must preserve a recovery snapshot of the current files"
+
+        # Legacy bridge-era backups predate the M17-owned helper path and have no state record for it.
+        legacy_backup = backup_root / "install-20261108-000000"
+        shutil.copytree(backup_root / first_backup, legacy_backup)
+        (legacy_backup / "usr__local__sbin__dvswitch-m17-node-link.state").unlink()
+        legacy_install = run("--install", "1972", "1970")
+        assert legacy_install.returncode == 0, legacy_install.stderr
+        legacy_restore = run("--restore", legacy_backup.name)
+        assert legacy_restore.returncode == 0, legacy_restore.stderr
+        assert not (root / "usr/local/sbin/dvswitch-m17-node-link").exists()
+        assert "treating missing legacy helper state as absent" in legacy_restore.stdout
 
         conflict = root / "usr/local/bin/m17"
         # The full bridge installer passes the selected node without prompting twice.

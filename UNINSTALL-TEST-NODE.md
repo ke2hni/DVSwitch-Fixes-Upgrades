@@ -1,10 +1,11 @@
 # DVSwitch Test Node Uninstaller
 
-<!-- Version: 1.0.0; Created: 2026-11-12T15:45:00Z; Created by KE2HNI -->
+<!-- Version: 1.0.4; Created: 2026-11-12T15:45:00Z; Created by KE2HNI; Updated: 2026-11-12T12:30:00-05:00 by KE2HNI -->
 
 This tool is intended for test nodes only. It removes the repository's recorded
 DVSwitch-Mods components, Mode Buttons, ASL dashboard add-on, M17 dashboard and
-bridge support, plus a fixed allowlist of DVSwitch packages and /opt
+bridge support, plus a fixed allowlist of DVSwitch packages (including
+Quantar_Bridge and installed protocol parrot packages) and /opt
 application directories. It retains Debian, ASL 3/Asterisk, Allmon3, shared
 MMDVM database files other than the repository's M17 reflector catalog, and all
 backup directories.
@@ -15,7 +16,7 @@ Run the read-only plan:
 
 ```bash
 cd ~/DVSwitch-Fixes-Upgrades
-sudo bash ./uninstall-dvswitch-test-node.sh --plan
+sudo bash ./uninstaller.sh --plan
 ```
 
 Check the host name, ASL snapshot, installed package list, and application
@@ -27,7 +28,7 @@ public node 68425 in /etc/asterisk/rpt.conf.
 After reviewing the plan, start removal:
 
 ```bash
-sudo bash ./uninstall-dvswitch-test-node.sh --remove
+sudo bash ./uninstaller.sh --remove
 ```
 
 It requests the short host name as confirmation. The separate apt-get purge
