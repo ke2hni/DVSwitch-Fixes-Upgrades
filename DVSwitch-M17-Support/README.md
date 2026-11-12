@@ -1,13 +1,13 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.4.4; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — document dedicated M17 RX audio and status behavior. -->
+<!-- Version: 1.4.5; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-11T22:00:00-05:00 by KE2HNI — document external ASL link teardown before M17 activation. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
-- `m17` disconnects other private USRP links from the public ASL node, then connects the configured M17 private node.
+- `m17` disconnects any connected external ASL nodes and other private USRP links from the public ASL node, then connects the configured M17 private node.
 - `dvs-dvswitch` disconnects other private USRP links, then connects the explicitly selected DVSwitch private node.
 
-The commands switch only the local private-node links. They do not install an M17 reflector client, create the M17 Asterisk stanza, or select reflector destinations. The install script prompts for both private node numbers (M17 defaults to `1972`); both values are stored in `/etc/dvswitch-m17-support.conf`. It installs `/usr/local/bin/m17` and `/usr/local/bin/dvs-dvswitch` as symlinks to root-owned command files.
+The commands switch local private-node links. M17 activation also disconnects existing external ASL links before changing private audio paths, preventing the public node from remaining linked to both an external node and M17. They do not install an M17 reflector client, create the M17 Asterisk stanza, or select reflector destinations. The install script prompts for both private node numbers (M17 defaults to `1972`); both values are stored in `/etc/dvswitch-m17-support.conf`. It installs `/usr/local/bin/m17` and `/usr/local/bin/dvs-dvswitch` as symlinks to root-owned command files.
 
 M17 Support owns its node selection and switch helper; it does not require ASL 3 Support or Mode Buttons to be installed. Option 7 asks for the M17 and DVSwitch private node numbers, then installs an M17-owned helper that switches the public ASL node exclusively between them, preventing private-node audio crossfeed. It reads the installed `/etc/asterisk/rpt.conf` and disconnects other private USRP links before connecting the selected node. The installer backs up its config, command links, helper, and wrappers under `/var/backups/dvswitch-mods/m17-private-node-switch/`.
 

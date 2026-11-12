@@ -3,6 +3,7 @@
 # Version: 1.0.1
 # Created: 2026-11-10T15:00:00-05:00 by KE2HNI
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — permanently disconnect alternate private links before selecting a mode.
+# Updated: 2026-11-11T22:00:00-05:00 by KE2HNI — disconnect external ASL links before activating the M17 private node.
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -125,4 +126,8 @@ wait_for_connection() {
     die "Connect was sent to local public node $public_node, but external node $target_node did not reach ESTABLISHED state within 30 seconds."
 }
 
+if [[ "$action" == SWITCH_PRIVATE ]]; then
+    # M17 replaces the active public ASL link; clear external nodes before switching private audio paths.
+    disconnect_external_links
+fi
 switch_private_node "$selected"

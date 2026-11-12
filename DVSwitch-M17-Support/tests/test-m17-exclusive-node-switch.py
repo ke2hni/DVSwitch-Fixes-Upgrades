@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Version: 1.0.1
 # Created: 2026-11-10T15:30:00-05:00 by KE2HNI
-# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — assert permanent disconnects for persistent ASL links.
+# Updated: 2026-11-11T22:00:00-05:00 by KE2HNI — verify M17 activation clears external links before selecting its private node.
 # DVSwitch-M17-Support: verify exclusive link switching without ASL add-on files.
 """Exercise the M17-owned helper against several private nodes and fake Asterisk."""
 from pathlib import Path
@@ -14,7 +14,7 @@ def main() -> None:
         root = Path(temp); rpt=root/'rpt.conf'; config=root/'m17.conf'; state=root/'links'; asterisk=root/'asterisk'
         rpt.write_text('[446901](node-main)\nrxchannel = SimpleUSB/446901\n[1970](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n[1972](node-main)\nrxchannel = USRP/127.0.0.1:34008:32008\n[1973](node-main)\nrxchannel = USRP/127.0.0.1:34009:32009\n', encoding='utf-8')
         config.write_text('M17_PRIVATE_NODE=1972\nDVSWITCH_PRIVATE_NODE=1970\n', encoding='utf-8')
-        state.write_text('1970 127.0.0.1 0 OUT 00:00 ESTABLISHED\n1973 127.0.0.1 0 OUT 00:00 ESTABLISHED\n', encoding='utf-8')
+        state.write_text('1970 127.0.0.1 0 OUT 00:00 ESTABLISHED\n1973 127.0.0.1 0 OUT 00:00 ESTABLISHED\n55553 203.0.113.5 0 OUT 00:00 ESTABLISHED\n', encoding='utf-8')
         asterisk.write_text('''#!/bin/sh
 cmd="$2"
 case "$cmd" in
@@ -31,7 +31,9 @@ esac
         assert result.returncode==0,result.stderr+result.stdout
         active=[line.split()[0] for line in state.read_text().splitlines() if line.endswith('ESTABLISHED')]
         assert active==['1972'],active
-        assert '1970' in result.stdout and '1973' in result.stdout
+        assert '1970' in result.stdout and '1973' in result.stdout and '55553' in result.stdout
         assert 'external node 1972 is established' in result.stdout
-    print('PASS: M17 helper disconnects every alternate private node before connecting its selected node.')
+        commands=[line for line in result.stdout.splitlines() if line.startswith(('disconnected ', 'connected '))]
+        assert commands == ['disconnected 1973', 'disconnected 55553', 'disconnected 1970', 'connected 1972'], commands
+    print('PASS: M17 helper disconnects external and alternate private nodes before connecting its selected node.')
 if __name__=='__main__': main()
