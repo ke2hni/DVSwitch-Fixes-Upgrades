@@ -133,7 +133,11 @@ run_restore() {
             fi
             die "Backup state is missing: $backup_name.state"
         fi
-        state=$(cat "$backup_dir/$backup_name.state")
+        if [[ "$path" == "$LINK_HELPER" && ! -f "$backup_dir/$backup_name.state" && ! -L "$backup_dir/$backup_name.state" ]]; then
+            state=absent
+        else
+            state=$(cat "$backup_dir/$backup_name.state")
+        fi
         case "$state" in
             absent) ;;
             present)
@@ -166,11 +170,7 @@ run_restore() {
     done
     for path in "${targets[@]}"; do
         backup_name=$(printf '%s' "$path" | sed 's#^/##; s#/#__#g')
-        if [[ "$path" == "$LINK_HELPER" && ! -f "$backup_dir/$backup_name.state" && ! -L "$backup_dir/$backup_name.state" ]]; then
-            state=absent
-        else
-            state=$(cat "$backup_dir/$backup_name.state")
-        fi
+        state=$(cat "$backup_dir/$backup_name.state")
         if [[ "$state" == present ]]; then
             install -d -o root -g root -m 0755 "$(dirname "$path")"
             rm -f -- "$path"

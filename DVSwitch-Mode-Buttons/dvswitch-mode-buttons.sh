@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test92
+# Version: 1.0.0-test94
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
-# Updated: 2026-11-12T17:00:00-05:00 by KE2HNI — recognize multi-digit markers and remove orphaned helpers when DMR rows are already absent.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — bump installer for alphabetical mode button display.
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — optionally import standalone M17 favorites when first installing shared controls.
+# Updated: 2026-11-12T17:30:00-05:00 by KE2HNI — add final-node-removal cleanup that leaves shared dashboard PHP and bridge files for archival/removal.
 set -Eeuo pipefail
 
-VERSION="1.0.0-test92"
+VERSION="1.0.0-test94"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -245,6 +245,10 @@ def patch_status(text: str) -> tuple[str, bool]:
             f"(recognized_versions={marker_versions}, headings={heading_count}, "
             f"displays={display_count}, expected_displays={expected_displays})"
         )
+    if rows_absent:
+        # Another dashboard update already removed the Buttons rows. Leave the
+        # orphaned helpers in this shared PHP file for full package removal.
+        return text, False
 
     required_helpers = [
         "dvsButtonsDmrNetwork",
@@ -269,17 +273,13 @@ def patch_status(text: str) -> tuple[str, bool]:
     helper_region = text[marker.start():close_tag]
     connecting_rows = text.count(BUTTONS_CONNECTING_OUTPUT)
     if marker_version >= 7:
-        if rows_absent:
-            if connecting_rows != 0:
-                raise UnsafeStructure("status.php has a connecting DMR row without its Buttons heading and display rows")
-        else:
-            if connecting_rows != 1:
-                raise UnsafeStructure("status.php is missing the supported DMR connecting row")
-            text = text.replace(BUTTONS_CONNECTING_OUTPUT, NOT_CONNECTED_ROW, 1)
-            if text.count(BUTTONS_CONNECTING_CONDITION) == 1:
-                text = text.replace(BUTTONS_CONNECTING_CONDITION, LEGACY_CONNECTING_CONDITION, 1)
-            elif text.count(LEGACY_CONNECTING_CONDITION) != 1:
-                raise UnsafeStructure("status.php DMR connection-state condition is unsupported")
+        if connecting_rows != 1:
+            raise UnsafeStructure("status.php is missing the supported DMR connecting row")
+        text = text.replace(BUTTONS_CONNECTING_OUTPUT, NOT_CONNECTED_ROW, 1)
+        if text.count(BUTTONS_CONNECTING_CONDITION) == 1:
+            text = text.replace(BUTTONS_CONNECTING_CONDITION, LEGACY_CONNECTING_CONDITION, 1)
+        elif text.count(LEGACY_CONNECTING_CONDITION) != 1:
+            raise UnsafeStructure("status.php DMR connection-state condition is unsupported")
     elif connecting_rows > 0:
         raise UnsafeStructure("status.php has a connecting row without its matching marker version")
     function_pattern = re.compile(
@@ -296,13 +296,11 @@ def patch_status(text: str) -> tuple[str, bool]:
     )
     heading_replacement = MODS_HEADING if mods_helpers else FACTORY_HEADING
     output_replacement = MODS_OUTPUT if mods_helpers else FACTORY_OUTPUT
-    if rows_absent:
-        result = text
-    else:
-        if text.count(BUTTONS_HEADING) != 1 or text.count(BUTTONS_OUTPUT) != 1:
-            raise UnsafeStructure("status.php active DMR rows do not match the supported Buttons structure")
-        result = text.replace(BUTTONS_HEADING, heading_replacement, 1)
-        result = result.replace(BUTTONS_OUTPUT, output_replacement, 1)
+    if text.count(BUTTONS_HEADING) != 1 or text.count(BUTTONS_OUTPUT) != 1:
+        raise UnsafeStructure("status.php active DMR rows do not match the supported Buttons structure")
+
+    result = text.replace(BUTTONS_HEADING, heading_replacement, 1)
+    result = result.replace(BUTTONS_OUTPUT, output_replacement, 1)
     # Remove only the Buttons marker and helper functions. Keep adjacent
     # helpers owned by DVSwitch-Mods or local dashboard customizations intact.
     result = result[:marker.start()] + stripped_helpers + result[close_tag:]
@@ -406,8 +404,19 @@ PY_BUTTONS_UNINSTALL
   echo 'PASS: Buttons-owned dashboard and bridge changes removed; other installed changes were preserved.'
 }
 
+uninstall_for_final_removal(){
+  # The parent node uninstaller archives and removes the dashboard and bridge.
+  # Leave their shared files and saved state for archival.
+  rm -f "$MODE_HELPER" "$DMR_HELPER" "$TARGET_HELPER" "$TUNE_HELPER" "$FAVORITES_HELPER" "$SUDOERS" "$DMR_HELPER".tmp.*
+  printf 'PASS: removed standalone Mode Buttons helpers; dashboard, bridge, and state files were left for final archival/removal.\n'
+}
+
 if [[ ${1:-} == "--uninstall" ]]; then
   uninstall
+  exit 0
+fi
+if [[ ${1:-} == "--uninstall-for-final-removal" ]]; then
+  uninstall_for_final_removal
   exit 0
 fi
 

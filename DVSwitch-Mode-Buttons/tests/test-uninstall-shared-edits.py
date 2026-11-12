@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Version: 1.0.2; Created: 2026-11-12T16:45:00-05:00 by KE2HNI; Updated: 2026-11-12T17:00:00-05:00 by KE2HNI. Verify Buttons shared-file cleanup including multi-digit markers and orphaned helpers."""
+"""Version: 1.0.4; Created: 2026-11-12T16:45:00-05:00 by KE2HNI; Updated: 2026-11-12T17:30:00-05:00 by KE2HNI. Verify Buttons rollback and final-removal paths."""
 
 from __future__ import annotations
 
@@ -61,6 +61,23 @@ def status_fixture(with_mods: bool = True) -> str:
 
 
 class SharedFileUninstallTests(unittest.TestCase):
+    def test_final_node_removal_does_not_rewrite_shared_files_or_state(self) -> None:
+        manager = (ROOT / "dvswitch-mode-buttons.sh").read_text()
+        start = manager.index("uninstall_for_final_removal(){")
+        end = manager.index("\n}\n", start)
+        final_remove = "\n".join(
+            line for line in manager[start:end].splitlines()
+            if not line.lstrip().startswith("#")
+        )
+
+        self.assertIn('rm -f "$MODE_HELPER" "$DMR_HELPER"', final_remove)
+        self.assertNotIn("python3", final_remove)
+        self.assertNotIn("php -l", final_remove)
+        self.assertNotIn("rm -rf", final_remove)
+        self.assertNotIn("STATUS_TARGET", final_remove)
+        self.assertNotIn("/opt/MMDVM_Bridge", final_remove)
+        self.assertIn("--uninstall-for-final-removal", manager)
+
     def test_manager_uninstall_uses_structural_cleanup_without_snapshot_restore(self) -> None:
         manager = (ROOT / "dvswitch-mode-buttons.sh").read_text()
 
@@ -97,7 +114,7 @@ class SharedFileUninstallTests(unittest.TestCase):
         self.assertNotIn("standalone DMR Master display v10", cleaned)
         self.assertEqual(PATCH.patch_status(cleaned), (cleaned, False))
 
-    def test_removes_orphaned_helpers_without_changing_other_dmr_rows(self) -> None:
+    def test_preserves_status_when_dmr_rows_are_already_absent(self) -> None:
         status = status_fixture().replace(PATCH.BUTTONS_HEADING, "current dashboard heading", 1)
         status = status.replace(PATCH.BUTTONS_OUTPUT, "current dashboard row", 1)
         status = status.replace(PATCH.BUTTONS_CONNECTING_CONDITION, "current connection condition", 1)
@@ -105,13 +122,9 @@ class SharedFileUninstallTests(unittest.TestCase):
 
         cleaned, changed = PATCH.patch_status(status)
 
-        self.assertTrue(changed)
-        self.assertNotIn("standalone DMR Master display v8", cleaned)
-        self.assertNotIn("function dvsButtonsDmrMasterDisplay(", cleaned)
-        self.assertIn("current dashboard heading", cleaned)
-        self.assertIn("current dashboard row", cleaned)
-        self.assertIn("current connection row", cleaned)
-        self.assertEqual(PATCH.patch_status(cleaned), (cleaned, False))
+        self.assertFalse(changed)
+        self.assertIn("standalone DMR Master display v8", cleaned)
+        self.assertIn("function dvsButtonsDmrMasterDisplay(", cleaned)
 
     def test_restores_factory_rows_when_no_mods_dmr_helper_exists(self) -> None:
         cleaned, changed = PATCH.patch_status(status_fixture(with_mods=False))
