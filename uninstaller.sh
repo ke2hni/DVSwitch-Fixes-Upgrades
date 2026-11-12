@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.2
+# Version: 1.0.3
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00Z by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00Z by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
 # Updated: 2026-11-12T11:40:00-05:00 by KE2HNI — allow removal of the DVSwitch Quantar_Bridge package reported by APT.
 # Updated: 2026-11-12T11:50:00-05:00 by KE2HNI — allow installed DVSwitch protocol parrot packages in the purge simulation.
+# Updated: 2026-11-12T12:05:00-05:00 by KE2HNI — purge packages before archiving and removing residual /opt application trees.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
@@ -144,7 +145,7 @@ remove_packages(){
   if (("${#installed[@]}")); then apt-get purge "${installed[@]}"; fi
 }
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
-  printf 'DVSwitch test-node uninstaller 1.0.2\nUsage: sudo %s --plan|--remove\n' "$0"
+  printf 'DVSwitch test-node uninstaller 1.0.3\nUsage: sudo %s --plan|--remove\n' "$0"
   exit 0
 fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
@@ -157,7 +158,7 @@ read -r confirmation
 remove_addons
 remove_repo_data
 stop_dvswitch_services
-remove_core_directories
 remove_packages
+remove_core_directories
 if command -v asterisk >/dev/null 2>&1; then asterisk -rx 'module reload app_rpt.so' >/dev/null 2>&1 || printf 'NOTICE: reload app_rpt.so manually to apply restored ASL node configuration.\n'; fi
 printf '\nPASS: add-ons and allowlisted DVSwitch packages removed. No autoremove was run; Debian and ASL 3 remain.\n'
