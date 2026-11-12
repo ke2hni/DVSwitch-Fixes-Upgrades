@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify uninstall removes only recognized Mode Buttons shared-file edits."""
+"""Version: 1.0.1; Created: 2026-11-12T16:45:00-05:00 by KE2HNI. Verify Buttons shared-file cleanup including multi-digit helper versions."""
 
 from __future__ import annotations
 
@@ -87,6 +87,14 @@ class SharedFileUninstallTests(unittest.TestCase):
         self.assertIn("function dvsModsDmrMasterDisplay(", cleaned)
         self.assertIn(PATCH.MODS_HEADING, cleaned)
         self.assertIn(PATCH.MODS_OUTPUT, cleaned)
+        self.assertEqual(PATCH.patch_status(cleaned), (cleaned, False))
+
+    def test_removes_multi_digit_dmr_helper_marker_version(self) -> None:
+        status = status_fixture().replace("display v8", "display v10")
+        cleaned, changed = PATCH.patch_status(status)
+
+        self.assertTrue(changed)
+        self.assertNotIn("standalone DMR Master display v10", cleaned)
         self.assertEqual(PATCH.patch_status(cleaned), (cleaned, False))
 
     def test_restores_factory_rows_when_no_mods_dmr_helper_exists(self) -> None:

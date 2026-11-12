@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Updated: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Version: 1.0.0-test91
+# Created: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Updated: 2026-11-12T16:45:00-05:00 by KE2HNI — recognize multi-digit DMR helper marker versions during safe uninstall.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — bump installer for alphabetical mode button display.
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — optionally import standalone M17 favorites when first installing shared controls.
 set -Eeuo pipefail
 
-VERSION="1.0.0-test90"
+VERSION="1.0.0-test91"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -92,7 +94,7 @@ import tempfile
 from pathlib import Path
 
 STATUS_MARKER = re.compile(
-    r"^// DVSwitch-Mode-Buttons: standalone DMR Master display v[1-9]$", re.MULTILINE
+    r"^// DVSwitch-Mode-Buttons: standalone DMR Master display v([1-9][0-9]*)$", re.MULTILINE
 )
 BUTTONS_HEADING = (
     'echo "<tr><th colspan=\\"2\\">".dvsButtonsDmrMasterHeading($dmrMasterHost, $abinfo).'
@@ -236,7 +238,12 @@ def patch_status(text: str) -> tuple[str, bool]:
         return text, False
     expected_displays = 2 if marker_version >= 7 else 1
     if len(marker_matches) != 1 or heading_count != 1 or display_count != expected_displays:
-        raise UnsafeStructure("status.php contains incomplete or duplicate Buttons DMR markers")
+        marker_versions = [match.group(1) for match in marker_matches]
+        raise UnsafeStructure(
+            "status.php contains incomplete or duplicate Buttons DMR markers "
+            f"(recognized_versions={marker_versions}, headings={heading_count}, "
+            f"displays={display_count}, expected_displays={expected_displays})"
+        )
 
     required_helpers = [
         "dvsButtonsDmrNetwork",
@@ -245,7 +252,7 @@ def patch_status(text: str) -> tuple[str, bool]:
         "dvsButtonsDmrMasterHeading",
         "dvsButtonsDmrMasterDisplay",
     ]
-    if re.search(r"standalone DMR Master display v[6789]", text):
+    if re.search(r"standalone DMR Master display v(?:[7-9]|[1-9][0-9]+)$", text, re.MULTILINE):
         required_helpers.extend(("dvsButtonsDmrSavedCardMode", "dvsButtonsDmrSavedNetwork", "dvsButtonsDmrCurrentMode", "dvsButtonsDmrSavedTalkgroup"))
     for name in required_helpers:
         if len(re.findall(r"^function " + re.escape(name) + r"\(", text, re.MULTILINE)) != 1:
