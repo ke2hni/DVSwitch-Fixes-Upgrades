@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.2.0
+/* DVSwitch M17 dashboard layout v1.2.1
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -12,6 +12,7 @@
  * Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — make both side card columns equal width so the activity panels center between them.
  * Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — correct measured 10-pixel outer inset mismatch and preserve equal inner gaps.
  * Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — route M17 RX Monitor to M17 audio and restore the normal monitor outside M17.
+ * Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — preserve the ASL Gateway Activity section when wrapping the dashboard activity layout.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -28,6 +29,9 @@
     if (!activity || document.getElementById('dvs-network-layout')) return;
     var oldCenter = activity.parentElement;
     if (!oldCenter || !oldCenter.parentNode) return;
+    // ASL support inserts its own activity section beside #lastHerd. Preserve
+    // that sibling when replacing the old DVSwitch center wrapper below.
+    var aslActivity = oldCenter.querySelector('#dvs-asl-activity');
 
     var layout = document.createElement('div');
     layout.id = 'dvs-network-layout';
@@ -37,6 +41,7 @@
     right.className = 'dvs-network-cards dvs-network-cards-right';
     right.setAttribute('aria-label', 'Network status, right column including M17');
     layout.append(center, right);
+    if (aslActivity) center.appendChild(aslActivity);
     center.appendChild(activity);
     var localActivity = document.getElementById('localTxs');
     if (localActivity) {

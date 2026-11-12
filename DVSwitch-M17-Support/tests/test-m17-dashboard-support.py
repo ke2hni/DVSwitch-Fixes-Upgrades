@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.1.6
+# Version: 1.1.7
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -19,6 +19,7 @@
 # Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — verify M17 display follows live Analog_Bridge mode after switching away.
 # Updated: 2026-11-11T16:05:00-05:00 by KE2HNI — verify M17 target survives unrelated Analog_Bridge modes and RX label swaps.
 # Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — verify dedicated M17 USRP PCM extraction and installer wiring.
+# Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — prevent M17 layout wrapping from dropping the ASL Gateway Activity section.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -239,6 +240,9 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert "host.id = 'dvs-network-sidebar-cards'" in layout
     assert "index < 3 && card.name !== 'M17 Net'" in layout
     assert "center.appendChild(localActivity)" in layout
+    assert "oldCenter.querySelector('#dvs-asl-activity')" in layout
+    assert "if (aslActivity) center.appendChild(aslActivity)" in layout
+    assert layout.index("if (aslActivity) center.appendChild(aslActivity)") < layout.index("oldCenter.parentNode.replaceChild(layout, oldCenter)")
     assert "grid-template-columns:minmax(0,1fr) 192px" in layout
     assert "#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset" in layout
     assert "width:calc(100% - 4px);justify-self:start" in layout
