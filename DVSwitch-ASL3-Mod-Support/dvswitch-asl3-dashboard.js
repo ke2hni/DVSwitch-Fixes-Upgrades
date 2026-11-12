@@ -1,6 +1,7 @@
-/* Version: 1.2.0 — derive the displayed ASL node from the relocated network card. */
+/* Version: 1.2.1 — make ASL Gateway Activity span the shared activity column. */
 /* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
 /* Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — search the relocated sidebar card for connected ASL nodes. */
+/* Updated: 2026-11-11T23:15:00-05:00 by KE2HNI — make ASL Gateway Activity match the full Gateway Activity panel width. */
 (function () {
   'use strict';
 
@@ -270,11 +271,11 @@
     if (activity || !document.getElementById('lastHerd')) return;
     activity = document.createElement('section');
     activity.id = 'dvs-asl-activity'; activity.hidden = true;
-    // Keep the ASL activity section fluid so it follows the dashboard viewport width.
-    activity.style.cssText = 'margin:8px auto';
+    // Stretch the ASL panel across the shared activity column, including inside the M17 flex layout.
+    activity.style.cssText = 'width:100%;max-width:100%;box-sizing:border-box;align-self:stretch;margin:8px 0;text-align:center';
     var title = document.createElement('span'); title.textContent = 'ASL Gateway Activity'; title.style.cssText = 'font-weight:bold;font-size:14px';
     var card = document.createElement('fieldset');
-    card.style.cssText = 'box-shadow:0 0 10px #999;background-color:#e8e8e8e8;width:95%;margin:10px auto 0;font-size:12px;border-radius:10px';
+    card.style.cssText = 'box-shadow:0 0 10px #999;background-color:#e8e8e8e8;width:100%;max-width:100%;box-sizing:border-box;margin:10px 0 0;font-size:12px;border-radius:10px';
     var table = document.createElement('table'); table.style.cssText = 'width:100%;margin-top:3px;border-collapse:collapse';
     var header = document.createElement('tr');
     ['Time', 'Mode', 'Node', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER'].forEach(function (text) { var th = document.createElement('th'); th.textContent = text; header.appendChild(th); });
