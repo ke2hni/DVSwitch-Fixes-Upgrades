@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test91
+# Version: 1.0.0-test92
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
-# Updated: 2026-11-12T16:45:00-05:00 by KE2HNI — recognize multi-digit DMR helper marker versions during safe uninstall.
+# Updated: 2026-11-12T17:00:00-05:00 by KE2HNI — recognize multi-digit markers and remove orphaned helpers when DMR rows are already absent.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — bump installer for alphabetical mode button display.
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — optionally import standalone M17 favorites when first installing shared controls.
 set -Eeuo pipefail
 
-VERSION="1.0.0-test91"
+VERSION="1.0.0-test92"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -237,7 +237,8 @@ def patch_status(text: str) -> tuple[str, bool]:
     if not helpers_present and heading_count == 0 and display_count == 0:
         return text, False
     expected_displays = 2 if marker_version >= 7 else 1
-    if len(marker_matches) != 1 or heading_count != 1 or display_count != expected_displays:
+    rows_absent = heading_count == 0 and display_count == 0
+    if len(marker_matches) != 1 or (not rows_absent and (heading_count != 1 or display_count != expected_displays)):
         marker_versions = [match.group(1) for match in marker_matches]
         raise UnsafeStructure(
             "status.php contains incomplete or duplicate Buttons DMR markers "
@@ -268,13 +269,17 @@ def patch_status(text: str) -> tuple[str, bool]:
     helper_region = text[marker.start():close_tag]
     connecting_rows = text.count(BUTTONS_CONNECTING_OUTPUT)
     if marker_version >= 7:
-        if connecting_rows != 1:
-            raise UnsafeStructure("status.php is missing the supported DMR connecting row")
-        text = text.replace(BUTTONS_CONNECTING_OUTPUT, NOT_CONNECTED_ROW, 1)
-        if text.count(BUTTONS_CONNECTING_CONDITION) == 1:
-            text = text.replace(BUTTONS_CONNECTING_CONDITION, LEGACY_CONNECTING_CONDITION, 1)
-        elif text.count(LEGACY_CONNECTING_CONDITION) != 1:
-            raise UnsafeStructure("status.php DMR connection-state condition is unsupported")
+        if rows_absent:
+            if connecting_rows != 0:
+                raise UnsafeStructure("status.php has a connecting DMR row without its Buttons heading and display rows")
+        else:
+            if connecting_rows != 1:
+                raise UnsafeStructure("status.php is missing the supported DMR connecting row")
+            text = text.replace(BUTTONS_CONNECTING_OUTPUT, NOT_CONNECTED_ROW, 1)
+            if text.count(BUTTONS_CONNECTING_CONDITION) == 1:
+                text = text.replace(BUTTONS_CONNECTING_CONDITION, LEGACY_CONNECTING_CONDITION, 1)
+            elif text.count(LEGACY_CONNECTING_CONDITION) != 1:
+                raise UnsafeStructure("status.php DMR connection-state condition is unsupported")
     elif connecting_rows > 0:
         raise UnsafeStructure("status.php has a connecting row without its matching marker version")
     function_pattern = re.compile(
@@ -291,11 +296,13 @@ def patch_status(text: str) -> tuple[str, bool]:
     )
     heading_replacement = MODS_HEADING if mods_helpers else FACTORY_HEADING
     output_replacement = MODS_OUTPUT if mods_helpers else FACTORY_OUTPUT
-    if text.count(BUTTONS_HEADING) != 1 or text.count(BUTTONS_OUTPUT) != 1:
-        raise UnsafeStructure("status.php active DMR rows do not match the supported Buttons structure")
-
-    result = text.replace(BUTTONS_HEADING, heading_replacement, 1)
-    result = result.replace(BUTTONS_OUTPUT, output_replacement, 1)
+    if rows_absent:
+        result = text
+    else:
+        if text.count(BUTTONS_HEADING) != 1 or text.count(BUTTONS_OUTPUT) != 1:
+            raise UnsafeStructure("status.php active DMR rows do not match the supported Buttons structure")
+        result = text.replace(BUTTONS_HEADING, heading_replacement, 1)
+        result = result.replace(BUTTONS_OUTPUT, output_replacement, 1)
     # Remove only the Buttons marker and helper functions. Keep adjacent
     # helpers owned by DVSwitch-Mods or local dashboard customizations intact.
     result = result[:marker.start()] + stripped_helpers + result[close_tag:]

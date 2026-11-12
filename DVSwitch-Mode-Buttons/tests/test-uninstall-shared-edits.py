@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Version: 1.0.1; Created: 2026-11-12T16:45:00-05:00 by KE2HNI. Verify Buttons shared-file cleanup including multi-digit helper versions."""
+"""Version: 1.0.2; Created: 2026-11-12T16:45:00-05:00 by KE2HNI; Updated: 2026-11-12T17:00:00-05:00 by KE2HNI. Verify Buttons shared-file cleanup including multi-digit markers and orphaned helpers."""
 
 from __future__ import annotations
 
@@ -95,6 +95,22 @@ class SharedFileUninstallTests(unittest.TestCase):
 
         self.assertTrue(changed)
         self.assertNotIn("standalone DMR Master display v10", cleaned)
+        self.assertEqual(PATCH.patch_status(cleaned), (cleaned, False))
+
+    def test_removes_orphaned_helpers_without_changing_other_dmr_rows(self) -> None:
+        status = status_fixture().replace(PATCH.BUTTONS_HEADING, "current dashboard heading", 1)
+        status = status.replace(PATCH.BUTTONS_OUTPUT, "current dashboard row", 1)
+        status = status.replace(PATCH.BUTTONS_CONNECTING_CONDITION, "current connection condition", 1)
+        status = status.replace(PATCH.BUTTONS_CONNECTING_OUTPUT, "current connection row", 1)
+
+        cleaned, changed = PATCH.patch_status(status)
+
+        self.assertTrue(changed)
+        self.assertNotIn("standalone DMR Master display v8", cleaned)
+        self.assertNotIn("function dvsButtonsDmrMasterDisplay(", cleaned)
+        self.assertIn("current dashboard heading", cleaned)
+        self.assertIn("current dashboard row", cleaned)
+        self.assertIn("current connection row", cleaned)
         self.assertEqual(PATCH.patch_status(cleaned), (cleaned, False))
 
     def test_restores_factory_rows_when_no_mods_dmr_helper_exists(self) -> None:
