@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.1
+# Version: 1.0.2
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00Z by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00Z by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
 # Updated: 2026-11-12T11:40:00-05:00 by KE2HNI — allow removal of the DVSwitch Quantar_Bridge package reported by APT.
+# Updated: 2026-11-12T11:50:00-05:00 by KE2HNI — allow installed DVSwitch protocol parrot packages in the purge simulation.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
@@ -17,7 +18,7 @@ readonly ASL_BACKUPS=/var/backups/dvswitch-mods/asl3-support
 readonly ASL_REPAIR_BACKUPS=/var/backups/dvswitch-mods/asl-mode-switch
 readonly M17_SUPPORT_BACKUPS=/var/backups/dvswitch-mods/m17-private-node-switch
 readonly RECOVERY_ROOT=/var/backups/dvswitch-mods/repo-uninstall
-readonly CORE_PACKAGES=(dvswitch-server dvswitch-dashboard mmdvm-bridge analog-bridge quantar-bridge ysfgateway p25gateway nxdngateway ircddbgateway stfu)
+readonly CORE_PACKAGES=(dvswitch-server dvswitch-dashboard mmdvm-bridge analog-bridge quantar-bridge ysfgateway p25gateway nxdngateway ircddbgateway stfu nxdnparrot p25parrot ysfparrot)
 readonly CORE_DIRS=(/opt/MMDVM_Bridge /opt/Analog_Bridge /opt/YSFClients /opt/P25Clients /opt/NXDNClients /opt/STFU /opt/dvswitch-m17)
 readonly REPO_DATA=(/etc/dvswitch-mode-buttons /var/lib/dvswitch-mode-buttons /etc/dvswitch-asl3-support /var/lib/dvswitch-m17-dashboard /var/lib/dvswitch-m17-bridge /var/lib/dvswitch-mods /etc/dvswitch-m17-dashboard /var/lib/mmdvm/M17Hosts.json /var/log/usrp2m17)
 die(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -143,7 +144,7 @@ remove_packages(){
   if (("${#installed[@]}")); then apt-get purge "${installed[@]}"; fi
 }
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
-  printf 'DVSwitch test-node uninstaller 1.0.1\nUsage: sudo %s --plan|--remove\n' "$0"
+  printf 'DVSwitch test-node uninstaller 1.0.2\nUsage: sudo %s --plan|--remove\n' "$0"
   exit 0
 fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
