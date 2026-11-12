@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Version: 1.1.1
+# Version: 1.1.2
 # Created: 2026-10-26T13:07:55-04:00 by KE2HNI
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — permanently clear links that could reconnect after private-mode switching.
+# Updated: 2026-11-11T23:35:00-05:00 by KE2HNI — publish ASL as selected only after the private bridge is restored.
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
@@ -31,10 +32,11 @@ case "$action" in
     DISCONNECT_ALL) ilink='' ;;
     ENSURE_BRIDGE) ilink=3 ;;
     SWITCH_PRIVATE|SWITCH_DVSWITCH) ilink=3 ;;
+    SET_ASL_MODE) ilink='' ;;
     *) die 'Unsupported ASL link action.' ;;
 esac
 [[ -z "${option:-}" || ( "$action" == CONNECT && "$option" == DISCONNECT_BEFORE_CONNECT ) ]] || die 'Disconnect before Connect is valid only for Connect.'
-if [[ "$action" == DISCONNECT_ALL || "$action" == ENSURE_BRIDGE || "$action" == SWITCH_DVSWITCH ]]; then
+if [[ "$action" == DISCONNECT_ALL || "$action" == ENSURE_BRIDGE || "$action" == SWITCH_DVSWITCH || "$action" == SET_ASL_MODE ]]; then
     [[ -z "${target:-}" ]] || die 'Disconnect All does not take a node number.'
 else
     [[ "${target:-}" =~ ^[0-9]{1,8}$ ]] && ((10#$target > 0)) || die 'Enter a non-zero numeric AllStar node number.'
@@ -140,6 +142,18 @@ wait_for_connection() {
     die "Connect was sent to local public ASL node $public_node, but external node $target_node did not reach ESTABLISHED state within 30 seconds."
 }
 
+publish_asl_mode() {
+    local state_dir state_file temporary
+    for state_dir in /var/lib/dvswitch-mode-buttons /var/lib/dvswitch-m17-dashboard; do
+        [[ -d "$state_dir" && ! -L "$state_dir" ]] || continue
+        state_file="$state_dir/current-mode"
+        temporary=$(mktemp "$state_dir/.current-mode.XXXXXX") || die "Could not stage ASL mode state in $state_dir."
+        printf 'ASL\n' > "$temporary"
+        chown root:root "$temporary" && chmod 0644 "$temporary" || { rm -f "$temporary"; die "Could not set ASL mode state permissions in $state_dir."; }
+        mv -f "$temporary" "$state_file" || { rm -f "$temporary"; die "Could not publish ASL mode state in $state_dir."; }
+    done
+}
+
 if [[ "$action" == ENSURE_BRIDGE ]]; then
     ensure_bridge
 elif [[ "$action" == DISCONNECT_ALL ]]; then
@@ -148,6 +162,9 @@ elif [[ "$action" == SWITCH_PRIVATE ]]; then
     switch_private_node "$target"
 elif [[ "$action" == SWITCH_DVSWITCH ]]; then
     switch_private_node "$private_node"
+elif [[ "$action" == SET_ASL_MODE ]]; then
+    publish_asl_mode
+    printf 'PASS: ASL selected-mode state published.\n'
 else
     if [[ "$action" == CONNECT || "$action" == MONITOR || "$action" == LOCAL_MONITOR ]]; then ensure_bridge; fi
     # Replace external links only when Connect explicitly requests it; the helper always excludes the private bridge.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.1.7
+# Version: 1.1.8
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -8,6 +8,7 @@
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — verify standalone install path and optional Mode Buttons handoff.
 # Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — prevent network cards from flashing during status refreshes.
 # Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — verify left cards occupy the status sidebar below the status panels.
+# Updated: 2026-11-11T23:45:00-05:00 by KE2HNI — verify M17 display is not hidden by the ASL transport mode.
 # Updated: 2026-11-11T13:25:00-05:00 by KE2HNI — verify M17 Net is placed in the right column for visual balance.
 # Updated: 2026-11-11T13:45:00-05:00 by KE2HNI — verify centered matching activity panels and consistent side-card insets.
 # Updated: 2026-11-11T14:00:00-05:00 by KE2HNI — verify equal activity gaps and right-card edge alignment.
@@ -232,8 +233,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert 'M17-123-C\tFriendly Room C' in history.read_text()
     layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
     card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
-    assert 'function dvsM17LiveBridgeMode()' in card
-    assert "in_array(dvsM17LiveBridgeMode(), array('ASL', 'ASL3'), true)" in card
+    assert 'function dvsM17LiveBridgeMode()' not in card
+    assert 'Analog_Bridge can' in card and 'report ASL while the selected and connected M17 mode is active' in card
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
     assert 'dvs-network-cards-left' in layout and 'dvs-network-cards-right' in layout
     assert "info.parentNode.insertBefore(host, info.nextSibling)" in layout

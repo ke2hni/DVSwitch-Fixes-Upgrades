@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.11
-# Updated: 2026-11-11T11:35:00-05:00 by KE2HNI
+# Version: 1.0.13
+# Updated: 2026-11-11T23:45:00-05:00 by KE2HNI — verify ASL restores selected-mode state and refresh stale integration assertions.
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -43,7 +43,7 @@ require('CONTROL_ENDPOINT_TARGET' in SUPPORT and 'FAVORITES_HELPER_TARGET' in SU
         'ASL install must own and install its dashboard controls')
 require("'action' => 'mode'" not in CONTROL and "'mode'" in CONTROL and
         "'/opt/MMDVM_Bridge/dvswitch.sh', 'mode', 'ASL'" in CONTROL and
-        'ENSURE_BRIDGE' in CONTROL and "'saveFavorites'" in CONTROL,
+        'ENSURE_BRIDGE' in CONTROL and 'SET_ASL_MODE' in CONTROL and "'saveFavorites'" in CONTROL,
         'ASL endpoint must select mode, establish the local bridge, and save favorites')
 require("'/usr/local/sbin/dvswitch-asl3-node-link'" in CONTROL and
         "'/usr/local/sbin/dvswitch-asl3-favorites'" in CONTROL and
@@ -54,9 +54,9 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         "getElementById('dvs-target-input')" in DASHBOARD and "'Node #'" in DASHBOARD and
         "'TG/Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
         'ASL dashboard must own its mode button and reuse the shared target form')
-require("input.maxLength = 35" in DASHBOARD and "input.style.width = '10ch'" in DASHBOARD and
-        "node.style.width = '10ch'" in DASHBOARD and
-        'maxlength="35"' in DASHBOARD and 'width:10ch' in DASHBOARD,
+require("input.maxLength = 35" in DASHBOARD and "input.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
+        "node.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
+        'maxlength="35"' in DASHBOARD and 'width:calc(10ch + 18px)' in DASHBOARD,
         'ASL shared tuner must stay compact and accept the 35-character field limit')
 require("select.replaceChildren(new Option('Select favorite', ''));" in DASHBOARD and
         DASHBOARD.index("select.replaceChildren(new Option('Select favorite', ''));", DASHBOARD.index('function loadAslFavorites')) <
@@ -71,7 +71,7 @@ require("window.setInterval(refreshActivity, 5000)" in DASHBOARD and
         'ASL mode selection must not poll stale digital-button state or let it hide the shared tuner')
 require('watchAnalogBridgeInfo()' in DASHBOARD and 'new MutationObserver' in DASHBOARD and
         "mode === 'ASL' ? 'Node' : 'Tx TG/Ref'" in DASHBOARD and
-        "connectedNodes.join(', ') : '-'" in DASHBOARD,
+        "var nodes = currentAslNodes();" in DASHBOARD and "nodes.length ? nodes.join(', ') : '-'" in DASHBOARD,
         'the Analog_Bridge target row must survive status refreshes and show connected ASL nodes or a hyphen')
 require("var mode = modeFromAnalogBridge();" in DASHBOARD and
         "if (document.getElementById('dvs-mode-buttons') && activeMode)" in DASHBOARD and
@@ -81,6 +81,9 @@ require("var mode = modeFromAnalogBridge();" in DASHBOARD and
 require("'/etc/dvswitch-asl3-support/favorites.json'" in ACTIVITY and
         "$names[(string)$favorite['node']] = trim($favorite['name'])" in ACTIVITY,
         'user-defined ASL favorite names must override long ASTDB labels in activity rows')
+require(CONTROL.index('"ENSURE_BRIDGE\\n"') < CONTROL.index('"SET_ASL_MODE\\n"') and
+        'publish_asl_mode()' in LINK and "printf 'ASL\\n' > \"$temporary\"" in LINK,
+        'ASL selected-mode state must be published only after restoring the private bridge')
 require('ASL_NODE_HELPER' not in BUTTONS and 'mode ASL' not in BUTTONS and
         'ASL' not in BUTTON_JS and 'legacy_asl_button' in BUTTONS and '--install will remove it' in BUTTONS,
         'Mode Buttons must have no ASL behavior and must identify the old embedded button for migration')
@@ -93,7 +96,7 @@ require('wait_for_connection "$target"' in LINK and 'did not reach ESTABLISHED s
 require('disconnect external links before leaving ASL' in PATCHER and
         'dvswitch-asl3-node-link || return 1' in PATCHER,
         'ASL-owned dvswitch.sh repair must remove external links on every ASL exit')
-require("# Version: 1.0.0-test88" in BUTTON_HELPER and
+require("# Version: 1.0.0-test90" in BUTTON_HELPER and
         "previous_live_mode=$(read_live_mode)" in BUTTON_HELPER and
         'if [[ "$previous_mode" == ASL || "$previous_live_mode" == ASL ]]; then' in BUTTON_HELPER and
         "NOTICE: retrying the mode command after ASL link cleanup." in BUTTON_HELPER and

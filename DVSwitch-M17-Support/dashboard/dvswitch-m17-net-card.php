@@ -1,29 +1,20 @@
 <?php
 // DVSwitch-M17-Dashboard: M17 Net card v1
-// Version: 1.0.4; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Version: 1.0.5; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
 // Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — provide the selected M17 target for Analog Bridge status display.
 // Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — keep the M17 room name orange like other Net cards.
 // Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — read standalone M17 mode state when Mode Buttons is absent.
 // Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — only show M17 status when the live Analog_Bridge mode is M17.
 // Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — preserve M17 display while Analog_Bridge retains an unrelated previous DV mode.
-
-function dvsM17LiveBridgeMode() {
-    $files = glob('/tmp/ABInfo_*.json') ?: array();
-    if (!$files) { return ''; }
-    usort($files, static function ($a, $b) { return (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0); });
-    $data = json_decode((string)@file_get_contents($files[0]), true);
-    if (!is_array($data)) { return ''; }
-    return strtoupper(trim((string)($data['tlv']['ambe_mode'] ?? $data['ambe_mode'] ?? '')));
-}
+// Updated: 2026-11-11T23:35:00-05:00 by KE2HNI — treat selected M17 private-node state as authoritative while Analog_Bridge reports ASL.
 
 function dvsM17CurrentDisplayTarget() {
     $modePath = is_readable('/var/lib/dvswitch-mode-buttons/current-mode')
         ? '/var/lib/dvswitch-mode-buttons/current-mode'
         : '/var/lib/dvswitch-m17-dashboard/current-mode';
     if (!is_readable($modePath) || strtoupper(trim((string)file_get_contents($modePath))) !== 'M17') { return null; }
-    // M17 is routed through a separate USRP2M17 private node, so Analog_Bridge
-    // may still report the previous DV mode. ASL is the signal to suppress M17.
-    if (in_array(dvsM17LiveBridgeMode(), array('ASL', 'ASL3'), true)) { return null; }
+    // M17 is routed through its own private USRP node, so Analog_Bridge can
+    // report ASL while the selected and connected M17 mode is active.
     $config = @parse_ini_file('/etc/USRP2M17.ini', true, INI_SCANNER_RAW);
     $network = is_array($config) && isset($config['M17 Network']) ? $config['M17 Network'] : array();
     $name = isset($network['Name']) ? trim((string)$network['Name']) : '';
