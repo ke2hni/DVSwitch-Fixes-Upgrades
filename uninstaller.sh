@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.1
+# Version: 1.1.2
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00-05:00 by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00-05:00 by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
@@ -16,12 +16,12 @@
 # Updated: 2026-11-12T18:51:00-05:00 by KE2HNI — bypass incomplete component rollback during complete package removal.
 # Updated: 2026-11-12T19:05:00-05:00 by KE2HNI — purge orphaned packages while protecting ASL, Asterisk, and the running kernel.
 # Updated: 2026-11-12T19:36:00-05:00 by KE2HNI — handle an already-removed backup directory during repeat runs.
+# Updated: 2026-11-12T19:40:00-05:00 by KE2HNI — remove Mode Buttons files directly after DVSwitch package removal.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
 readonly ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly MODS="$ROOT/DVSwitch-Mods/manage-dvswitch-mods.sh"
-readonly BUTTONS="$ROOT/DVSwitch-Mode-Buttons/dvswitch-mode-buttons.sh"
 readonly M17="$ROOT/DVSwitch-M17-Support"
 readonly ASL_BACKUPS=/var/backups/dvswitch-mods/asl3-support
 readonly ASL_REPAIR_BACKUPS=/var/backups/dvswitch-mods/asl-mode-switch
@@ -134,7 +134,9 @@ remove_addons(){
   [[ ! -L /usr/local/bin/dvs-dvswitch || $(readlink /usr/local/bin/dvs-dvswitch) == /usr/local/lib/dvswitch-m17-support/dvs-dvswitch ]] || die 'Refusing to remove an unrelated /usr/local/bin/dvs-dvswitch.'
   rm -f /etc/dvswitch-m17-support.conf /usr/local/sbin/dvswitch-m17-node-link /usr/local/bin/m17 /usr/local/bin/dvs-dvswitch
   rm -rf /usr/local/lib/dvswitch-m17-support
-  [[ ! -f "$BUTTONS" ]] || (cd "$(dirname "$BUTTONS")" && bash ./dvswitch-mode-buttons.sh --uninstall-for-final-removal)
+  # Do not call the Buttons installer here: it validates the now-purged bridge
+  # before dispatching its final-removal mode.
+  rm -f /usr/local/sbin/dvswitch-mode-buttons /usr/local/sbin/dvswitch-dmr-network /usr/local/sbin/dvswitch-mode-targets /usr/local/sbin/dvswitch-mode-tune /usr/local/sbin/dvswitch-mode-favorites /usr/share/dvswitch/dvswitch-mode-favorites.js /usr/share/dvswitch/dvswitch-mode-buttons.php /etc/sudoers.d/dvswitch-mode-buttons /usr/local/sbin/dvswitch-dmr-network.tmp.*
   restore_asl
   # The restored ASL snapshot can contain the M17 bridge's marked node stanza.
   # Strip only that owned block after restoring the ASL 3 configuration.
@@ -183,7 +185,7 @@ remove_packages(){
   check_autoremove
   apt-get autoremove --purge
 }
-if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.1.1\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.1.2\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
 [[ $EUID -eq 0 ]] || die 'Run with sudo.'
 plan
