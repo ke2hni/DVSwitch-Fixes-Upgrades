@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.9
+# Version: 1.1.0
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00-05:00 by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00-05:00 by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
@@ -14,6 +14,7 @@
 # Updated: 2026-11-12T18:40:00-05:00 by KE2HNI — final teardown removes owned files without creating backups or using legacy restore.
 # Updated: 2026-11-12T18:42:00-05:00 by KE2HNI — recognize legacy USRP2M17 config and service signatures during removal.
 # Updated: 2026-11-12T18:51:00-05:00 by KE2HNI — bypass incomplete component rollback during complete package removal.
+# Updated: 2026-11-12T19:05:00-05:00 by KE2HNI — purge orphaned packages while protecting ASL, Asterisk, and the running kernel.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
@@ -25,10 +26,24 @@ readonly ASL_BACKUPS=/var/backups/dvswitch-mods/asl3-support
 readonly ASL_REPAIR_BACKUPS=/var/backups/dvswitch-mods/asl-mode-switch
 readonly CORE_PACKAGES=(dvswitch-server dvswitch-dashboard mmdvm-bridge analog-bridge quantar-bridge ysfgateway p25gateway nxdngateway ircddbgateway stfu nxdnparrot p25parrot ysfparrot)
 readonly CORE_DIRS=(/opt/MMDVM_Bridge /opt/Analog_Bridge /opt/YSFClients /opt/P25Clients /opt/NXDNClients /opt/STFU /opt/dvswitch-m17 /usr/local/lib/dvswitch-m17-support /usr/share/dvswitch)
-readonly REPO_DATA=(/etc/dvswitch-mode-buttons /var/lib/dvswitch-mode-buttons /etc/dvswitch-asl3-support /var/lib/dvswitch-m17-dashboard /var/lib/dvswitch-m17-bridge /var/lib/dvswitch-mods /etc/dvswitch-m17-dashboard /var/lib/mmdvm/M17Hosts.json /var/log/usrp2m17)
+readonly REPO_DATA=(/etc/dvswitch-mode-buttons /var/lib/dvswitch-mode-buttons /etc/dvswitch-asl3-support /var/lib/dvswitch-m17-dashboard /var/lib/dvswitch-m17-bridge /var/lib/dvswitch-mods /etc/dvswitch-m17-dashboard /var/lib/mmdvm/M17Hosts.json /var/log/usrp2m17 /var/log/ircddbgateway)
 die(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 has_pkg(){ dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null | grep -qx installed; }
 latest_install_backup(){ find "$1" -mindepth 1 -maxdepth 1 -type d -name 'install-*' -printf '%f\n' 2>/dev/null | sort | tail -n 1; }
+check_autoremove(){
+  local simulated removed base
+  simulated=$(apt-get -s autoremove --purge) || die 'APT could not simulate autoremove; no changes made.'
+  printf '\nAPT autoremove simulation (orphaned packages):\n'
+  while read -r _ removed _; do
+    [[ -n $removed ]] || continue
+    printf '  %s\n' "$removed"
+    base=${removed%%:*}
+    case "$base" in
+      asterisk|asterisk-*|asl3|asl3-*|linux-image-*|raspberrypi-kernel*|raspi-firmware|raspi-utils)
+        die "APT autoremove would remove protected ASL/Asterisk or boot package $removed; no changes made." ;;
+    esac
+  done < <(printf '%s\n' "$simulated" | awk '$1=="Remv" || $1=="Purg"')
+}
 plan(){
   printf 'Host: %s\n' "$(hostname -s)"
   has_pkg asl3-asterisk || die 'ASL 3 package asl3-asterisk is not installed; refusing cleanup.'
@@ -53,11 +68,12 @@ plan(){
       [[ $base != asterisk && $base != asl3-asterisk ]] || die "APT simulation would remove protected ASL/Asterisk package $removed."
     done < <(printf '%s\n' "$simulated" | awk '$1=="Remv" || $1=="Purg"')
   fi
+  check_autoremove
   printf 'Existing DVSwitch application directories (will be removed):\n'
   for p in "${CORE_DIRS[@]}"; do [[ ! -e $p ]] || printf '  %s\n' "$p"; done
   printf 'Repository-owned state, catalogs, and prior repository backups will be removed; no new backups will be created.\n'
   printf 'Component rollback snapshots will not be replayed; DVSwitch dashboard and bridge files are removed in full.\n'
-  printf 'Will not autoremove dependencies or remove Debian, ASL 3/Asterisk, Allmon3, or unrelated user data.\n'
+  printf 'Orphaned packages will be purged after simulation; ASL 3/Asterisk and boot packages are protected.\n'
 }
 restore_asl(){
   local b name state target
@@ -160,8 +176,10 @@ remove_packages(){
   local -a installed=(); local p
   for p in "${CORE_PACKAGES[@]}"; do has_pkg "$p" && installed+=("$p"); done
   if (( ${#installed[@]} )); then apt-get purge "${installed[@]}"; fi
+  check_autoremove
+  apt-get autoremove --purge
 }
-if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.0.9\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.1.0\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
 [[ $EUID -eq 0 ]] || die 'Run with sudo.'
 plan
@@ -175,4 +193,4 @@ stop_dvswitch_services
 remove_packages
 remove_core_directories
 if command -v asterisk >/dev/null 2>&1; then asterisk -rx 'module reload app_rpt.so' >/dev/null 2>&1 || printf 'NOTICE: reload app_rpt.so manually to apply restored ASL node configuration.\n'; fi
-printf '\nPASS: add-ons and allowlisted DVSwitch packages removed. No autoremove was run; Debian and ASL 3 remain.\n'
+printf '\nPASS: DVSwitch packages and orphaned dependencies removed. Debian, ASL 3/Asterisk, and the running kernel remain.\n'
