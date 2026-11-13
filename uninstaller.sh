@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.0
+# Version: 1.1.1
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00-05:00 by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00-05:00 by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
@@ -15,6 +15,7 @@
 # Updated: 2026-11-12T18:42:00-05:00 by KE2HNI — recognize legacy USRP2M17 config and service signatures during removal.
 # Updated: 2026-11-12T18:51:00-05:00 by KE2HNI — bypass incomplete component rollback during complete package removal.
 # Updated: 2026-11-12T19:05:00-05:00 by KE2HNI — purge orphaned packages while protecting ASL, Asterisk, and the running kernel.
+# Updated: 2026-11-12T19:36:00-05:00 by KE2HNI — handle an already-removed backup directory during repeat runs.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
@@ -29,7 +30,10 @@ readonly CORE_DIRS=(/opt/MMDVM_Bridge /opt/Analog_Bridge /opt/YSFClients /opt/P2
 readonly REPO_DATA=(/etc/dvswitch-mode-buttons /var/lib/dvswitch-mode-buttons /etc/dvswitch-asl3-support /var/lib/dvswitch-m17-dashboard /var/lib/dvswitch-m17-bridge /var/lib/dvswitch-mods /etc/dvswitch-m17-dashboard /var/lib/mmdvm/M17Hosts.json /var/log/usrp2m17 /var/log/ircddbgateway)
 die(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 has_pkg(){ dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null | grep -qx installed; }
-latest_install_backup(){ find "$1" -mindepth 1 -maxdepth 1 -type d -name 'install-*' -printf '%f\n' 2>/dev/null | sort | tail -n 1; }
+latest_install_backup(){
+  [[ -d $1 ]] || return 0
+  find "$1" -mindepth 1 -maxdepth 1 -type d -name 'install-*' -printf '%f\n' 2>/dev/null | sort | tail -n 1 || true
+}
 check_autoremove(){
   local simulated removed base
   simulated=$(apt-get -s autoremove --purge) || die 'APT could not simulate autoremove; no changes made.'
@@ -179,7 +183,7 @@ remove_packages(){
   check_autoremove
   apt-get autoremove --purge
 }
-if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.1.0\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.1.1\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
 [[ $EUID -eq 0 ]] || die 'Run with sudo.'
 plan
