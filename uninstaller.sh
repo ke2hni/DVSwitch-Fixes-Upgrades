@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.8
+# Version: 1.0.9
 # Created: 2026-11-12T15:45:00Z by KE2HNI
 # Updated: 2026-11-12T16:10:00-05:00 by KE2HNI — stop DVSwitch units before removing binaries and reload restored ASL link configuration.
 # Updated: 2026-11-12T16:20:00-05:00 by KE2HNI — include M17 monitor state and logs in the retained recovery archive.
@@ -13,6 +13,7 @@
 # Updated: 2026-11-12T17:30:00-05:00 by KE2HNI — remove Buttons helpers without mutating shared dashboard or bridge files.
 # Updated: 2026-11-12T18:40:00-05:00 by KE2HNI — final teardown removes owned files without creating backups or using legacy restore.
 # Updated: 2026-11-12T18:42:00-05:00 by KE2HNI — recognize legacy USRP2M17 config and service signatures during removal.
+# Updated: 2026-11-12T18:51:00-05:00 by KE2HNI — bypass incomplete component rollback during complete package removal.
 # Test-node teardown for this repository; preserves Debian and ASL 3.
 set -Eeuo pipefail
 umask 077
@@ -55,6 +56,7 @@ plan(){
   printf 'Existing DVSwitch application directories (will be removed):\n'
   for p in "${CORE_DIRS[@]}"; do [[ ! -e $p ]] || printf '  %s\n' "$p"; done
   printf 'Repository-owned state, catalogs, and prior repository backups will be removed; no new backups will be created.\n'
+  printf 'Component rollback snapshots will not be replayed; DVSwitch dashboard and bridge files are removed in full.\n'
   printf 'Will not autoremove dependencies or remove Debian, ASL 3/Asterisk, Allmon3, or unrelated user data.\n'
 }
 restore_asl(){
@@ -129,13 +131,12 @@ marker='; DVSwitch-M17-Bridge v1'
 text='\n'.join(line for line in text.splitlines() if marker not in line)+'\n'
 p.write_text(text,encoding='utf-8')
 PY_M17_NODE_REMOVE
-  if [[ -f /opt/MMDVM_Bridge/dvswitch.sh ]]; then
-    b=$(find "$ASL_REPAIR_BACKUPS" -mindepth 1 -maxdepth 1 -type d -name 'install-*' -printf '%f\n' 2>/dev/null | sort | head -n 1 || true)
-    [[ -z $b ]] || bash "$ROOT/DVSwitch-ASL3-Mod-Support/repair-dvswitch-asl-mode-switch.sh" --restore "$b"
-  fi
-  if [[ -s /var/lib/dvswitch-mods/manager/active-installs.tsv ]]; then bash "$MODS" --uninstall all; fi
-  [[ ! -d /usr/share/dvswitch/.dvs-dashboard-theme-original ]] || bash "$ROOT/DVSwitch-Mods/dvswitch-dark-mode.sh" restore-original
-  [[ ! -d /usr/share/dvswitch/.dvs-dashboard-display-original ]] || bash "$ROOT/DVSwitch-Mode-Buttons/dvswitch-display-layout.sh" restore-original
+  # Component rollback is not required when the package-owned bridge and
+  # dashboard trees are being purged. Some legacy component snapshots are
+  # incomplete; replaying them would stop removal midway through teardown.
+  local unit
+  for unit in dvswitch-mods-activity-mode-history.path dvswitch-fcc-first-names-update.timer; do systemctl disable --now "$unit" >/dev/null 2>&1 || true; done
+  rm -f /etc/systemd/system/dvswitch-mods-activity-mode-history.service /etc/systemd/system/dvswitch-mods-activity-mode-history.path /etc/systemd/system/dvswitch-fcc-first-names-update.service /etc/systemd/system/dvswitch-fcc-first-names-update.timer /usr/local/sbin/dvswitch-mods-activity-mode-history /usr/local/sbin/dvswitch-mods-record-dmr-network /usr/local/sbin/dvswitch-fcc-first-names-update /etc/logrotate.d/STFU
   systemctl daemon-reload
   apache2ctl configtest >/dev/null 2>&1 && systemctl reload apache2 >/dev/null 2>&1 || true
 }
@@ -150,6 +151,8 @@ stop_dvswitch_services(){
 remove_repo_data(){
   local p
   for p in "${REPO_DATA[@]}"; do [[ ! -e $p && ! -L $p ]] || rm -rf -- "$p"; done
+  rm -rf /etc/dvswitch-mods
+  rm -f /var/lib/mmdvm/dvswitch-mods-fcc-first-names.dat /var/lib/mmdvm/dvswitch-mods-cty.dat /var/lib/mmdvm/dvswitch-mods-dmr-state.json
   for p in /var/backups/dvswitch-mods /var/backups/dvswitch-mode-buttons; do [[ ! -e $p && ! -L $p ]] || rm -rf -- "$p"; done
   [[ ! -d /var/backups/dvswitch-mods ]] || rmdir /var/backups/dvswitch-mods 2>/dev/null || true
 }
@@ -158,7 +161,7 @@ remove_packages(){
   for p in "${CORE_PACKAGES[@]}"; do has_pkg "$p" && installed+=("$p"); done
   if (( ${#installed[@]} )); then apt-get purge "${installed[@]}"; fi
 }
-if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.0.8\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then printf 'DVSwitch test-node uninstaller 1.0.9\nUsage: sudo %s --plan|--remove\n' "$0"; exit 0; fi
 [[ $# -eq 1 && ( $1 == --plan || $1 == --remove ) ]] || die "Usage: sudo $0 --plan|--remove"
 [[ $EUID -eq 0 ]] || die 'Run with sudo.'
 plan
