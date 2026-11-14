@@ -1,6 +1,6 @@
 # Install and Configure the USRP2M17 M17 Bridge
 
-<!-- Version: 1.0.5 | Created: 2026-11-10T19:00:00-05:00 by KE2HNI; Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — document independent option 9 install path. -->
+<!-- Version: 1.0.6 | Created: 2026-11-10T19:00:00-05:00 by KE2HNI; Updated: 2026-11-13T21:52:49-05:00 by KE2HNI — document the repository upgrade path for unreadable bridge config files. -->
 
 <!-- Version: 1.0.2; Created: 2026-11-09T18:43:31-05:00; Created by KE2HNI -->
 
@@ -92,6 +92,7 @@ The uninstaller asks whether to delete the installer-owned MMDVM_CM source check
 - **The selected port is occupied**: choose a different unused port. Keep the Asterisk side and USRP2M17 side distinct, and do not duplicate another private USRP node’s pair.
 - **A node number already exists**: choose a new unused M17 private node number. The installer does not overwrite an existing node stanza with different settings.
 - **The private node does not show after install**: restart Asterisk, then check sudo asterisk -rx "rpt localnodes" and the service log.
+- **The M17 Net card is missing or the RX audio monitor reports that `[USRP Network]` is unavailable**: run manager option 8 and choose Install or upgrade USRP2M17, then run option 9 and choose Install M17 dashboard support again. Bridge installer v1.1.2 and later writes `/etc/USRP2M17.ini` with mode `0644`, repairing older installs that left it at `0600`; option 9 then restarts the monitor.
 - **Service fails with `status=200/CHDIR` or `Permission denied`**: installer v1.0.4 and later fixes access on the source directories. For an existing installation, run `sudo chmod 755 /opt/dvswitch-m17 /opt/dvswitch-m17/MMDVM_CM /opt/dvswitch-m17/MMDVM_CM/USRP2M17`, then restart `usrp2m17.service`.
 - **Upgrade reports local changes in MMDVM_CM**: installer v1.0.5 and later cleans the executable and compiler outputs created by its previous build, then checks for remaining changes. If the message persists, inspect `/opt/dvswitch-m17/MMDVM_CM` for your own edits before changing or removing them.
 - **The reflector list cannot be downloaded**: confirm Internet access. The installer can continue if you provide the reflector name, numeric IPv4 address, and UDP port from the official M17 host list.

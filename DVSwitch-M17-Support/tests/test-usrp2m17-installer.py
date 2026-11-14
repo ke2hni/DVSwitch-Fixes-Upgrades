@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# Version: 1.1.3
+# Version: 1.1.4
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
 # Updated: 2026-11-13T21:04:52-05:00 by KE2HNI — verify the bridge config is readable by the Apache dashboard user.
+# Updated: 2026-11-13T21:52:49-05:00 by KE2HNI — verify upgrade repairs a bridge config left at mode 0600.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -292,6 +293,8 @@ def main() -> None:
                 BRIDGE.install()
                 assert paths["CONFIG"].stat().st_mode & 0o777 == 0o644
                 original_backup = __import__("json").loads(paths["STATE_FILE"].read_text())["backup"]
+                # Reproduce older installs that created the INI under umask 077.
+                paths["CONFIG"].chmod(0o600)
                 BRIDGE.install()
                 assert paths["CONFIG"].stat().st_mode & 0o777 == 0o644
                 upgraded = __import__("json").loads(paths["STATE_FILE"].read_text())
