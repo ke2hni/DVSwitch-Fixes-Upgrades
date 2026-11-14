@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.8
+# Version: 1.0.9
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
-# Updated: 2026-11-13T19:55:31-05:00 by KE2HNI — adopt the M17 node reserved by M17 Support and restore pre-existing stanza settings on uninstall.
+# Updated: 2026-11-13T20:05:45-05:00 by KE2HNI — allow ports reserved by the adopted M17 USRP node and patch the upstream missing fixed-width integer include during builds.
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
@@ -25,7 +25,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -140,6 +140,12 @@ def node_channel(section: list[str]) -> str | None:
     if len(values) > 1:
         raise SetupError("A node stanza contains more than one active rxchannel setting.")
     return values[0] if values else None
+
+
+def node_channel_ports(channel: str) -> set[int]:
+    """Return the loopback UDP ports already reserved by a USRP rxchannel."""
+    match = re.fullmatch(r"usrp/[^:]+:(\d+):(\d+)", channel.strip(), re.I)
+    return {int(match.group(1)), int(match.group(2))} if match else set()
 
 
 def discover_private_nodes(data: str) -> dict[str, str]:
@@ -505,6 +511,16 @@ def ensure_source() -> bytes:
                 raise SetupError("The checked-out USRP2M17 source has an unsupported activity-log structure; no binary was installed.")
             text = text.replace(old, new, 1)
         source.write_text(text, encoding="utf-8")
+        # Upstream Conf.h uses uint16_t/uint32_t without including their defining header.
+        conf_header = build_project / "Conf.h"
+        header_text = conf_header.read_text(encoding="utf-8")
+        if "#include <cstdint>" not in header_text:
+            vector_include = "#include <vector>"
+            if header_text.count(vector_include) != 1:
+                raise SetupError("The checked-out Conf.h has an unsupported include structure; no binary was installed.")
+            header_text = header_text.replace(vector_include,
+                                              "#include <cstdint>\n" + vector_include, 1)
+            conf_header.write_text(header_text, encoding="utf-8")
         run(["make"], cwd=build_project)
         built = build_project / "USRP2M17"
         if not built.is_file():
@@ -565,6 +581,8 @@ def collect_values(private: dict[str, str], previous_state: dict[str, object],
         if match and {asl_port, usrp_port} & {int(match.group(1)), int(match.group(2))}:
             raise SetupError(f"Ports conflict with private USRP node {node}; choose two unused ports.")
     current_settings = saved if isinstance(saved, dict) else {}
+    # Asterisk already binds the ports named by the reserved M17 rxchannel; those are expected, not conflicts.
+    reserved_m17_ports = node_channel_ports(private.get(m17_node, ""))
     def port_available(port: int, setting: str) -> bool:
         configured_value = {
             "asl_local": old_usrp.get("dstport", ""),
@@ -572,7 +590,8 @@ def collect_values(private: dict[str, str], previous_state: dict[str, object],
             "m17_local": existing.get("M17 Network", {}).get("localport", ""),
         }.get(setting, "")
         imported_port = configured_value.isdigit() and int(configured_value) == port
-        return udp_port_free(port) or int(current_settings.get(setting, -1)) == port or imported_port
+        return (port in reserved_m17_ports or udp_port_free(port)
+                or int(current_settings.get(setting, -1)) == port or imported_port)
 
     if not port_available(asl_port, "asl_local"):
         raise SetupError(f"Asterisk-side USRP port {asl_port} is already occupied; choose another port.")

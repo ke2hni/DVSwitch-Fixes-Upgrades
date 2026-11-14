@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.4.6; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-13T19:55:31-05:00 by KE2HNI — document option 8 adoption of option 7's reserved node. -->
+<!-- Version: 1.4.7; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-13T20:05:45-05:00 by KE2HNI — document reserved M17 port adoption and the upstream build compatibility fix. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -17,7 +17,7 @@ Run `sudo PYTHONDONTWRITEBYTECODE=1 python3 DVSwitch-M17-Support/tests/test-m17-
 
 ## Full USRP2M17 bridge installation
 
-The command installer above only installs the mode-switch commands. To install the actual M17 network bridge, choose manager option 8 directly; the bridge installer asks which private node is used by DVSwitch and which separate private node is used by M17. It adopts the M17 node number saved by option 7, including a pre-existing USRP stanza, and changes only that stanza's `rxchannel` when needed. Its original channel is restored on uninstall if it has not been changed since installation. The new interactive installer downloads and builds USRP2M17 from the upstream nostar/MMDVM_CM GitHub repository, asks for the M17 node number and port assignments, configures the reflector and Asterisk private node, and creates a systemd service. It also installs or updates the independent M17/DVSwitch exclusive-switch commands.
+The command installer above only installs the mode-switch commands. To install the actual M17 network bridge, choose manager option 8 directly; the bridge installer asks which private node is used by DVSwitch and which separate private node is used by M17. It adopts the M17 node number saved by option 7, including a pre-existing USRP stanza, and treats the ports in that reserved stanza as expected Asterisk bindings. It changes only that stanza's `rxchannel` when needed; its original channel is restored on uninstall if it has not been changed since installation. During compilation, a temporary copy of upstream `Conf.h` receives the missing fixed-width integer header include; the upstream checkout remains unmodified. The interactive installer downloads and builds USRP2M17 from the upstream nostar/MMDVM_CM GitHub repository, configures the reflector and Asterisk private node, and creates a systemd service. It also installs or updates the independent M17/DVSwitch exclusive-switch commands.
 
 Follow [INSTALL-USRP2M17.md](INSTALL-USRP2M17.md) for the complete first-time instructions, verification commands, and uninstall procedure. The interactive installer can also be run directly from the combined repository root with `sudo ./DVSwitch-M17-Support/dvswitch-m17-bridge.py`.
 

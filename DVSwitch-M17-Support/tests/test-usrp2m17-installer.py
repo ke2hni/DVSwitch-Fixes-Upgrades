@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Version: 1.0.9
+# Version: 1.1.0
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
-# Updated: 2026-11-13T19:55:31-05:00 by KE2HNI — cover adoption and uninstall restoration of the option 7 reserved M17 node.
+# Updated: 2026-11-13T20:05:45-05:00 by KE2HNI — cover reserved-node ports and the upstream fixed-width integer header build fix.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -33,6 +33,8 @@ def main() -> None:
     assert private == {"1970": "USRP/127.0.0.1:34001:32001"}
     assert BRIDGE.validate_node("1972", "M17 node") == "1972"
     assert BRIDGE.validate_port("34008", "USRP port") == 34008
+    assert BRIDGE.node_channel_ports("USRP/127.0.0.1:34008:32008") == {34008, 32008}
+    assert BRIDGE.node_channel_ports("SimpleUSB/446901") == set()
 
     with tempfile.TemporaryDirectory() as directory:
         # Upgrade must clean its prior untracked build binary before the cleanliness check.
@@ -41,6 +43,7 @@ def main() -> None:
         project = source / "USRP2M17"
         project.mkdir(parents=True)
         (project / "Makefile").write_text("all:\n", encoding="utf-8")
+        (project / "Conf.h").write_text("#include <vector>\n", encoding="utf-8")
         (project / "USRP2M17.cpp").write_text(
             'LogMessage("M17 received end of voice transmission, %.1f seconds", float(m_m17Frames) / 25.0F);\n'
             'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);\n',
@@ -50,6 +53,7 @@ def main() -> None:
         old_source_root, old_install_root, old_run = (
             BRIDGE.SOURCE_ROOT, BRIDGE.INSTALL_ROOT, BRIDGE.run)
         calls = []
+        patched_headers = []
 
         def fake_git_run(command, **kwargs):
             calls.append(command)
@@ -62,6 +66,7 @@ def main() -> None:
             elif command[0] == "git" and "pull" in command:
                 pass
             elif command[0] == "make":
+                patched_headers.append((Path(kwargs["cwd"]) / "Conf.h").read_text(encoding="utf-8"))
                 Path(kwargs["cwd"] / "USRP2M17").write_text("rebuilt executable\n", encoding="utf-8")
             return subprocess.CompletedProcess(command, 0, "", "")
 
@@ -73,6 +78,8 @@ def main() -> None:
             assert not binary.exists(), "the clean upstream checkout must not retain the patched temporary build"
             assert any(call[:2] == ["make", "clean"] for call in calls)
             assert any("--untracked-files=all" in call for call in calls)
+            assert patched_headers and "#include <cstdint>" in patched_headers[0]
+            assert "#include <cstdint>" not in (project / "Conf.h").read_text(encoding="utf-8")
             assert all(path.stat().st_mode & 0o777 == 0o755
                        for path in (root, source, project))
         finally:
