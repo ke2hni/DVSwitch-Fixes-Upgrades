@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.1.9
+# Version: 1.2.0
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -22,6 +22,7 @@
 # Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — verify dedicated M17 USRP PCM extraction and installer wiring.
 # Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — prevent M17 layout wrapping from dropping the ASL Gateway Activity section.
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover stable DMR card identity across BM/TGIF heading changes.
+# Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover URF module ports, row ports, omitted-port fallback, and invalid explicit ports.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -62,6 +63,20 @@ def main():
             'designator': 'URF-001', 'name': 'Multi Mode', 'enabled_modes': ['DMR', 'M17'],
             'modules': [{'module': 'A', 'mode': 'DMR'}, {'module': 'C', 'mode': 'M17'}],
             'ipv4': '192.0.2.124', 'port': 17000,
+        }, {
+            'designator': 'URF-718', 'name': 'URF Missing Port', 'modules': ['A', 'C'],
+            'ipv4': '192.0.2.125',
+        }, {
+            'designator': 'URF-MODULE', 'name': 'URF Module Port', 'modules': [
+                {'module': 'A', 'mode': 'M17', 'port': 18000},
+                {'module': 'C', 'mode': 'M17', 'port': 17001},
+            ], 'ipv4': '192.0.2.126', 'port': 17000,
+        }, {
+            'designator': 'URF-STRING', 'name': 'URF String Port', 'modules': ['C'],
+            'ipv4': '192.0.2.127', 'port': '17002',
+        }, {
+            'designator': 'URF-BAD', 'name': 'URF Invalid Port', 'modules': ['C'],
+            'ipv4': '192.0.2.128', 'port': 'invalid',
         }]}), encoding='utf-8')
         old_catalog = SELECT.CATALOG
         SELECT.CATALOG = catalog
@@ -69,6 +84,15 @@ def main():
             item = SELECT.read_catalog_target('M17-123-C')
             assert item == ('M17-123', 'C', '192.0.2.123', 17000, 'Test Reflector C')
             assert SELECT.read_catalog_target('URF-001-C')[1] == 'C'
+            assert SELECT.read_catalog_target('URF-718-C')[3] == 17000
+            assert SELECT.read_catalog_target('URF-MODULE-C')[3] == 17001
+            assert SELECT.read_catalog_target('URF-STRING-C')[3] == 17002
+            try:
+                SELECT.read_catalog_target('URF-BAD-C')
+            except ValueError as error:
+                assert 'invalid reflector UDP port' in str(error)
+            else:
+                raise AssertionError('explicit invalid reflector port was accepted')
             try:
                 SELECT.read_catalog_target('M17-123-B')
             except ValueError as error:

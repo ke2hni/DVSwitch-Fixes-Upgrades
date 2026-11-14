@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.0
+# Version: 1.0.1
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — accept URF entries with module or row ports and default omitted M17 reflector ports.
 """Select an M17 reflector by updating USRP2M17's INI and restarting its service."""
 
 import configparser
@@ -50,6 +51,27 @@ def reflector_modules(row):
     return result
 
 
+def reflector_udp_port(row, module, designator):
+    port = None
+    found = False
+    for item in row.get('modules', []) if isinstance(row.get('modules'), list) else []:
+        if isinstance(item, dict) and str(item.get('module', '')).upper() == module:
+            if 'port' in item:
+                port = item['port']
+                found = True
+            break
+    if not found and 'port' in row:
+        port = row['port']
+        found = True
+    if not found:
+        port = 17000
+    if isinstance(port, str) and re.fullmatch(r'\s*[0-9]+\s*', port):
+        port = int(port.strip())
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise ValueError(f'{designator} has an invalid reflector UDP port.')
+    return port
+
+
 def read_catalog_target(target):
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,35}', target):
         raise ValueError('Enter a valid M17 reflector-module target.')
@@ -69,9 +91,7 @@ def read_catalog_target(target):
             address = str(ipaddress.IPv4Address(str(address)))
         except ipaddress.AddressValueError as error:
             raise ValueError(f'{designator} has no numeric IPv4 address accepted by USRP2M17.') from error
-        port = row.get('port')
-        if not isinstance(port, int) or not 1 <= port <= 65535:
-            raise ValueError(f'{designator} has an invalid reflector UDP port.')
+        port = reflector_udp_port(row, module, designator)
         friendly = row.get('name') if isinstance(row.get('name'), str) else designator
         return designator, module, address, port, f'{friendly.strip()} {module}'.strip()
     raise ValueError(f'{target} is not listed as an active M17 reflector module in the local catalog.')
