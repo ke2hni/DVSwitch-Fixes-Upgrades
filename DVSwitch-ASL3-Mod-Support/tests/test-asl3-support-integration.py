@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.13
-# Updated: 2026-11-11T23:45:00-05:00 by KE2HNI — verify ASL restores selected-mode state and refresh stale integration assertions.
+# Version: 1.0.14
+# Updated: 2026-11-14T13:35:00Z by KE2HNI — verify starter ASL favorites seed fresh installs after migration.
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -102,16 +102,29 @@ require("# Version: 1.0.0-test90" in BUTTON_HELPER and
         "NOTICE: retrying the mode command after ASL link cleanup." in BUTTON_HELPER and
         "mode_is_live \"$live_mode\" || die 'Analog_Bridge did not confirm the requested mode after leaving ASL.'" in BUTTON_HELPER,
         'digital mode selection must detect a live ASL state, retry once, and confirm the bridge before saving button state')
-match = re.search(r"python3 - \"\$FAVORITES_FILE\" <<'PY_ASL_FAVORITES_MIGRATE'\n(.*?)^PY_ASL_FAVORITES_MIGRATE$", SUPPORT, re.M | re.S)
-require(match is not None, 'ASL installer must migrate prior user-saved ASL favorites')
+match = re.search(r"python3 - \"\$FAVORITES_FILE\" \"\$FAVORITES_STARTER\" <<'PY_ASL_FAVORITES_MIGRATE'\n(.*?)^PY_ASL_FAVORITES_MIGRATE$", SUPPORT, re.M | re.S)
+require(match is not None and '"$FAVORITES_STARTER"' in SUPPORT,
+        'ASL installer must seed fresh favorites and migrate prior user-saved ASL favorites')
 with tempfile.TemporaryDirectory() as directory:
     folder = Path(directory)
     legacy = folder / 'legacy.json'
     destination = folder / 'favorites.json'
-    legacy.write_text(json.dumps({'ASL': [{'name': 'Parrot test', 'target': '55553'}, {'name': 'Invalid', 'target': '0'}]}))
+    starter = folder / 'starter.json'
+    starter_items = json.loads((ROOT / 'favorites.json').read_text())
+    starter.write_text(json.dumps(starter_items))
     migration = match.group(1).replace('/etc/dvswitch-mode-buttons/favorites.json', str(legacy))
-    result = subprocess.run([sys.executable, '-c', migration, str(destination)], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, '-c', migration, str(destination), str(starter)], capture_output=True, text=True)
+    require(result.returncode == 0, 'fresh ASL favorite seeding failed: ' + result.stderr)
+    require(json.loads(destination.read_text()) == starter_items,
+            'fresh install must seed the destination from the bundled favorites.json')
+
+    destination.unlink()
+    legacy.write_text(json.dumps({'ASL': [{'name': 'Parrot test', 'target': '55553'}, {'name': 'Invalid', 'target': '0'}]}))
+    result = subprocess.run([sys.executable, '-c', migration, str(destination), str(starter)], capture_output=True, text=True)
     require(result.returncode == 0, 'ASL favorite migration failed: ' + result.stderr)
     require(json.loads(destination.read_text()) == [{'name': 'Parrot test', 'node': '55553'}],
             'migration must preserve valid old favorites and reject invalid node numbers')
+    destination.write_text('[{"name":"User favorite","node":"12345"}]')
+    require('if [[ ! -e "$FAVORITES_FILE" ]]' in SUPPORT,
+            'ASL installer must preserve an already installed user favorites file')
 print('PASS: ASL dashboard, mode transition repair, link controls, and favorites are ASL-owned; Mode Buttons has no ASL runtime dependency.')

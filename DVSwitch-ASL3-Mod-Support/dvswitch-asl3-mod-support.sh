@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.0
-# Created: 2026-10-26T13:07:55-04:00 by KE2HNI
+# Version: 1.1.10
+# Updated: 2026-11-14T13:35:00Z by KE2HNI — seed fresh ASL favorites from the bundled starter file.
 
 set -Eeuo pipefail
 umask 077
@@ -23,6 +23,7 @@ readonly ACTIVITY_STATUS_HELPER="$SCRIPT_DIR/dvswitch-asl3-ami-status.py"
 readonly DASHBOARD_JS="$SCRIPT_DIR/dvswitch-asl3-dashboard.js"
 readonly CONTROL_ENDPOINT="$SCRIPT_DIR/dvswitch-asl3-control.php"
 readonly FAVORITES_HELPER="$SCRIPT_DIR/dvswitch-asl3-favorites.py"
+readonly FAVORITES_STARTER="$SCRIPT_DIR/favorites.json"
 readonly DASHBOARD_CARD="$SCRIPT_DIR/dvswitch-asl3-net-card.php"
 readonly AUDIO_PROXY_CONF="$SCRIPT_DIR/apache/dvswitch-asl3-webproxy.conf.in"
 readonly HELPER_TARGET="/usr/local/sbin/dvswitch-asl3-node-link"
@@ -78,6 +79,7 @@ preflight() {
     require_file "$DASHBOARD_JS"
     require_file "$CONTROL_ENDPOINT"
     require_file "$FAVORITES_HELPER"
+    require_file "$FAVORITES_STARTER"
     require_file "$DASHBOARD_CARD"
     require_file "$AUDIO_PROXY_CONF"
     require_file "$DASHBOARD_SYSTEM"
@@ -327,13 +329,14 @@ run_install() {
     install -o root -g root -m 0644 "$DASHBOARD_JS" "$DASHBOARD_JS_TARGET"
     install -o root -g root -m 0644 "$CONTROL_ENDPOINT" "$CONTROL_ENDPOINT_TARGET"
     install -o root -g root -m 0755 "$FAVORITES_HELPER" "$FAVORITES_HELPER_TARGET"
-    # Preserve existing ASL favorites created by an older Mode Buttons release during the ownership move.
+    # Keep existing favorites, migrate legacy ASL entries, or seed fresh installs from the bundled starter list.
     if [[ ! -e "$FAVORITES_FILE" ]]; then
-        python3 - "$FAVORITES_FILE" <<'PY_ASL_FAVORITES_MIGRATE'
+        python3 - "$FAVORITES_FILE" "$FAVORITES_STARTER" <<'PY_ASL_FAVORITES_MIGRATE'
 import json, os, sys, tempfile
 from pathlib import Path
 
 destination = Path(sys.argv[1])
+starter = Path(sys.argv[2])
 legacy = Path('/etc/dvswitch-mode-buttons/favorites.json')
 favorites = []
 try:
@@ -347,6 +350,19 @@ try:
             favorites.append({'name': name[:64], 'node': node})
 except (OSError, ValueError, TypeError):
     pass
+if not favorites:
+    try:
+        sample = json.loads(starter.read_text(encoding='utf-8'))
+        if isinstance(sample, list):
+            for item in sample:
+                if not isinstance(item, dict):
+                    continue
+                node = str(item.get('node', '')).strip()
+                name = str(item.get('name', '')).strip()
+                if node.isdigit() and 1 <= len(node) <= 8 and int(node) > 0 and name:
+                    favorites.append({'name': name[:64], 'node': node})
+    except (OSError, ValueError, TypeError):
+        pass
 fd, temporary = tempfile.mkstemp(prefix='.favorites.', dir=destination.parent)
 try:
     with os.fdopen(fd, 'w', encoding='utf-8') as output:
