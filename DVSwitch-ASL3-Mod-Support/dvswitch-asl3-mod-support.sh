@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.10
-# Updated: 2026-11-14T15:05:00-05:00 by KE2HNI — seed fresh ASL favorites from the bundled starter file.
+# Version: 1.1.11
+# Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — seed starter favorites and install theme-aware Tune text colors.
 
 set -Eeuo pipefail
 umask 077

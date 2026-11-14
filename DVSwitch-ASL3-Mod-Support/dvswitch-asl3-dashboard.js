@@ -1,8 +1,8 @@
-/* Version: 1.2.2 — keep the ASL Tune input text aligned with the active dashboard theme. */
+/* Version: 1.2.4 — use the light-theme contrast color in the Tune field. */
 /* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
 /* Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — search the relocated sidebar card for connected ASL nodes. */
 /* Updated: 2026-11-11T23:15:00-05:00 by KE2HNI — make ASL Gateway Activity match the full Gateway Activity panel width. */
-/* Updated: 2026-11-14T15:05:00-05:00 by KE2HNI — inherit the dashboard theme text color in the shared Tune field. */
+/* Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — use subdued brown in light theme and light text in dark theme. */
 (function () {
   'use strict';
 
@@ -111,7 +111,6 @@
       input.maxLength = 35;
       input.style.boxSizing = 'border-box';
       input.style.width = 'calc(10ch + 18px)';
-      input.style.color = 'inherit';
     }
     document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]').forEach(function (button) {
       if (button.dataset.mode === 'ASL') button.classList.toggle('selected', activeMode === 'ASL');
@@ -483,7 +482,7 @@
     if (initialMode) setTargetLabel(initialMode);
     watchAnalogBridgeInfo();
     var themeStyle = document.createElement('style');
-    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}#dvs-asl-mode-buttons button.selected{background-color:#008000}';
+    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-light #dvs-target-input,body.theme-auto:not(.dvs-prefers-dark) #dvs-target-input{color:#6b2f00!important}body.theme-dark #dvs-target-input,body.theme-auto.dvs-prefers-dark #dvs-target-input{color:#e5e7eb!important}#dvs-asl-mode-buttons button.selected{background-color:#008000}';
     document.head.appendChild(themeStyle);
   });
   document.addEventListener('click', function (event) {

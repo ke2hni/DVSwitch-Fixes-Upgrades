@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.2.2
+/* DVSwitch M17 dashboard layout v1.2.3
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -12,6 +12,7 @@
  * Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — make both side card columns equal width so the activity panels center between them.
  * Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — correct measured 10-pixel outer inset mismatch and preserve equal inner gaps.
  * Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — route M17 RX Monitor to M17 audio and restore the normal monitor outside M17.
+ * Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — use subdued light-theme M17 text with a dark-theme override.
  * Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — preserve the ASL Gateway Activity section when wrapping the dashboard activity layout.
  * Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — reuse one network-card panel when the DMR heading changes between BM and TGIF.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
@@ -69,6 +70,7 @@
       '.dvs-network-card-panel{background-color:#e8e8e8e8;width:100%;box-sizing:border-box;margin:6px 0 8px;padding:4px;font-size:12px;border-radius:10px}',
       '.dvs-network-card-panel table{width:100%;table-layout:fixed;margin:0}',
       '.dvs-network-card-panel th,.dvs-network-card-panel td{overflow-wrap:anywhere;word-break:normal}',
+      'body.theme-light .dvs-m17-reflector-label,body.theme-auto:not(.dvs-prefers-dark) .dvs-m17-reflector-label{color:#6b2f00!important}body.theme-dark .dvs-m17-reflector-label,body.theme-auto.dvs-prefers-dark .dvs-m17-reflector-label{color:#e5e7eb!important}',
       'body.theme-dark .dvs-network-cards *,body.theme-auto.dvs-prefers-dark .dvs-network-cards *{border-color:#374151!important}',
       '@media(max-width:1100px){#dvs-network-layout{grid-template-columns:minmax(0,1fr)}#dvs-gateway-activity{grid-column:1;grid-row:1;width:100%}.dvs-network-cards-right{grid-column:1;grid-row:2;left:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:0 8px;padding:0}}',
       '@media(max-width:650px){.dvs-network-cards-right{grid-template-columns:repeat(2,minmax(0,1fr))}}'
