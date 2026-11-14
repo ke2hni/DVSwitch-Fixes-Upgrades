@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.1.1
+# Version: 1.1.2
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
-# Updated: 2026-11-13T20:38:48-05:00 by KE2HNI — preserve valid existing local node maps and avoid disabling a unit before systemd has loaded it.
+# Updated: 2026-11-13T21:04:52-05:00 by KE2HNI — make the non-secret bridge config readable by Apache for the M17 Net card and dashboard.
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
@@ -25,7 +25,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -700,6 +700,8 @@ def install() -> None:
         os.chown(LOG_DIR, asl.pw_uid, asl.pw_gid)
         CONFIG.write_text(make_config(values), encoding="utf-8")
         os.chown(CONFIG, asl.pw_uid, asl.pw_gid)
+        # Apache's PHP dashboard reads this non-secret config to render the M17 Net card.
+        os.chmod(CONFIG, 0o644)
         SERVICE.write_text(service_text(), encoding="utf-8")
         SERVICE.chmod(0o644)
         original_channel: list[str] = []
