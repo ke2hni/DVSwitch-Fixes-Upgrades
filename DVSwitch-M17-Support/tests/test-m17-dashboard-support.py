@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.1.8
+# Version: 1.1.9
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -21,6 +21,7 @@
 # Updated: 2026-11-11T16:05:00-05:00 by KE2HNI — verify M17 target survives unrelated Analog_Bridge modes and RX label swaps.
 # Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — verify dedicated M17 USRP PCM extraction and installer wiring.
 # Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — prevent M17 layout wrapping from dropping the ASL Gateway Activity section.
+# Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover stable DMR card identity across BM/TGIF heading changes.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -28,6 +29,7 @@ import io
 import json
 import os
 import re
+import shutil
 import socket
 import stat
 import struct
@@ -255,7 +257,15 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'left.replaceChildren()' not in layout and 'right.replaceChildren()' not in layout
     assert 'if (observer) observer.disconnect();' in layout
     assert 'if (observer) observer.observe(info, { childList: true, subtree: true });' in layout
-    assert 'item.dataset.cardName === card.name' in layout
+    assert "function cardIdentity(name)" in layout
+    assert "return /^DMR\\s+(?:BM|TGIF)\\s+Master$/i.test(name) ? 'DMR Master' : name;" in layout
+    assert 'item.dataset.cardIdentity === card.identity' in layout
+    assert 'panel.dataset.cardIdentity = card.identity' in layout
+    identity = re.search(r'function cardIdentity\(name\) \{.*?\n  \}', layout, re.S)
+    assert identity, 'stable DMR card identity helper is missing'
+    if shutil.which('node'):
+        node_check = identity.group(0) + "\nif (cardIdentity('DMR BM Master') !== 'DMR Master' || cardIdentity('DMR TGIF Master') !== 'DMR Master' || cardIdentity('P25 Net') !== 'P25 Net') process.exit(1);\n"
+        subprocess.run(['node', '-e', node_check], check=True)
     assert "document.createElement('fieldset')" in layout and 'dvs-network-card-panel' in layout
     assert 'alignLeftCards' not in layout
     assert 'window.setInterval(start' not in layout

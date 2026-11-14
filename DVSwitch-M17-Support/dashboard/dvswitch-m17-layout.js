@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.2.1
+/* DVSwitch M17 dashboard layout v1.2.2
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -13,6 +13,7 @@
  * Updated: 2026-11-11T15:00:00-05:00 by KE2HNI — correct measured 10-pixel outer inset mismatch and preserve equal inner gaps.
  * Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — route M17 RX Monitor to M17 audio and restore the normal monitor outside M17.
  * Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — preserve the ASL Gateway Activity section when wrapping the dashboard activity layout.
+ * Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — reuse one network-card panel when the DMR heading changes between BM and TGIF.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -23,6 +24,10 @@
   var modeObservers = [];
   var bodyObserver = null;
   var m17Audio = {active: false, socket: null, pcm: null, button: null, defaultColor: ''};
+
+  function cardIdentity(name) {
+    return /^DMR\s+(?:BM|TGIF)\s+Master$/i.test(name) ? 'DMR Master' : name;
+  }
 
   function makeLayout() {
     var activity = document.getElementById('lastHerd');
@@ -94,7 +99,8 @@
 
     var cards = Array.from(info.querySelectorAll('table')).map(function (table) {
       var heading = table.querySelector('th');
-      return { table: table, name: heading ? heading.textContent.replace(/\s+/g, ' ').trim() : '' };
+      var name = heading ? heading.textContent.replace(/\s+/g, ' ').trim() : '';
+      return { table: table, name: name, identity: cardIdentity(name) };
     }).filter(function (card) { return cardNames.has(card.name) || /^DMR\s+.+\s+Master$/i.test(card.name); });
 
     if (!cards.length) return;
@@ -105,12 +111,12 @@
     cards.forEach(function (card, index) {
       var target = index < 3 && card.name !== 'M17 Net' ? left : right;
       var panel = Array.from(document.querySelectorAll('.dvs-network-card-panel')).find(function (item) {
-        return item.dataset.cardName === card.name;
+        return item.dataset.cardIdentity === card.identity;
       });
       if (!panel) {
         panel = document.createElement('fieldset');
         panel.className = 'dvs-network-card-panel';
-        panel.dataset.cardName = card.name;
+        panel.dataset.cardIdentity = card.identity;
       }
       var oldTable = panel.querySelector('table');
       if (oldTable !== card.table) {
