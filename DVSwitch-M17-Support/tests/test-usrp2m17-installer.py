@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# Version: 1.0.8
+# Version: 1.0.9
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
+# Updated: 2026-11-13T19:55:31-05:00 by KE2HNI — cover adoption and uninstall restoration of the option 7 reserved M17 node.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -124,6 +125,37 @@ def main() -> None:
         assert BRIDGE.matching_imported_node(
             {"1970": "USRP/127.0.0.1:34001:32001",
              "1972": "USRP/127.0.0.1:34008:32008"}) == "1972"
+
+        # Option 7 reserves the M17 node, while option 8 must update its rxchannel only.
+        support_config = temp_root / "dvswitch-m17-support.conf"
+        support_config.write_text(
+            "M17_PRIVATE_NODE=1974\nDVSWITCH_PRIVATE_NODE=1973\n", encoding="utf-8")
+        old_support_config = BRIDGE.SUPPORT_CONFIG
+        BRIDGE.SUPPORT_CONFIG = support_config
+        assert BRIDGE.configured_m17_node() == "1974"
+        adopted_rpt = temp_root / "adopted-rpt.conf"
+        adopted_rpt.write_text(
+            "[nodes]\n1973 = radio@127.0.0.1:4571/1973,NONE\n"
+            "1974 = radio@127.0.0.1:4571/1974,NONE\n"
+            "[1973](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n"
+            "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n"
+            "idrecording = |iKE2HNI\n", encoding="utf-8")
+        original_channel = []
+        added_node, added_map = BRIDGE.edit_rpt_conf(
+            adopted_rpt, "1974", 34008, 32008,
+            adopt_existing_node=("1974" == BRIDGE.configured_m17_node()),
+            original_channel_out=original_channel)
+        assert not added_node and not added_map
+        adopted_text = adopted_rpt.read_text(encoding="utf-8")
+        assert "[1973](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001" in adopted_text
+        assert "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34008:32008\nidrecording = |iKE2HNI" in adopted_text
+        BRIDGE.remove_managed_rpt(adopted_rpt, {
+            "rpt_added_node": False, "rpt_added_map": False,
+            "rpt_original_channel": original_channel[0],
+            "settings": {"m17_node": "1974", "usrp_local": 34008, "asl_local": 32008}})
+        restored_text = adopted_rpt.read_text(encoding="utf-8")
+        assert "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\nidrecording = |iKE2HNI" in restored_text
+        BRIDGE.SUPPORT_CONFIG = old_support_config
 
         rpt = Path(directory) / "rpt.conf"
         rpt.write_text(sample, encoding="utf-8")

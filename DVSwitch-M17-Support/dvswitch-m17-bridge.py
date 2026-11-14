@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.7
+# Version: 1.0.8
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
+# Updated: 2026-11-13T19:55:31-05:00 by KE2HNI — adopt the M17 node reserved by M17 Support and restore pre-existing stanza settings on uninstall.
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
@@ -24,7 +25,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -37,6 +38,7 @@ STATE_ROOT = Path("/var/lib/dvswitch-m17-bridge")
 STATE_FILE = STATE_ROOT / "install-state.json"
 BACKUP_ROOT = Path("/var/backups/dvswitch-mods/usrp2m17")
 RPT_CONF = Path("/etc/asterisk/rpt.conf")
+SUPPORT_CONFIG = Path("/etc/dvswitch-m17-support.conf")
 SUPPORT_INSTALLER = Path(__file__).with_name("dvswitch-m17-support.sh")
 BEGIN = "; BEGIN DVSwitch-M17-Bridge managed private node v1"
 END = "; END DVSwitch-M17-Bridge managed private node v1"
@@ -236,20 +238,33 @@ def select_reflector(existing: dict[str, dict[str, str]]) -> tuple[str, str, int
 
 
 def private_node_selection(private: dict[str, str]) -> str:
-    saved_path = Path("/etc/dvswitch-m17-support.conf")
+    saved_path = SUPPORT_CONFIG
     saved_match = re.search(r"(?m)^DVSWITCH_PRIVATE_NODE=([0-9]+)$", saved_path.read_text(encoding="utf-8")) if saved_path.is_file() else None
     saved = saved_match.group(1) if saved_match else ""
+    m17_saved = configured_m17_node()
     if saved and saved not in private:
         raise SetupError(f"M17 Support records DVSwitch node {saved}, but it is not a private USRP node in rpt.conf.")
     print("Configured private USRP nodes:")
     for node, channel in private.items():
-        label = "DVSwitch (saved by M17 Support)" if node == saved else "available for another service"
+        # Distinguish both option 7 selections from unrelated private-node entries.
+        label = ("DVSwitch (saved by M17 Support)" if node == saved else
+                 "M17 (saved by M17 Support)" if node == m17_saved else
+                 "available for another service")
         print(f"  {node}: {channel} — {label}")
     selected = validate_node(prompt("Which private node number is used for DVSwitch?", saved or None),
                              "DVSwitch private node")
     if selected not in private:
         raise SetupError(f"Node {selected} is not configured as a private USRP node in rpt.conf.")
     return selected
+
+
+def configured_m17_node() -> str:
+    """Read the M17 node reserved by option 7 so the bridge can adopt it."""
+    if not SUPPORT_CONFIG.is_file():
+        return ""
+    match = re.search(r"(?m)^M17_PRIVATE_NODE=([0-9]+)$",
+                      SUPPORT_CONFIG.read_text(encoding="utf-8"))
+    return match.group(1) if match else ""
 
 
 def matching_imported_node(private: dict[str, str]) -> str:
@@ -269,7 +284,9 @@ def matching_imported_node(private: dict[str, str]) -> str:
 
 
 def edit_rpt_conf(path: Path, node: str, usrp_local: int, asl_local: int,
-                  *, allow_managed_block: bool = False) -> tuple[bool, bool]:
+                  *, allow_managed_block: bool = False,
+                  adopt_existing_node: bool = False,
+                  original_channel_out: list[str] | None = None) -> tuple[bool, bool]:
     """Add a marked private-node stanza and local node map without guessing IDs."""
     content = path.read_text(encoding="utf-8")
     channel = f"USRP/127.0.0.1:{usrp_local}:{asl_local}"
@@ -289,7 +306,23 @@ def edit_rpt_conf(path: Path, node: str, usrp_local: int, asl_local: int,
     sections = parse_node_sections(content)
     added_node = managed_node_block
     if node in sections:
-        if node_channel(sections[node]) != channel:
+        prior_channel = node_channel(sections[node])
+        if prior_channel != channel and adopt_existing_node:
+            # Change only the reserved node's rxchannel; preserve its other stanza settings.
+            section_header = re.search(rf"(?m)^\[\s*{re.escape(node)}\s*\]\s*(?:\([^)]*\))?\s*$", content)
+            if not section_header:
+                raise SetupError(f"Could not locate the reserved M17 node {node} stanza.")
+            next_header = re.search(r"(?m)^\s*\[", content[section_header.end():])
+            end = section_header.end() + next_header.start() if next_header else len(content)
+            section_text = content[section_header.end():end]
+            rx_line = re.search(r"(?im)^(\s*rxchannel\s*=\s*).*?$", section_text)
+            if not rx_line:
+                raise SetupError(f"Reserved M17 node {node} has no rxchannel setting to update.")
+            if original_channel_out is not None and not original_channel_out:
+                original_channel_out.append(prior_channel or "")
+            section_text = section_text[:rx_line.start()] + rx_line.group(1) + channel + section_text[rx_line.end():]
+            content = content[:section_header.end()] + section_text + content[end:]
+        elif prior_channel != channel:
             raise SetupError(f"Node {node} already exists with another rxchannel; choose a new node ID or reconcile it first.")
     else:
         separator = "" if not content or content.endswith("\n") else "\n"
@@ -340,6 +373,25 @@ def remove_managed_rpt(path: Path, state: dict[str, object]) -> None:
             content = content[:start] + content[end + len(END) + 1:]
         elif BEGIN in content or END in content:
             print("NOTICE: M17 node block was changed after installation; leaving it in rpt.conf.")
+    elif state.get("rpt_original_channel"):
+        # Restore an adopted node only when its rxchannel still matches this install's value.
+        settings = state.get("settings", {})
+        if isinstance(settings, dict):
+            node = str(settings.get("m17_node", ""))
+            installed_channel = f"USRP/127.0.0.1:{settings.get('usrp_local', '')}:{settings.get('asl_local', '')}"
+            sections = parse_node_sections(content)
+            if node in sections and node_channel(sections[node]) == installed_channel:
+                section_header = re.search(rf"(?m)^\[\s*{re.escape(node)}\s*\]\s*(?:\([^)]*\))?\s*$", content)
+                if section_header:
+                    next_header = re.search(r"(?m)^\s*\[", content[section_header.end():])
+                    end = section_header.end() + next_header.start() if next_header else len(content)
+                    section_text = content[section_header.end():end]
+                    rx_line = re.search(r"(?im)^(\s*rxchannel\s*=\s*).*?$", section_text)
+                    if rx_line:
+                        section_text = section_text[:rx_line.start()] + rx_line.group(1) + str(state["rpt_original_channel"]) + section_text[rx_line.end():]
+                        content = content[:section_header.end()] + section_text + content[end:]
+            else:
+                print(f"NOTICE: M17 node {node} changed after installation; leaving its rxchannel in rpt.conf.")
     if state.get("rpt_added_map"):
         content = "".join(line for line in content.splitlines(keepends=True)
                           if NODE_MAP_MARKER not in line)
@@ -482,10 +534,11 @@ def collect_values(private: dict[str, str], previous_state: dict[str, object],
     dv_node = private_node_selection(private)
     saved = previous_state.get("settings", {})
     managed_node = str(saved.get("m17_node", "")) if isinstance(saved, dict) else ""
-    known_node = managed_node or imported_node
+    # Option 7 reserves the M17 node before the bridge adds or adopts its USRP stanza.
+    known_node = managed_node or imported_node or configured_m17_node()
     if imported_node:
         print(f"The existing USRP2M17 settings match private node {imported_node}; this setup will adopt it.")
-    print("Choose an unused numeric M17 private node; it must differ from the DVSwitch node.")
+    print("Select the reserved M17 private node; it must differ from the DVSwitch node.")
     while True:
         m17_node = validate_node(prompt("M17 private node number", known_node or None), "M17 private node")
         if known_node and m17_node != known_node:
@@ -609,9 +662,12 @@ def install() -> None:
         os.chown(CONFIG, asl.pw_uid, asl.pw_gid)
         SERVICE.write_text(service_text(), encoding="utf-8")
         SERVICE.chmod(0o644)
+        original_channel: list[str] = []
         added_node, added_map = edit_rpt_conf(
             RPT_CONF, str(values["m17_node"]), int(values["usrp_local"]),
-            int(values["asl_local"]), allow_managed_block=bool(previous_state))
+            int(values["asl_local"]), allow_managed_block=bool(previous_state),
+            adopt_existing_node=(str(values["m17_node"]) == configured_m17_node()),
+            original_channel_out=original_channel)
         added_node = bool(previous_state.get("rpt_added_node")) or added_node
         added_map = bool(previous_state.get("rpt_added_map")) or added_map
         switch_backup = str(previous_state.get("switch_backup", ""))
@@ -630,6 +686,10 @@ def install() -> None:
                  "created_root": previous_state.get("created_root", created_root),
                  "rpt_added_node": added_node, "rpt_added_map": added_map,
                  "switch_backup": switch_backup, "settings": values}
+        if previous_state.get("rpt_original_channel"):
+            state["rpt_original_channel"] = previous_state["rpt_original_channel"]
+        elif original_channel:
+            state["rpt_original_channel"] = original_channel[0]
         STATE_ROOT.mkdir(parents=True, exist_ok=True, mode=0o755)
         STATE_FILE.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
         print("PASS: USRP2M17 is installed and enabled as usrp2m17.service.")
