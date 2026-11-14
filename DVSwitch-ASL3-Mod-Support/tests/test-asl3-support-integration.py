@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.16
-# Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — verify starter favorites and theme-appropriate Tune contrast.
+# Version: 1.0.17
+# Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — verify starter favorites and light-only Tune contrast correction.
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -55,8 +55,8 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         "'TG/Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
         'ASL dashboard must own its mode button and reuse the shared target form')
 require("input.maxLength = 35" in DASHBOARD and "input.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
-        'body.theme-light #dvs-target-input' in DASHBOARD and 'color:#6b2f00!important' in DASHBOARD and
-        'body.theme-dark #dvs-target-input' in DASHBOARD and 'color:#e5e7eb!important' in DASHBOARD and
+        'body.theme-light #dvs-target-input' in DASHBOARD and 'body.theme-auto:not(.dvs-prefers-dark) #dvs-target-input' in DASHBOARD and
+        'color:#6b2f00!important' in DASHBOARD and 'body.theme-dark #dvs-target-input' not in DASHBOARD and
         "node.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
         'maxlength="35"' in DASHBOARD and 'width:calc(10ch + 18px)' in DASHBOARD,
         'ASL shared tuner must stay compact and accept the 35-character field limit')

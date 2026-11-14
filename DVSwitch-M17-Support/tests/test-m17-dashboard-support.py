@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.2.2
+# Version: 1.2.3
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -13,7 +13,7 @@
 # Updated: 2026-11-11T13:45:00-05:00 by KE2HNI — verify centered matching activity panels and consistent side-card insets.
 # Updated: 2026-11-11T14:00:00-05:00 by KE2HNI — verify equal activity gaps and right-card edge alignment.
 # Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — verify the desktop right card stack is lowered by 20 pixels.
-# Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — verify M17 reflector text uses theme-appropriate contrast.
+# Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — confirm light override and unchanged copper color in dark mode.
 # Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — verify the final one-pixel right offset and Local Activity spacing.
 # Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — verify Analog Bridge first-column labels do not wrap.
 # Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — verify equal side columns center Gateway and Local Activity.
@@ -41,6 +41,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+THEME = (ROOT.parent / 'DVSwitch-Mods' / 'dvswitch-dark-mode.sh').read_text(encoding='utf-8')
 SELECT_PATH = ROOT / 'dashboard/dvswitch-m17-select.py'
 SPEC = importlib.util.spec_from_file_location('dvswitch_m17_select', SELECT_PATH)
 SELECT = importlib.util.module_from_spec(SPEC)
@@ -302,9 +303,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'rx.onclick = rx.dvsM17OriginalHandler || null' in layout
     assert 'window.dvsp.stop()' in layout
     assert 'def extract_pcm' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.py').read_text(encoding='utf-8')
-    assert 'class="dvs-m17-reflector-label"' in card and 'color:#b5651d!important' not in card
-    assert 'body.theme-light .dvs-m17-reflector-label' in layout and 'color:#6b2f00!important' in layout
-    assert 'body.theme-dark .dvs-m17-reflector-label' in layout and 'color:#e5e7eb!important' in layout
+    assert 'color:#b5651d;' in card and 'color:#b5651d!important' not in card
+    assert 'body.theme-light [style*="color:#b5651d"]' in THEME and 'color: #6b2f00 !important;' in THEME
     standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
     api = (ROOT / 'dashboard/dvswitch-m17-dashboard.php').read_text(encoding='utf-8')
     favorites_helper = (ROOT / 'dashboard/dvswitch-m17-favorites.py').read_text(encoding='utf-8')

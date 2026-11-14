@@ -1,8 +1,8 @@
-/* Version: 1.2.4 — use the light-theme contrast color in the Tune field. */
+/* Version: 1.2.5 — keep light-mode Tune contrast correction scoped to light themes. */
 /* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
 /* Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — search the relocated sidebar card for connected ASL nodes. */
 /* Updated: 2026-11-11T23:15:00-05:00 by KE2HNI — make ASL Gateway Activity match the full Gateway Activity panel width. */
-/* Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — use subdued brown in light theme and light text in dark theme. */
+/* Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — correct Tune text only in light themes; leave dark mode unchanged. */
 (function () {
   'use strict';
 
@@ -482,7 +482,8 @@
     if (initialMode) setTargetLabel(initialMode);
     watchAnalogBridgeInfo();
     var themeStyle = document.createElement('style');
-    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-light #dvs-target-input,body.theme-auto:not(.dvs-prefers-dark) #dvs-target-input{color:#6b2f00!important}body.theme-dark #dvs-target-input,body.theme-auto.dvs-prefers-dark #dvs-target-input{color:#e5e7eb!important}#dvs-asl-mode-buttons button.selected{background-color:#008000}';
+    // Apply the existing Light-theme contrast color only; dark-mode input text remains theme-controlled.
+    themeStyle.textContent = 'body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-dark #dvs-asl-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-asl-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}body.theme-light #dvs-target-input,body.theme-auto:not(.dvs-prefers-dark) #dvs-target-input{color:#6b2f00!important}#dvs-asl-mode-buttons button.selected{background-color:#008000}';
     document.head.appendChild(themeStyle);
   });
   document.addEventListener('click', function (event) {

@@ -1,5 +1,5 @@
-# Version: 1.1.3
-# Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — add favorite starter and theme contrast checks.
+# Version: 1.1.4
+# Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — add favorite starter and light-only contrast checks.
 
 ASL dashboard integration test procedure
 
@@ -142,7 +142,7 @@ Version 1.1.0 dashboard and exit checks:
 3. From ASL with 55553 connected, click one digital mode once. Confirm external peers are removed from the public node while the private bridge remains, then the requested digital mode command runs once. Record click-to-mode time; it should complete within six seconds. Repeat for each digital mode. The dashboard must not return to ASL or flicker after status refreshes.
 4. Reload the page in ASL. Confirm the ASL button and Node label reflect current Analog_Bridge status and the Tune/Favorites row remains singular. Repeat with Mode Buttons absent on a disposable image; ASL Support must still provide its ASL button, node action row, and favorites.
 5. On a fresh install with no favorites file or legacy ASL entries, confirm `/etc/dvswitch-asl3-support/favorites.json` is seeded from the bundled starter file. Confirm existing favorites are preserved and valid legacy entries are migrated before the starter list is used.
-6. In light theme, confirm the ASL Tune field text is subdued brown (`#6b2f00`); in dark theme, confirm it is light (`#e5e7eb`).
+6. In light theme, confirm the ASL Tune field text is subdued brown (`#6b2f00`). In dark and Auto-dark themes, confirm its text keeps the existing theme color.
 
 
 Version 1.1.1 check: while the dashboard remains in ASL, wait through multiple `status.php` refreshes. Verify the Analog Bridge row stays `Node`, shows the active external node ID, and changes to `-` after disconnecting the last external node.

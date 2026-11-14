@@ -1,6 +1,6 @@
 # DVSwitch ASL 3 Mod Support
 
-<!-- Version: 1.1.11; Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — document starter favorites and theme-aware Tune text contrast. -->
+<!-- Version: 1.1.12; Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — document starter favorites and light-only Tune contrast. -->
 
 Repository: <https://github.com/ke2hni/DVSwitch-Fixes-Upgrades>
 
@@ -83,6 +83,6 @@ Version 1.1.7 preserves the confirmed ASL selection while the dashboard status t
 
 Version 1.1.9 switches the public AllStar node back to the configured DVSwitch private node before selecting ASL. The shared target field leaves room for all ten visible characters after padding, and the Analog Bridge `Node` row refreshes from active ASL links with a fallback to the live ASL Net card.
 
-Version 1.1.11 seeds fresh installs from the bundled `favorites.json`, preserving existing favorites and preferring valid legacy ASL entries when migrating. The shared ASL Tune field uses subdued brown text in light theme and light text in dark theme for readable contrast.
+Version 1.1.12 seeds fresh installs from the bundled `favorites.json`, preserving existing favorites and preferring valid legacy ASL entries when migrating. The shared ASL Tune field uses subdued brown text in light theme; dark-mode text remains controlled by the existing theme.
 
 The private-node switch helper uses Asterisk's permanent disconnect command for alternate private USRP links, so a node marked permanent in `rpt.conf` cannot immediately reconnect and compete for the public node.
