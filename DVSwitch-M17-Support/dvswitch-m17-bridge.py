@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.1.0
+# Version: 1.1.1
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
-# Updated: 2026-11-13T20:15:25-05:00 by KE2HNI — patch missing fixed-width integer headers in all affected files in the temporary upstream build copy.
+# Updated: 2026-11-13T20:38:48-05:00 by KE2HNI — preserve valid existing local node maps and avoid disabling a unit before systemd has loaded it.
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
@@ -25,7 +25,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -346,7 +346,14 @@ def edit_rpt_conf(path: Path, node: str, usrp_local: int, asl_local: int,
         raise SetupError(f"rpt.conf defines node {node} more than once in its node map.")
     if map_entries:
         if map_entries[0] != expected_map:
-            raise SetupError(f"rpt.conf already maps node {node} differently; review that entry before installing.")
+            local_map = re.fullmatch(
+                rf"radio@127\.0\.0\.1(?::([0-9]+))?/{re.escape(node)},NONE",
+                map_entries[0], re.I)
+            valid_local_map = bool(local_map and
+                                   (not local_map.group(1) or 1 <= int(local_map.group(1)) <= 65535))
+            # Option 7 reserves this node; preserve its valid local IAX mapping and port.
+            if not adopt_existing_node or not valid_local_map:
+                raise SetupError(f"rpt.conf already maps node {node} differently; review that entry before installing.")
         added_map = False
     else:
         lines = content.splitlines(keepends=True)
@@ -673,6 +680,7 @@ def install() -> None:
                              check=False, capture=True).returncode == 0
     service_was_enabled = run(["systemctl", "is-enabled", "usrp2m17.service"],
                               check=False, capture=True).returncode == 0
+    service_activation_attempted = False
     try:
         built_binary = ensure_source()
         if previous_state:
@@ -709,6 +717,7 @@ def install() -> None:
         if match and not switch_backup:
             switch_backup = Path(match.group(1)).name
         run(["systemctl", "daemon-reload"])
+        service_activation_attempted = True
         run(["systemctl", "enable", "--now", "usrp2m17.service"])
         service_state = run(["systemctl", "is-active", "usrp2m17.service"],
                             check=False, capture=True).stdout.strip()
@@ -733,13 +742,15 @@ def install() -> None:
             print("Asterisk was not restarted; schedule a restart before testing.")
     except Exception:
         if system_changes_started:
-            run(["systemctl", "disable", "--now", "usrp2m17.service"], check=False)
+            # A first-install failure before daemon-reload has no known service unit to disable.
+            if previous_state or service_was_active or service_was_enabled or service_activation_attempted:
+                run(["systemctl", "disable", "--now", "usrp2m17.service"], check=False)
             for target in (CONFIG, BINARY, SERVICE, RPT_CONF):
                 restore_one(target, rollback_backup)
             run(["systemctl", "daemon-reload"], check=False)
             if service_was_enabled:
                 run(["systemctl", "enable", "usrp2m17.service"], check=False)
-            else:
+            elif previous_state:
                 run(["systemctl", "disable", "usrp2m17.service"], check=False)
             if service_was_active:
                 run(["systemctl", "start", "usrp2m17.service"], check=False)
