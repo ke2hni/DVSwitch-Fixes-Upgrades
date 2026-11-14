@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.9
+# Version: 1.1.0
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
-# Updated: 2026-11-13T20:05:45-05:00 by KE2HNI — allow ports reserved by the adopted M17 USRP node and patch the upstream missing fixed-width integer include during builds.
+# Updated: 2026-11-13T20:15:25-05:00 by KE2HNI — patch missing fixed-width integer headers in all affected files in the temporary upstream build copy.
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
@@ -25,7 +25,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.0.9"
+VERSION = "1.1.0"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -456,6 +456,27 @@ def make_backup(paths: list[Path], action: str) -> Path:
     return target
 
 
+def patch_fixed_width_integer_includes(project: Path) -> list[Path]:
+    """Add direct integer-type includes to affected C++ files in the temporary build tree."""
+    patched: list[Path] = []
+    integer_type = re.compile(r"\b(?:u?int(?:8|16|32|64)_t)\b")
+    integer_header = re.compile(r"(?m)^\s*#\s*include\s*[<\"](?:cstdint|stdint\.h)[>\"]")
+    include_line = re.compile(r"(?m)^\s*#\s*include\s+[<\"]")
+    for source in project.rglob("*"):
+        if source.suffix not in {".h", ".cpp"}:
+            continue
+        text = source.read_text(encoding="utf-8")
+        if not integer_type.search(text) or integer_header.search(text):
+            continue
+        first_include = include_line.search(text)
+        if not first_include:
+            raise SetupError(f"Cannot add the fixed-width integer header safely to {source.name}.")
+        text = text[:first_include.start()] + "#include <cstdint>\n" + text[first_include.start():]
+        source.write_text(text, encoding="utf-8")
+        patched.append(source)
+    return patched
+
+
 def ensure_install_root() -> bool:
     marker = INSTALL_ROOT / ".dvswitch-m17-bridge-managed"
     if INSTALL_ROOT.exists():
@@ -511,16 +532,8 @@ def ensure_source() -> bytes:
                 raise SetupError("The checked-out USRP2M17 source has an unsupported activity-log structure; no binary was installed.")
             text = text.replace(old, new, 1)
         source.write_text(text, encoding="utf-8")
-        # Upstream Conf.h uses uint16_t/uint32_t without including their defining header.
-        conf_header = build_project / "Conf.h"
-        header_text = conf_header.read_text(encoding="utf-8")
-        if "#include <cstdint>" not in header_text:
-            vector_include = "#include <vector>"
-            if header_text.count(vector_include) != 1:
-                raise SetupError("The checked-out Conf.h has an unsupported include structure; no binary was installed.")
-            header_text = header_text.replace(vector_include,
-                                              "#include <cstdint>\n" + vector_include, 1)
-            conf_header.write_text(header_text, encoding="utf-8")
+        # Keep upstream's checkout clean while fixing missing direct integer headers in the build copy.
+        patch_fixed_width_integer_includes(build_project)
         run(["make"], cwd=build_project)
         built = build_project / "USRP2M17"
         if not built.is_file():

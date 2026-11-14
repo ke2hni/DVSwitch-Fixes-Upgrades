@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Version: 1.1.0
+# Version: 1.1.1
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
-# Updated: 2026-11-13T20:05:45-05:00 by KE2HNI — cover reserved-node ports and the upstream fixed-width integer header build fix.
+# Updated: 2026-11-13T20:15:25-05:00 by KE2HNI — verify all affected upstream headers receive the fixed-width integer include.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -43,7 +43,9 @@ def main() -> None:
         project = source / "USRP2M17"
         project.mkdir(parents=True)
         (project / "Makefile").write_text("all:\n", encoding="utf-8")
-        (project / "Conf.h").write_text("#include <vector>\n", encoding="utf-8")
+        (project / "Conf.h").write_text("#include <vector>\nuint16_t port;\n", encoding="utf-8")
+        (project / "ModeConv.h").write_text(
+            '#include "codec2/codec2.h"\nuint8_t tag;\n', encoding="utf-8")
         (project / "USRP2M17.cpp").write_text(
             'LogMessage("M17 received end of voice transmission, %.1f seconds", float(m_m17Frames) / 25.0F);\n'
             'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);\n',
@@ -66,7 +68,9 @@ def main() -> None:
             elif command[0] == "git" and "pull" in command:
                 pass
             elif command[0] == "make":
-                patched_headers.append((Path(kwargs["cwd"]) / "Conf.h").read_text(encoding="utf-8"))
+                patched_headers.append({
+                    name: (Path(kwargs["cwd"]) / name).read_text(encoding="utf-8")
+                    for name in ("Conf.h", "ModeConv.h")})
                 Path(kwargs["cwd"] / "USRP2M17").write_text("rebuilt executable\n", encoding="utf-8")
             return subprocess.CompletedProcess(command, 0, "", "")
 
@@ -78,8 +82,10 @@ def main() -> None:
             assert not binary.exists(), "the clean upstream checkout must not retain the patched temporary build"
             assert any(call[:2] == ["make", "clean"] for call in calls)
             assert any("--untracked-files=all" in call for call in calls)
-            assert patched_headers and "#include <cstdint>" in patched_headers[0]
+            assert patched_headers and all(
+                "#include <cstdint>" in text for text in patched_headers[0].values())
             assert "#include <cstdint>" not in (project / "Conf.h").read_text(encoding="utf-8")
+            assert "#include <cstdint>" not in (project / "ModeConv.h").read_text(encoding="utf-8")
             assert all(path.stat().st_mode & 0o777 == 0o755
                        for path in (root, source, project))
         finally:
