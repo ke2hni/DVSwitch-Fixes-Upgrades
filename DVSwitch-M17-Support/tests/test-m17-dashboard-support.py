@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.2.0
+# Version: 1.2.1
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -13,6 +13,7 @@
 # Updated: 2026-11-11T13:45:00-05:00 by KE2HNI — verify centered matching activity panels and consistent side-card insets.
 # Updated: 2026-11-11T14:00:00-05:00 by KE2HNI — verify equal activity gaps and right-card edge alignment.
 # Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — verify the desktop right card stack is lowered by 20 pixels.
+# Updated: 2026-11-14T15:05:00-05:00 by KE2HNI — verify M17 reflector text inherits the theme color.
 # Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — verify the final one-pixel right offset and Local Activity spacing.
 # Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — verify Analog Bridge first-column labels do not wrap.
 # Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — verify equal side columns center Gateway and Local Activity.
@@ -301,7 +302,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'rx.onclick = rx.dvsM17OriginalHandler || null' in layout
     assert 'window.dvsp.stop()' in layout
     assert 'def extract_pcm' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.py').read_text(encoding='utf-8')
-    assert 'color:#b5651d!important' in card
+    assert "Room<br /><span>'.$label.'</span>" in card and 'color:#b5651d!important' not in card
     standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
     api = (ROOT / 'dashboard/dvswitch-m17-dashboard.php').read_text(encoding='utf-8')
     favorites_helper = (ROOT / 'dashboard/dvswitch-m17-favorites.py').read_text(encoding='utf-8')

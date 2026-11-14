@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 # Version: 1.1.10
-# Updated: 2026-11-14T13:35:00Z by KE2HNI — seed fresh ASL favorites from the bundled starter file.
+# Updated: 2026-11-14T15:05:00-05:00 by KE2HNI — seed fresh ASL favorites from the bundled starter file.
 
 set -Eeuo pipefail
 umask 077

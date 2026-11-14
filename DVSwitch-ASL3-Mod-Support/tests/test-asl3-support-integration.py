@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.14
-# Updated: 2026-11-14T13:35:00Z by KE2HNI — verify starter ASL favorites seed fresh installs after migration.
+# Version: 1.0.15
+# Updated: 2026-11-14T15:05:00-05:00 by KE2HNI — verify starter favorites and theme-matched Tune text.
 # SPDX-License-Identifier: MIT
 
 """Check ASL support is self-contained and leaves Mode Buttons independent."""
@@ -55,6 +55,7 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         "'TG/Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
         'ASL dashboard must own its mode button and reuse the shared target form')
 require("input.maxLength = 35" in DASHBOARD and "input.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
+        "input.style.color = 'inherit'" in DASHBOARD and
         "node.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
         'maxlength="35"' in DASHBOARD and 'width:calc(10ch + 18px)' in DASHBOARD,
         'ASL shared tuner must stay compact and accept the 35-character field limit')
@@ -124,7 +125,6 @@ with tempfile.TemporaryDirectory() as directory:
     require(result.returncode == 0, 'ASL favorite migration failed: ' + result.stderr)
     require(json.loads(destination.read_text()) == [{'name': 'Parrot test', 'node': '55553'}],
             'migration must preserve valid old favorites and reject invalid node numbers')
-    destination.write_text('[{"name":"User favorite","node":"12345"}]')
-    require('if [[ ! -e "$FAVORITES_FILE" ]]' in SUPPORT,
-            'ASL installer must preserve an already installed user favorites file')
+require('if [[ ! -e "$FAVORITES_FILE" ]]' in SUPPORT,
+        'ASL installer must preserve an already installed user favorites file')
 print('PASS: ASL dashboard, mode transition repair, link controls, and favorites are ASL-owned; Mode Buttons has no ASL runtime dependency.')

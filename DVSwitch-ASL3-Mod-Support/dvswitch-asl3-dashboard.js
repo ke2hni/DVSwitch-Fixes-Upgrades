@@ -1,7 +1,8 @@
-/* Version: 1.2.1 — make ASL Gateway Activity span the shared activity column. */
+/* Version: 1.2.2 — keep the ASL Tune input text aligned with the active dashboard theme. */
 /* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
 /* Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — search the relocated sidebar card for connected ASL nodes. */
 /* Updated: 2026-11-11T23:15:00-05:00 by KE2HNI — make ASL Gateway Activity match the full Gateway Activity panel width. */
+/* Updated: 2026-11-14T15:05:00-05:00 by KE2HNI — inherit the dashboard theme text color in the shared Tune field. */
 (function () {
   'use strict';
 
@@ -110,6 +111,7 @@
       input.maxLength = 35;
       input.style.boxSizing = 'border-box';
       input.style.width = 'calc(10ch + 18px)';
+      input.style.color = 'inherit';
     }
     document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]').forEach(function (button) {
       if (button.dataset.mode === 'ASL') button.classList.toggle('selected', activeMode === 'ASL');
