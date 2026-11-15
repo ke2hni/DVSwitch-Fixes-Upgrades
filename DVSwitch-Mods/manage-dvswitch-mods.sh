@@ -1,9 +1,10 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.2.17
+# Version: 1.2.18
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — make M17 dashboard option 9 independent of Mode Buttons.
+# Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — require private-node duplex safety checks before install actions.
 
 # Repository-wide front end. Existing repair/modification files remain the
 # authoritative installers and validators; this manager selects and records
@@ -12,7 +13,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.17"
+readonly SCRIPT_VERSION="1.2.18"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -64,6 +65,7 @@ readonly ASL3_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-ASL3-Mod-Support/dvswitch-
 readonly M17_SUPPORT_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-support.sh"
 readonly M17_BRIDGE_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-bridge.py"
 readonly M17_DASHBOARD_SCRIPT="$SCRIPT_DIR/../DVSwitch-M17-Support/dvswitch-m17-dashboard.sh"
+readonly PRIVATE_NODE_SAFETY_SCRIPT="$SCRIPT_DIR/check-private-node-safety.py"
 
 COMPONENT=""
 CHILD_SCRIPT=""
@@ -96,6 +98,7 @@ require_executable_script() {
 run_optional_mod_installer() {
     local label=$1 script=$2
     require_root
+    run_private_node_safety_check
     require_executable_script "$script"
     printf '\n=== %s ===\n' "$label"
     "$script" apply
@@ -104,6 +107,7 @@ run_optional_mod_installer() {
 run_mode_buttons_installer() {
     local script_dir
     require_root
+    run_private_node_safety_check
     require_executable_script "$MODE_BUTTONS_SCRIPT"
     printf '\n=== DVSWITCH MODE BUTTONS ===\n'
     script_dir=$(dirname -- "$MODE_BUTTONS_SCRIPT")
@@ -116,6 +120,7 @@ run_mode_buttons_installer() {
 run_asl3_support_installer() {
     local private_node
     require_root
+    run_private_node_safety_check
     require_executable_script "$ASL3_SUPPORT_SCRIPT"
     printf '\n=== INSTALL ASL 3 SUPPORT ===\n'
     private_node=$("$ASL3_SUPPORT_SCRIPT" --select-private-node)
@@ -125,6 +130,7 @@ run_asl3_support_installer() {
 
 run_m17_support_installer() {
     require_root
+    run_private_node_safety_check
     require_executable_script "$M17_SUPPORT_SCRIPT"
     printf '\n=== INSTALL M17 PRIVATE-NODE SWITCH COMMANDS ===\n'
     "$M17_SUPPORT_SCRIPT" --check
@@ -133,6 +139,7 @@ run_m17_support_installer() {
 
 run_m17_bridge_installer() {
     require_root
+    run_private_node_safety_check
     require_executable_script "$M17_BRIDGE_SCRIPT"
     printf '\n=== USRP2M17 BRIDGE INSTALLER ===\n'
     "$M17_BRIDGE_SCRIPT"
@@ -154,6 +161,7 @@ run_m17_dashboard_installer() {
         0|'') return 0 ;;
         *) die 'Invalid M17 dashboard choice' ;;
     esac
+    run_private_node_safety_check
     "$M17_DASHBOARD_SCRIPT" --check
     "$M17_DASHBOARD_SCRIPT" --install
 }
@@ -161,6 +169,18 @@ run_m17_dashboard_installer() {
 show_menu() {
     local choice
     require_root
+    if ! run_private_node_safety_check; then
+        printf '\nInstallation choices are blocked until the private-node settings are corrected.\n'
+        printf '5) Uninstall all manager-recorded standard components\n0) Exit\n'
+        printf 'Choose an option [0/5]: '
+        read -r choice
+        case "$choice" in
+            5) initialize_state; uninstall_requested all ;;
+            0|'') exit 0 ;;
+            *) die 'Install options remain blocked until the private-node safety check passes.' ;;
+        esac
+        return
+    fi
     printf '%s\n' \
         "DVSwitch-Mods installer menu $SCRIPT_VERSION" \
         "" \
@@ -211,6 +231,11 @@ usage() {
 }
 
 require_root() { [[ ${EUID:-$(id -u)} -eq 0 ]] || die "Run this operation with sudo."; }
+run_private_node_safety_check() {
+    require_regular "$PRIVATE_NODE_SAFETY_SCRIPT"
+    command -v python3 >/dev/null 2>&1 || die 'Required command not found: python3'
+    python3 "$PRIVATE_NODE_SAFETY_SCRIPT"
+}
 require_command() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
 ensure_build_dependencies() {
     local missing=()
@@ -592,6 +617,7 @@ check_requested() {
 
 install_requested() {
     local requested=$1 component
+    run_private_node_safety_check
     MANAGER_PHASE="checking build dependencies and recorded backups"
     ensure_build_dependencies
     preflight_recorded_backups
@@ -636,7 +662,7 @@ main() {
             require_root
             if check_requested "$2"; then :; else status=$?; exit "$status"; fi
             ;;
-        --install) [[ $# -eq 2 ]] || die "--install requires a component name or all."; initialize_state; install_requested "$2" ;;
+        --install) [[ $# -eq 2 ]] || die "--install requires a component name or all."; run_private_node_safety_check; initialize_state; install_requested "$2" ;;
         --uninstall) [[ $# -eq 2 ]] || die "--uninstall requires a component name or all."; initialize_state; uninstall_requested "$2" ;;
         --reset-after-reinstall) [[ $# -eq 1 ]] || die "Unexpected arguments."; initialize_state; reset_after_reinstall ;;
         --help|-h) usage ;;

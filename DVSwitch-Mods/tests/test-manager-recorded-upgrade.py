@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
+# Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — isolate the pre-install node check in the manager upgrade fixture.
 # SPDX-License-Identifier: MIT
 
 """Verify Install All rechecks and upgrades a manager-recorded component."""
@@ -49,6 +50,13 @@ with tempfile.TemporaryDirectory(
     manager_text = re.sub(
         r"ensure_build_dependencies\(\) \{.*?\n\}",
         "ensure_build_dependencies() { return 0; }",
+        manager_text,
+        count=1,
+        flags=re.S,
+    )
+    manager_text = re.sub(
+        r"run_private_node_safety_check\(\) \{.*?\n\}",
+        "run_private_node_safety_check() { return 0; }",
         manager_text,
         count=1,
         flags=re.S,

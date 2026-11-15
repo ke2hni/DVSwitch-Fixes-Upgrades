@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.0
+# Version: 1.0.1
+# Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — align the component-order assertion with the existing final STFU logrotate component.
 # SPDX-License-Identifier: MIT
 
 """Check RX Monitor and STFU follow the manager's standard component flow."""
@@ -23,9 +24,9 @@ def main() -> None:
     require(INSTALLER.is_file() and INSTALLER.stat().st_mode & 0o111,
             "RX Monitor installer is missing or not executable")
     component_list = manager.split("readonly -a COMPONENTS=(", 1)[1].split(")", 1)[0]
-    require(component_list.rstrip().endswith("dashboard-stfu-status\n    dashboard-stfu-activity\n    dashboard-rx-monitor-left"),
+    require(component_list.rstrip().endswith("dashboard-stfu-status\n    dashboard-stfu-activity\n    dashboard-rx-monitor-left\n    stfu-logrotate-restart"),
             "STFU status/activity and RX Monitor are not appended to the standard component order")
-    require('Choose an option [0/1/2/3/4/5]:' in manager and
+    require('Choose an option [0/1/2/3/4/5/6/7/8/9]:' in manager and
             '"5) Uninstall all manager-recorded standard components"' in manager and
             '"5) Move RX Monitor' not in manager
             and '"5) Move RX Monitor' not in manager,

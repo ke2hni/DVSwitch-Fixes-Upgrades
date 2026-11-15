@@ -1,4 +1,4 @@
-<!-- Version: 1.0.18; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI --><div align="center">
+<!-- Version: 1.0.19; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-15T12:00:00+00:00 by KE2HNI --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -61,6 +61,16 @@ create protected backups, install atomically, validate the result, and roll
 back automatically if installation fails. The standalone Dark Mode and
 Widescreen Display Layout installers maintain protected and per-run backups
 and provide explicit restore commands.
+
+Before showing the manager's install menu or starting an install, it validates
+private node stanzas in `/etc/asterisk/rpt.conf`, including inherited settings.
+Private node numbers are below 2000; ASL recommends 1000–1999 for typical use.
+Every configured private node must resolve to a valid `duplex=0` through
+`duplex=4`, and private nodes using a USRP `rxchannel` must resolve to
+`duplex=0` for this bridge setup. A failed check blocks installation choices
+but still offers the manager-recorded uninstall option. See the
+[ASL private-node guidance](https://allstarlink.github.io/adv-topics/privatenodes/)
+and [`duplex` reference](https://allstarlink.github.io/config/rpt_conf/#duplex).
 
 ---
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.1.2
+# Version: 1.1.3
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-13T21:04:52-05:00 by KE2HNI — make the non-secret bridge config readable by Apache for the M17 Net card and dashboard.
+# Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — force adopted private USRP nodes to duplex 0 and restore their prior setting on removal.
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
@@ -25,7 +26,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -289,10 +290,32 @@ def matching_imported_node(private: dict[str, str]) -> str:
     return matches[0] if matches else ""
 
 
+def enforce_bridge_duplex(section_text: str, node: str,
+                          original_duplex_out: list[str] | None) -> str:
+    """Set an adopted USRP bridge node to duplex 0 and capture its prior line."""
+    duplex_lines = list(re.finditer(r"(?im)^[ \t]*duplex\s*=[ \t]*[^;\r\n]*(?:;[^\r\n]*)?$", section_text))
+    if len(duplex_lines) > 1:
+        raise SetupError(f"Reserved M17 node {node} has multiple active duplex settings.")
+    if duplex_lines:
+        line = duplex_lines[0].group(0)
+        if original_duplex_out is not None and not original_duplex_out:
+            original_duplex_out.append(line)
+        replacement = re.sub(r"(?i)(\bduplex\s*=\s*)[^;\r\n]*?(?=[ \t]*(?:;|$))",
+                             r"\g<1>0", line, count=1)
+        return section_text[:duplex_lines[0].start()] + replacement + section_text[duplex_lines[0].end():]
+    if original_duplex_out is not None and not original_duplex_out:
+        original_duplex_out.append("")
+    rx_line = re.search(r"(?im)^[ \t]*rxchannel\s*=[ \t]*[^\r\n]*", section_text)
+    if not rx_line:
+        raise SetupError(f"Reserved M17 node {node} has no rxchannel setting to anchor duplex=0.")
+    return section_text[:rx_line.end()] + "\nduplex = 0" + section_text[rx_line.end():]
+
+
 def edit_rpt_conf(path: Path, node: str, usrp_local: int, asl_local: int,
                   *, allow_managed_block: bool = False,
                   adopt_existing_node: bool = False,
-                  original_channel_out: list[str] | None = None) -> tuple[bool, bool]:
+                  original_channel_out: list[str] | None = None,
+                  original_duplex_out: list[str] | None = None) -> tuple[bool, bool]:
     """Add a marked private-node stanza and local node map without guessing IDs."""
     content = path.read_text(encoding="utf-8")
     channel = f"USRP/127.0.0.1:{usrp_local}:{asl_local}"
@@ -314,22 +337,32 @@ def edit_rpt_conf(path: Path, node: str, usrp_local: int, asl_local: int,
     if node in sections:
         prior_channel = node_channel(sections[node])
         if prior_channel != channel and adopt_existing_node:
-            # Change only the reserved node's rxchannel; preserve its other stanza settings.
-            section_header = re.search(rf"(?m)^\[\s*{re.escape(node)}\s*\]\s*(?:\([^)]*\))?\s*$", content)
+            # Update the reserved node's channel and enforce safe bridge duplex mode.
+            section_header = re.search(rf"(?m)^\[[ \t]*{re.escape(node)}[ \t]*\][ \t]*(?:\([^)]*\))?[ \t]*$", content)
             if not section_header:
                 raise SetupError(f"Could not locate the reserved M17 node {node} stanza.")
             next_header = re.search(r"(?m)^\s*\[", content[section_header.end():])
             end = section_header.end() + next_header.start() if next_header else len(content)
             section_text = content[section_header.end():end]
-            rx_line = re.search(r"(?im)^(\s*rxchannel\s*=\s*).*?$", section_text)
+            rx_line = re.search(r"(?im)^([ \t]*rxchannel\s*=[ \t]*).*?$", section_text)
             if not rx_line:
                 raise SetupError(f"Reserved M17 node {node} has no rxchannel setting to update.")
             if original_channel_out is not None and not original_channel_out:
                 original_channel_out.append(prior_channel or "")
             section_text = section_text[:rx_line.start()] + rx_line.group(1) + channel + section_text[rx_line.end():]
+            section_text = enforce_bridge_duplex(section_text, node, original_duplex_out)
             content = content[:section_header.end()] + section_text + content[end:]
         elif prior_channel != channel:
             raise SetupError(f"Node {node} already exists with another rxchannel; choose a new node ID or reconcile it first.")
+        elif prior_channel == channel and prior_channel and prior_channel.lower().startswith("usrp/"):
+            section_header = re.search(rf"(?m)^\[[ \t]*{re.escape(node)}[ \t]*\][ \t]*(?:\([^)]*\))?[ \t]*$", content)
+            if not section_header:
+                raise SetupError(f"Could not locate the reserved M17 node {node} stanza.")
+            next_header = re.search(r"(?m)^\s*\[", content[section_header.end():])
+            end = section_header.end() + next_header.start() if next_header else len(content)
+            section_text = content[section_header.end():end]
+            section_text = enforce_bridge_duplex(section_text, node, original_duplex_out)
+            content = content[:section_header.end()] + section_text + content[end:]
     else:
         separator = "" if not content or content.endswith("\n") else "\n"
         content += (separator + "\n" + BEGIN + f"\n[{node}](node-main)\n"
@@ -386,25 +419,37 @@ def remove_managed_rpt(path: Path, state: dict[str, object]) -> None:
             content = content[:start] + content[end + len(END) + 1:]
         elif BEGIN in content or END in content:
             print("NOTICE: M17 node block was changed after installation; leaving it in rpt.conf.")
-    elif state.get("rpt_original_channel"):
-        # Restore an adopted node only when its rxchannel still matches this install's value.
+    elif state.get("rpt_original_channel") or "rpt_original_duplex" in state:
+        # Restore adopted settings only while the installed channel and duplex remain unchanged.
         settings = state.get("settings", {})
         if isinstance(settings, dict):
             node = str(settings.get("m17_node", ""))
             installed_channel = f"USRP/127.0.0.1:{settings.get('usrp_local', '')}:{settings.get('asl_local', '')}"
             sections = parse_node_sections(content)
-            if node in sections and node_channel(sections[node]) == installed_channel:
-                section_header = re.search(rf"(?m)^\[\s*{re.escape(node)}\s*\]\s*(?:\([^)]*\))?\s*$", content)
+            if node in sections and (not state.get("rpt_original_channel") or node_channel(sections[node]) == installed_channel):
+                section_header = re.search(rf"(?m)^\[[ \t]*{re.escape(node)}[ \t]*\][ \t]*(?:\([^)]*\))?[ \t]*$", content)
                 if section_header:
                     next_header = re.search(r"(?m)^\s*\[", content[section_header.end():])
                     end = section_header.end() + next_header.start() if next_header else len(content)
                     section_text = content[section_header.end():end]
-                    rx_line = re.search(r"(?im)^(\s*rxchannel\s*=\s*).*?$", section_text)
-                    if rx_line:
+                    rx_line = re.search(r"(?im)^([ \t]*rxchannel\s*=\s*).*?$", section_text)
+                    if rx_line and state.get("rpt_original_channel"):
                         section_text = section_text[:rx_line.start()] + rx_line.group(1) + str(state["rpt_original_channel"]) + section_text[rx_line.end():]
-                        content = content[:section_header.end()] + section_text + content[end:]
+                    if "rpt_original_duplex" in state:
+                        duplex_lines = list(re.finditer(r"(?im)^[ \t]*duplex\s*=\s*[^;\r\n]*(?:;[^\r\n]*)?$", section_text))
+                        if len(duplex_lines) == 1 and re.match(r"(?i)^[ \t]*duplex\s*=\s*0(?:\s*(?:;.*)?)?$", duplex_lines[0].group(0)):
+                            original_line = str(state["rpt_original_duplex"])
+                            tail = duplex_lines[0].end()
+                            if not original_line and section_text[tail:tail + 2] == "\r\n":
+                                tail += 2
+                            elif not original_line and section_text[tail:tail + 1] == "\n":
+                                tail += 1
+                            section_text = section_text[:duplex_lines[0].start()] + original_line + section_text[tail:]
+                        elif duplex_lines:
+                            print(f"NOTICE: M17 node {node} duplex setting changed after installation; leaving it in rpt.conf.")
+                    content = content[:section_header.end()] + section_text + content[end:]
             else:
-                print(f"NOTICE: M17 node {node} changed after installation; leaving its rxchannel in rpt.conf.")
+                print(f"NOTICE: M17 node {node} changed after installation; leaving its rpt.conf settings in place.")
     if state.get("rpt_added_map"):
         content = "".join(line for line in content.splitlines(keepends=True)
                           if NODE_MAP_MARKER not in line)
@@ -705,11 +750,13 @@ def install() -> None:
         SERVICE.write_text(service_text(), encoding="utf-8")
         SERVICE.chmod(0o644)
         original_channel: list[str] = []
+        original_duplex: list[str] = []
         added_node, added_map = edit_rpt_conf(
             RPT_CONF, str(values["m17_node"]), int(values["usrp_local"]),
             int(values["asl_local"]), allow_managed_block=bool(previous_state),
             adopt_existing_node=(str(values["m17_node"]) == configured_m17_node()),
-            original_channel_out=original_channel)
+            original_channel_out=original_channel,
+            original_duplex_out=original_duplex)
         added_node = bool(previous_state.get("rpt_added_node")) or added_node
         added_map = bool(previous_state.get("rpt_added_map")) or added_map
         switch_backup = str(previous_state.get("switch_backup", ""))
@@ -733,6 +780,10 @@ def install() -> None:
             state["rpt_original_channel"] = previous_state["rpt_original_channel"]
         elif original_channel:
             state["rpt_original_channel"] = original_channel[0]
+        if "rpt_original_duplex" in previous_state:
+            state["rpt_original_duplex"] = previous_state["rpt_original_duplex"]
+        elif original_duplex:
+            state["rpt_original_duplex"] = original_duplex[0]
         STATE_ROOT.mkdir(parents=True, exist_ok=True, mode=0o755)
         STATE_FILE.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
         print("PASS: USRP2M17 is installed and enabled as usrp2m17.service.")

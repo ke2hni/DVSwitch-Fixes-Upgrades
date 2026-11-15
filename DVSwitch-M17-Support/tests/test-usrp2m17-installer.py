@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# Version: 1.1.4
+# Version: 1.1.5
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
 # Updated: 2026-11-13T21:04:52-05:00 by KE2HNI — verify the bridge config is readable by the Apache dashboard user.
 # Updated: 2026-11-13T21:52:49-05:00 by KE2HNI — verify upgrade repairs a bridge config left at mode 0600.
+# Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — verify adopted M17 nodes use duplex 0 and restore inherited duplex safely.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -149,27 +150,45 @@ def main() -> None:
         assert BRIDGE.configured_m17_node() == "1974"
         adopted_rpt = temp_root / "adopted-rpt.conf"
         adopted_rpt.write_text(
+            "[node-main](!)\nduplex = 2\n"
             "[nodes]\n1973 = radio@127.0.0.1:4571/1973,NONE\n"
             "1974 = radio@127.0.0.1:4572/1974,NONE\n"
             "[1973](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n"
             "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\n"
             "idrecording = |iKE2HNI\n", encoding="utf-8")
         original_channel = []
+        original_duplex = []
         added_node, added_map = BRIDGE.edit_rpt_conf(
             adopted_rpt, "1974", 34008, 32008,
             adopt_existing_node=("1974" == BRIDGE.configured_m17_node()),
-            original_channel_out=original_channel)
+            original_channel_out=original_channel,
+            original_duplex_out=original_duplex)
         assert not added_node and not added_map
         adopted_text = adopted_rpt.read_text(encoding="utf-8")
         assert "1974 = radio@127.0.0.1:4572/1974,NONE" in adopted_text
         assert "[1973](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001" in adopted_text
-        assert "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34008:32008\nidrecording = |iKE2HNI" in adopted_text
+        assert "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34008:32008\nduplex = 0\nidrecording = |iKE2HNI" in adopted_text
         BRIDGE.remove_managed_rpt(adopted_rpt, {
             "rpt_added_node": False, "rpt_added_map": False,
             "rpt_original_channel": original_channel[0],
+            "rpt_original_duplex": original_duplex[0],
             "settings": {"m17_node": "1974", "usrp_local": 34008, "asl_local": 32008}})
         restored_text = adopted_rpt.read_text(encoding="utf-8")
         assert "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\nidrecording = |iKE2HNI" in restored_text
+        assert "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34001:32001\nduplex =" not in restored_text
+        assert "[node-main](!)\nduplex = 2" in restored_text
+        adopted_rpt.write_text(
+            "[1974](node-main)\nrxchannel = USRP/127.0.0.1:34008:32008\n"
+            "duplex = 2 ; original local setting\n", encoding="utf-8")
+        original_duplex = []
+        BRIDGE.edit_rpt_conf(adopted_rpt, "1974", 34008, 32008,
+                             original_duplex_out=original_duplex)
+        assert "duplex = 0 ; original local setting" in adopted_rpt.read_text(encoding="utf-8")
+        BRIDGE.remove_managed_rpt(adopted_rpt, {
+            "rpt_added_node": False, "rpt_added_map": False,
+            "rpt_original_duplex": original_duplex[0],
+            "settings": {"m17_node": "1974", "usrp_local": 34008, "asl_local": 32008}})
+        assert "duplex = 2 ; original local setting" in adopted_rpt.read_text(encoding="utf-8")
 
         unsafe_map = temp_root / "unsafe-map-rpt.conf"
         unsafe_map.write_text(
