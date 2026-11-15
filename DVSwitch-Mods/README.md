@@ -1,4 +1,4 @@
-<!-- Version: 1.0.19; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-15T12:00:00+00:00 by KE2HNI --><div align="center">
+<!-- Version: 1.0.20; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-15T17:40:00+00:00 by KE2HNI --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -614,9 +614,12 @@ sudo ./dvswitch-dark-mode.sh restore-original
 
 **What it adds:** A dashboard width that follows 96% of the browser viewport,
 readable table wrapping, fluid Gateway and Local Activity panels, centered
-Hardware Info, mode-aware Status/activity alignment, and a shorter header on compatible
-screens. There is no fixed maximum width, so very
-wide screens also produce wider activity tables. The 96vw value follows the
+Hardware Info, mode-aware Status/activity alignment, a shorter header on compatible
+screens, and alphabetically arranged network cards in side columns flanking Gateway
+Activity. This card layout is included here and does not require optional M17 mode
+support. If M17 support is installed too, its Net card uses the same layout; its audio
+monitor remains part of the M17 component. There is no fixed maximum width, so very wide
+screens also produce wider activity tables. The 96vw value follows the
 browser's CSS viewport, so browser zoom and operating-system display scaling
 affect the resulting pixel width.
 

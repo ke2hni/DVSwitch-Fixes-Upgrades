@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.2.3
+# Version: 1.2.4
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -14,6 +14,7 @@
 # Updated: 2026-11-11T14:00:00-05:00 by KE2HNI — verify equal activity gaps and right-card edge alignment.
 # Updated: 2026-11-11T14:10:00-05:00 by KE2HNI — verify the desktop right card stack is lowered by 20 pixels.
 # Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — confirm light override and unchanged copper color in dark mode.
+# Updated: 2026-11-15T17:45:00Z by KE2HNI — verify M17 theme styling remains when widescreen creates shared columns first.
 # Updated: 2026-11-11T14:20:00-05:00 by KE2HNI — verify the final one-pixel right offset and Local Activity spacing.
 # Updated: 2026-11-11T14:30:00-05:00 by KE2HNI — verify Analog Bridge first-column labels do not wrap.
 # Updated: 2026-11-11T14:50:00-05:00 by KE2HNI — verify equal side columns center Gateway and Local Activity.
@@ -273,6 +274,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert "if (aslActivity) center.appendChild(aslActivity)" in layout
     assert layout.index("if (aslActivity) center.appendChild(aslActivity)") < layout.index("oldCenter.parentNode.replaceChild(layout, oldCenter)")
     assert "grid-template-columns:minmax(0,1fr) 192px" in layout
+    assert "ensureLayoutStyles();" in layout and "function ensureLayoutStyles()" in layout
+    assert layout.index("ensureLayoutStyles();") < layout.index("if (document.getElementById('dvs-network-layout')) return;")
     assert "#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset" in layout
     assert "width:calc(100% - 4px);justify-self:start" in layout
     assert "margin:8px 0 0 24px" in layout

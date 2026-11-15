@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
+# Updated: 2026-11-15T17:40:00Z by KE2HNI — install the independent activity/card layout and track its hook for safe restoration.
 set -u
 
-VERSION="1.3.7"
+VERSION="1.3.8"
 ROOT="/usr/share/dvswitch"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DISPLAY_LAYOUT_JS_SOURCE="$SCRIPT_DIR/dvswitch-display-layout.js"
+DISPLAY_LAYOUT_JS_FILE="$ROOT/dvswitch-display-layout.js"
+DISPLAY_LAYOUT_MARKER='<!-- DVSwitch-Mods: display-layout-columns v1.3.8 -->'
+DISPLAY_LAYOUT_TAG='<script src="/dvswitch/dvswitch-display-layout.js"></script>'
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 ORIGINAL_BACKUP_DIR="$ROOT/.dvs-dashboard-display-original"
-RUN_BACKUP_DIR="$ROOT/.dvs-dashboard-display-backup-$STAMP"
+RUN_BACKUP_DIR="$ROOT/.dvs-dashboard-display-backup-$STAMP-$$"
 LOG_FILE="$HOME/dvs-dashboard-display-$STAMP.log"
 
 INDEX_FILE="$ROOT/index.php"
@@ -47,6 +53,13 @@ copy_dashboard_files_to(){
   cp -a "$LH_FILE" "$dest/lh.php" || die "Could not backup lh.php"
   cp -a "$LOCALTX_FILE" "$dest/localtx.php" || die "Could not backup localtx.php"
   cp -a "$SYSTEM_FILE" "$dest/system.php" || die "Could not backup system.php"
+  if [ -e "$DISPLAY_LAYOUT_JS_FILE" ]; then
+    [ ! -L "$DISPLAY_LAYOUT_JS_FILE" ] || die "Refusing symlink display-layout JavaScript target."
+    cp -a "$DISPLAY_LAYOUT_JS_FILE" "$dest/display-layout.js" || die "Could not backup display-layout JavaScript"
+    printf 'present\n' > "$dest/display-layout.js.state"
+  else
+    printf 'absent\n' > "$dest/display-layout.js.state"
+  fi
 }
 
 restore_dashboard_files_from(){
@@ -59,11 +72,15 @@ restore_dashboard_files_from(){
   [ -f "$src/system.php" ] || die "Backup missing system.php"
 
   # Refuse a full snapshot restore if another mod changed any tracked file.
-  check_layout_snapshot_pair "$INDEX_FILE" "$src/index.php" \
+  index_restore_args=( \
     'style="border:none; border-collapse:collapse; cellspacing:0; cellpadding:0; background-color:#fafafa;"' \
     'style="border:none; border-collapse:collapse; cellspacing:0; cellpadding:0; background-color:#fafafa; width:100%; table-layout:fixed;"' \
     '<td valign="top" style="border:none; height: 480px; background-color:#fafafa; width:100%;">' \
-    '<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">'
+    '<td valign="top" style="border:none; height: 480px; background-color:#fafafa;">' )
+  if ! grep -Fq "$DISPLAY_LAYOUT_MARKER" "$src/index.php"; then
+    index_restore_args+=( "</body>" $'<!-- DVSwitch-Mods: display-layout-columns v1.3.8 -->\n<script src="/dvswitch/dvswitch-display-layout.js"></script>\n</body>' )
+  fi
+  check_layout_snapshot_pair "$INDEX_FILE" "$src/index.php" "${index_restore_args[@]}"
   if grep -Fq 'DVSwitch-Mods: responsive column alignment and compact header v1.3.7' "$src/css.php"; then
     check_layout_snapshot_pair "$CSS_FILE" "$src/css.php" \
       'width: 900px;' 'width: 96vw;' \
@@ -125,11 +142,38 @@ restore_dashboard_files_from(){
     'width:min(95%,1400px)' 'width:95%' \
     'margin-left:6px;margin-right:0px' 'margin-left:auto;margin-right:auto'
 
+  if [ -f "$src/display-layout.js.state" ]; then
+    state="$(cat "$src/display-layout.js.state")"
+    [ -f "$src/display-layout.js.installed" ] || die "Backup is missing the expected installed display-layout JavaScript."
+    case "$state" in
+      present)
+        [ -f "$src/display-layout.js" ] || die "Backup says display-layout JavaScript existed but the saved file is missing."
+        { [ -f "$DISPLAY_LAYOUT_JS_FILE" ] && { cmp -s "$DISPLAY_LAYOUT_JS_FILE" "$src/display-layout.js.installed" || cmp -s "$DISPLAY_LAYOUT_JS_FILE" "$src/display-layout.js"; }; } || die "Refusing to restore because display-layout JavaScript was changed after installation."
+        ;;
+      absent)
+        { [ ! -e "$DISPLAY_LAYOUT_JS_FILE" ] || cmp -s "$DISPLAY_LAYOUT_JS_FILE" "$src/display-layout.js.installed"; } || die "Refusing to restore because display-layout JavaScript was changed after installation."
+        ;;
+      *) die "Backup has an invalid display-layout JavaScript state." ;;
+    esac
+  elif [ -e "$DISPLAY_LAYOUT_JS_FILE" ]; then
+    # Older backups predate ownership tracking. Remove only this repository's exact asset.
+    cmp -s "$DISPLAY_LAYOUT_JS_FILE" "$DISPLAY_LAYOUT_JS_SOURCE" || die "Legacy backup cannot safely restore a customized display-layout JavaScript file."
+  fi
+
   cp -a "$src/index.php" "$INDEX_FILE" || die "Could not restore index.php"
   cp -a "$src/css.php" "$CSS_FILE" || die "Could not restore css.php"
   cp -a "$src/lh.php" "$LH_FILE" || die "Could not restore lh.php"
   cp -a "$src/localtx.php" "$LOCALTX_FILE" || die "Could not restore localtx.php"
   cp -a "$src/system.php" "$SYSTEM_FILE" || die "Could not restore system.php"
+  if [ -f "$src/display-layout.js.state" ]; then
+    if [ "$(cat "$src/display-layout.js.state")" = present ]; then
+      cp -a "$src/display-layout.js" "$DISPLAY_LAYOUT_JS_FILE" || die "Could not restore prior display-layout JavaScript"
+    else
+      rm -f "$DISPLAY_LAYOUT_JS_FILE" || die "Could not remove installed display-layout JavaScript"
+    fi
+  elif [ -e "$DISPLAY_LAYOUT_JS_FILE" ]; then
+    rm -f "$DISPLAY_LAYOUT_JS_FILE" || die "Could not remove repository display-layout JavaScript"
+  fi
 }
 
 check_layout_snapshot_pair(){
@@ -175,6 +219,42 @@ ensure_original_backup(){
 create_run_backup(){
   log "Creating per-run backup: $RUN_BACKUP_DIR"
   copy_dashboard_files_to "$RUN_BACKUP_DIR"
+}
+
+install_display_layout_hook(){
+  [ -f "$DISPLAY_LAYOUT_JS_SOURCE" ] || die "Missing layout script source: $DISPLAY_LAYOUT_JS_SOURCE"
+  [ ! -L "$DISPLAY_LAYOUT_JS_FILE" ] || die "Refusing symlink display-layout JavaScript target."
+  install -m 0644 "$DISPLAY_LAYOUT_JS_SOURCE" "$DISPLAY_LAYOUT_JS_FILE" || die "Could not install display-layout JavaScript"
+  python3 - "$INDEX_FILE" "$DISPLAY_LAYOUT_MARKER" "$DISPLAY_LAYOUT_TAG" <<'PY_LAYOUT_HOOK' || die "Could not add the display-layout script hook to index.php"
+from pathlib import Path
+import os, sys, tempfile
+path = Path(sys.argv[1])
+marker, tag = sys.argv[2:4]
+data = path.read_text(encoding='utf-8')
+hook = marker + '\n' + tag
+if marker in data:
+    if data.count(marker) != 1 or data.count(tag) != 1 or hook not in data:
+        raise SystemExit('Existing display-layout hook is duplicated or modified.')
+    print('Already applied: index.php display-layout script hook')
+else:
+    if data.count('</body>') != 1:
+        raise SystemExit('Expected exactly one closing body tag in index.php.')
+    data = data.replace('</body>', hook + '\n</body>', 1)
+    mode = path.stat().st_mode & 0o7777
+    fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix='.index.php.')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(data)
+        os.chmod(temp, mode)
+        os.chown(temp, path.stat().st_uid, path.stat().st_gid)
+        os.replace(temp, path)
+    finally:
+        if os.path.exists(temp): os.unlink(temp)
+    print('Changed: index.php display-layout script hook')
+PY_LAYOUT_HOOK
+  for backup in "$ORIGINAL_BACKUP_DIR" "$RUN_BACKUP_DIR"; do
+    [ -d "$backup" ] && cp -f "$DISPLAY_LAYOUT_JS_SOURCE" "$backup/display-layout.js.installed"
+  done
 }
 
 replace_or_confirm(){
@@ -274,6 +354,8 @@ apply_responsive(){
   require_file "$LH_FILE"
   require_file "$LOCALTX_FILE"
   require_file "$SYSTEM_FILE"
+  require_file "$DISPLAY_LAYOUT_JS_SOURCE"
+  check_layout
 
   ensure_original_backup
   create_run_backup
@@ -294,6 +376,8 @@ apply_responsive(){
 
   replace_layout_variants "$SYSTEM_FILE" "width:95%" "system.php Hardware Info fluid width" "width:855px" "width:min(95%,1400px)"
   replace_or_confirm "$SYSTEM_FILE" "margin-left:6px;margin-right:0px" "margin-left:auto;margin-right:auto" "system.php Hardware Info margin center"
+
+  install_display_layout_hook
 
   log "Responsive dashboard tweaks complete."
   log "Protected original backup: $ORIGINAL_BACKUP_DIR"
@@ -336,6 +420,7 @@ show_status(){
   echo "  $LH_FILE"
   echo "  $LOCALTX_FILE"
   echo "  $SYSTEM_FILE"
+  echo "  $DISPLAY_LAYOUT_JS_FILE"
   echo
   if [ -d "$ORIGINAL_BACKUP_DIR" ]; then
     echo "Protected original backup: FOUND"
@@ -355,6 +440,7 @@ check_layout(){
   require_file "$LOCALTX_FILE"
   require_file "$SYSTEM_FILE"
   [ ! -L "$INDEX_FILE" ] && [ ! -L "$CSS_FILE" ] && [ ! -L "$LH_FILE" ] && [ ! -L "$LOCALTX_FILE" ] && [ ! -L "$SYSTEM_FILE" ] || die "Refusing symlink dashboard target."
+  [ ! -L "$DISPLAY_LAYOUT_JS_FILE" ] || die "Refusing symlink display-layout JavaScript target."
 
   grep -Fq 'background-color:#fafafa;' "$INDEX_FILE" || die "Unsupported index.php dashboard table structure."
   grep -Fq '.container {' "$CSS_FILE" || die "Unsupported css.php container structure."
@@ -363,6 +449,17 @@ check_layout(){
   grep -Eq 'width:640px;|width:min\(95%,1400px\);|width:95%;' "$LH_FILE" || die "Unsupported Gateway Activity width."
   grep -Eq 'width:640px;|width:min\(95%,1400px\);|width:95%;' "$LOCALTX_FILE" || die "Unsupported Local Activity width."
   grep -Eq 'width:855px|width:min\(95%,1400px\)|width:95%' "$SYSTEM_FILE" || die "Unsupported Hardware Info width."
+  python3 - "$INDEX_FILE" "$DISPLAY_LAYOUT_MARKER" "$DISPLAY_LAYOUT_TAG" <<'PY_LAYOUT_PREFLIGHT' || die "Unsupported or incomplete index.php display-layout script insertion point."
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text(encoding='utf-8')
+marker, tag = sys.argv[2:4]
+if text.count('</body>') != 1:
+    raise SystemExit(1)
+if marker in text or tag in text:
+    if text.count(marker) != 1 or text.count(tag) != 1 or marker + '\n' + tag not in text:
+        raise SystemExit(1)
+PY_LAYOUT_PREFLIGHT
 
   printf '%s\n' "PASS: display-layout targets are present and match supported stock/v58 structures; no files changed."
 }

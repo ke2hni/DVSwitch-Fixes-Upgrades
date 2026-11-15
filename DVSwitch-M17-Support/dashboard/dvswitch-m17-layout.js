@@ -1,4 +1,4 @@
-/* DVSwitch M17 dashboard layout v1.2.3
+/* DVSwitch M17 dashboard layout v1.2.4
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
@@ -15,6 +15,7 @@
  * Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — use subdued light-theme M17 text with a dark-theme override.
  * Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — preserve the ASL Gateway Activity section when wrapping the dashboard activity layout.
  * Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — reuse one network-card panel when the DMR heading changes between BM and TGIF.
+ * Updated: 2026-11-15T17:45:00Z by KE2HNI — keep M17 theme styling when the shared widescreen layout creates the activity columns first.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -32,7 +33,9 @@
 
   function makeLayout() {
     var activity = document.getElementById('lastHerd');
-    if (!activity || document.getElementById('dvs-network-layout')) return;
+    if (!activity) return;
+    ensureLayoutStyles();
+    if (document.getElementById('dvs-network-layout')) return;
     var oldCenter = activity.parentElement;
     if (!oldCenter || !oldCenter.parentNode) return;
     // ASL support inserts its own activity section beside #lastHerd. Preserve
@@ -57,6 +60,10 @@
     }
     oldCenter.parentNode.replaceChild(layout, oldCenter);
 
+  }
+
+  function ensureLayoutStyles() {
+    if (document.getElementById('dvs-m17-network-layout-style')) return;
     var style = document.createElement('style');
     style.id = 'dvs-m17-network-layout-style';
     style.textContent = [
