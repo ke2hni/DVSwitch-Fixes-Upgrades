@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.2
+# Version: 1.0.3
 # Created: 2026-11-17T09:38:00-05:00 by KE2HNI
-# Updated: 2026-11-17T11:33:38-05:00 by KE2HNI — verify width overrides and v2 migration.
+# Updated: 2026-11-17T12:05:00-05:00 by KE2HNI — verify label widths and v3 migration.
 # SPDX-License-Identifier: MIT
 """Verify status-strip PHP escaping, cell widths, migration, and recovery paths."""
 
@@ -72,12 +72,12 @@ import sys
 if len(sys.argv) != 3 or sys.argv[1] != '-l':
     raise SystemExit(2)
 content = Path(sys.argv[2]).read_bytes()
-if b'DVSwitch-Mods: Modes and Networks status v3' not in content:
+if b'DVSwitch-Mods: Modes and Networks status v4' not in content:
     raise SystemExit(0)
 php_line = next((line for line in content.splitlines() if b'echo ' in line and b'background:' in line), b'')
 if (not php_line or php_line.count(bytes([92])) != 3 or b'&nbsp;' not in php_line
-        or b'#dvs-mods-mode-network-strip th{width:4%!important' not in content
-        or b'#dvs-mods-mode-network-strip td{width:5.75%!important' not in content):
+        or b'#dvs-mods-mode-network-strip th{width:7%!important' not in content
+        or b'#dvs-mods-mode-network-strip td{width:5.375%!important' not in content):
     print('Generated PHP echo or scoped width override regression')
     raise SystemExit(1)
 print('Generated PHP escaping and scoped width overrides verified')
@@ -110,11 +110,12 @@ print('Generated PHP escaping and scoped width overrides verified')
     installed = target.read_bytes()
     if installed.count(b'id="dvs-mods-mode-network-strip"') != 1:
         raise SystemExit('FAIL: strip table did not receive its scoped sizing rules')
-    if installed.count(b'<col style="width:5.75%;">') != 16:
-        raise SystemExit('FAIL: strip does not have 16 equal status columns')
+    if (installed.count(b'<col style="width:7%;">') != 2
+            or installed.count(b'<col style="width:5.375%;">') != 16):
+        raise SystemExit('FAIL: two separator columns and 16 equal status columns do not total 100%')
     if (installed.count(b'id="dvs-mods-mode-network-style"') != 1
-            or b'#dvs-mods-mode-network-strip th{width:4%!important' not in installed
-            or b'#dvs-mods-mode-network-strip td{width:5.75%!important' not in installed):
+            or b'#dvs-mods-mode-network-strip th{width:7%!important' not in installed
+            or b'#dvs-mods-mode-network-strip td{width:5.375%!important' not in installed):
         raise SystemExit('FAIL: scoped overrides for showMode inline widths were not installed')
     expected_features = (b'dvsModsShowASLM17Status("ASL", "ASL")',
                          b'dvsModsShowASLM17Status("M17", "M17")',
@@ -156,6 +157,29 @@ print('Generated PHP escaping and scoped width overrides verified')
     if result.returncode or v2_target.read_bytes() != previous_system:
         raise SystemExit('FAIL: v2 uninstall did not restore the previous layout')
 
+    # Migrate the just-installed v3 sizing, preserving the same cells.
+    v3_target = root / 'upgrade-v3' / 'system.php'
+    v3_target.parent.mkdir()
+    v3_system = installed.replace(b'Modes and Networks status v4', b'Modes and Networks status v3', 1)
+    v3_system = v3_system.replace(b'width:7%!important', b'width:4%!important').replace(
+        b'width:5.375%!important', b'width:5.75%!important')
+    v3_system = v3_system.replace(b'width:7%;', b'width:4%;').replace(
+        b'width:5.375%;', b'width:5.75%;')
+    v3_target.write_bytes(v3_system)
+    v3_backups = root / 'upgrade-v3-backups'
+    result = run('check', v3_target, v3_backups)
+    if result.returncode or 'READY:' not in result.stdout or v3_target.read_bytes() != v3_system:
+        raise SystemExit('FAIL: v3 migration --check changed files or did not report READY: ' + result.stdout + result.stderr)
+    result = run('install', v3_target, v3_backups)
+    if result.returncode or b'width:7%!important' not in v3_target.read_bytes():
+        raise SystemExit('FAIL: v3 width migration failed: ' + result.stderr + result.stdout)
+    v3_backup = next(iter(v3_backups.glob('install-*')), None)
+    if v3_backup is None:
+        raise SystemExit('FAIL: v3 migration did not create a backup')
+    result = run('uninstall', v3_target, v3_backups, v3_backup.name)
+    if result.returncode or v3_target.read_bytes() != v3_system:
+        raise SystemExit('FAIL: v3 uninstall did not restore the previous layout')
+
     # Exercise fresh install from an unmodified dashboard and exact uninstall recovery.
     fresh_target = root / 'fresh' / 'system.php'
     fresh_target.parent.mkdir()
@@ -177,4 +201,4 @@ print('Generated PHP escaping and scoped width overrides verified')
     if result.returncode or fresh_target.read_bytes() != clean_system:
         raise SystemExit('FAIL: fresh-install uninstall did not restore the original file')
 
-print('PASS: status strip fresh install, v1/v2 migrations, check, already-applied, uninstall recovery, PHP escaping, and layout')
+print('PASS: status strip fresh install, v1/v2/v3 migrations, check, already-applied, uninstall recovery, PHP escaping, and layout')
