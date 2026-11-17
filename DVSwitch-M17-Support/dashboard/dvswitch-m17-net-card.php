@@ -1,7 +1,8 @@
 <?php
 // DVSwitch-M17-Dashboard: M17 Net card v1
-// Version: 1.0.9; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Version: 1.1.0; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
 // Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — show M17 reflector IDs with friendly names in status and Net cards.
+// Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — match both M17 labels to the copper text used by other Net cards.
 // Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — provide the selected M17 target for Analog Bridge status display.
 // Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — retain copper in dark theme and let the light-theme overlay darken it.
 // Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — read standalone M17 mode state when Mode Buttons is absent.
@@ -75,7 +76,7 @@ function dvsM17ShowNetCard() {
     echo '<br /><table><tr><th colspan="2">M17 Net</th></tr>';
     // Keep the stock copper color but omit !important so Light mode can apply its existing contrast override.
     $idLabel = htmlspecialchars($identifier, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    echo '<tr><td colspan="2" style="background:#ffffed;font-weight:bold;white-space:normal;overflow-wrap:anywhere;text-align:center;">Reflector<br /><span style="color:#b5651d;">'.$idLabel.'</span><br /><span class="dvs-m17-reflector-label">'.$label.'</span></td></tr>';
+    echo '<tr><td colspan="2" style="background:#ffffed;font-weight:bold;white-space:normal;overflow-wrap:anywhere;text-align:center;">Reflector<br /><span style="color:#ef7215;">'.$idLabel.'</span><br /><span style="color:#ef7215;">'.$label.'</span></td></tr>';
     echo '<tr><td colspan="2" style="background:'.($isActive ? '#0b0' : '#ffffed').';color:'.($isActive ? '#030' : '#b0b0b0').';font-weight:bold;text-align:center;">'.($isActive ? 'Connected' : 'OFFLINE').'</td></tr></table>';
 }
 ?>

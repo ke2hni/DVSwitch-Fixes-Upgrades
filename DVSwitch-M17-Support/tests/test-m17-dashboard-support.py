@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.2.7
+# Version: 1.2.8
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and dedicated Gateway Activity integration.
+# Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — cover script cache busting and shared copper text color.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — verify live M17 RX heartbeat and TRX label behavior.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
@@ -262,7 +263,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert patched_status.count('$displayTarget') == 4
         assert 'dvswitchASL3ShowNetCard' not in status.read_text()
         assert '$listElem[1] == "M17"' in localtx.read_text()
-        assert '<script src="/dvswitch/dvswitch-m17-layout.js"></script>' in index.read_text()
+        assert '<script src="/dvswitch/dvswitch-m17-layout.js?v=1.2.7"></script>' in index.read_text()
         assert '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>' in index.read_text()
         subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
@@ -283,8 +284,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     gateway = (ROOT / 'dashboard/dvswitch-m17-gateway-activity.php').read_text(encoding='utf-8')
     activity = (ROOT / 'dashboard/dvswitch-m17-activity.php').read_text(encoding='utf-8')
     assert "'target' => $target['id']" in card and "$identifier = $parts[1].'-'.$parts[2]" in card
-    assert "Reflector<br /><span style=\"color:#b5651d;\">'.$idLabel" in card
-    assert '<span class="dvs-m17-reflector-label">' in card and "'.$label." in card
+    assert "Reflector<br /><span style=\"color:#ef7215;\">'.$idLabel" in card
+    assert "<span style=\"color:#ef7215;\">'.$label" in card
     assert "'node' => (string)($row[11] ?? '')" in gateway and "'mode' => 'M17'" in gateway
     assert "$reflector = $selection[1]" in activity and "$reflector);" in activity
     assert "'M17 Gateway Activity'" in layout and "result.mode !== 'M17'" in layout
@@ -332,7 +333,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'rx.onclick = rx.dvsM17OriginalHandler || null' in layout
     assert 'window.dvsp.stop()' in layout
     assert 'def extract_pcm' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.py').read_text(encoding='utf-8')
-    assert 'color:#b5651d;' in card and 'color:#b5651d!important' not in card
+    assert card.count('color:#ef7215;') == 2
     assert 'body.theme-light [style*="color:#b5651d"]' in THEME and 'color: #6b2f00 !important;' in THEME
     standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
     api = (ROOT / 'dashboard/dvswitch-m17-dashboard.php').read_text(encoding='utf-8')

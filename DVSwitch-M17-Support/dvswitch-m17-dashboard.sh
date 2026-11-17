@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.0
+# Version: 1.1.1
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — restart the RX monitor after upgrades so the heartbeat code is loaded.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — install reflector IDs and the M17-only Gateway Activity panel.
+# Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — version the layout script URL so browsers load the new activity card.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — install live M17 RX heartbeat and TRX status updates.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
@@ -88,8 +89,8 @@ for path in map(Path,sys.argv[1:]):
             if text.count(addition)!=1: raise SystemExit('ERROR: M17 Local Activity filter is ambiguous; no files were changed.')
             text=text.replace(addition,'',1)
     else:
-        for tag in ('<script src="/dvswitch/dvswitch-m17-layout.js"></script>', '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>'):
-            text=text.replace(tag+'\n','',1)
+        text=re.sub(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?"></script>\n?', '', text)
+        text=re.sub(r'<script src="/dvswitch/dvswitch-m17-standalone\.js"></script>\n?', '', text)
     st=path.stat(); fd,tmp=tempfile.mkstemp(dir=path.parent)
     with os.fdopen(fd,'w',encoding='utf-8',newline='') as output: output.write(text)
     os.chown(tmp,st.st_uid,st.st_gid); os.chmod(tmp,stat.S_IMODE(st.st_mode)); os.replace(tmp,path)
@@ -206,12 +207,18 @@ for path in (functions,status,localtx,index):
             text=text.replace('$counter = 0;',marker+'\n$counter = 0;',1)
         elif text.count(marker)!=1: raise SystemExit('ERROR: duplicate M17 Local Activity markers.')
     else:
-        tags=('<script src="/dvswitch/dvswitch-m17-layout.js"></script>', '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>')
-        for tag in tags:
-            if tag not in text:
-                if text.count('</body>')!=1: raise SystemExit('ERROR: index.php body ending is missing or ambiguous.')
-                text=text.replace('</body>',tag+'\n</body>',1)
-            elif text.count(tag)!=1: raise SystemExit('ERROR: duplicate M17 dashboard script tags.')
+        layout_tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.2.7"></script>'
+        old_layout=re.findall(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?"></script>',text)
+        if len(old_layout)>1: raise SystemExit('ERROR: duplicate M17 layout script tags.')
+        if old_layout: text=text.replace(old_layout[0],layout_tag,1)
+        else:
+            if text.count('</body>')!=1: raise SystemExit('ERROR: index.php body ending is missing or ambiguous.')
+            text=text.replace('</body>',layout_tag+'\n</body>',1)
+        standalone_tag='<script src="/dvswitch/dvswitch-m17-standalone.js"></script>'
+        if standalone_tag not in text:
+            if text.count('</body>')!=1: raise SystemExit('ERROR: index.php body ending is missing or ambiguous.')
+            text=text.replace('</body>',standalone_tag+'\n</body>',1)
+        elif text.count(standalone_tag)!=1: raise SystemExit('ERROR: duplicate M17 standalone script tags.')
     changes.append((path,text))
 for path,text in changes:
     st=path.stat(); fd,tmp=tempfile.mkstemp(dir=path.parent)
