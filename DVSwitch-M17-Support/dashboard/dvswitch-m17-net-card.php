@@ -1,6 +1,7 @@
 <?php
 // DVSwitch-M17-Dashboard: M17 Net card v1
-// Version: 1.0.8; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Version: 1.0.9; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — show M17 reflector IDs with friendly names in status and Net cards.
 // Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — provide the selected M17 target for Analog Bridge status display.
 // Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — retain copper in dark theme and let the light-theme overlay darken it.
 // Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — read standalone M17 mode state when Mode Buttons is absent.
@@ -9,6 +10,11 @@
 // Updated: 2026-11-11T23:35:00-05:00 by KE2HNI — treat selected M17 private-node state as authoritative while Analog_Bridge reports ASL.
 
 function dvsM17CurrentDisplayTarget() {
+    $target = dvsM17TargetDetails();
+    return $target === null ? null : array('mode' => 'M17', 'target' => $target['id']);
+}
+
+function dvsM17TargetDetails() {
     $modePath = is_readable('/var/lib/dvswitch-mode-buttons/current-mode')
         ? '/var/lib/dvswitch-mode-buttons/current-mode'
         : '/var/lib/dvswitch-m17-dashboard/current-mode';
@@ -18,8 +24,10 @@ function dvsM17CurrentDisplayTarget() {
     $config = @parse_ini_file('/etc/USRP2M17.ini', true, INI_SCANNER_RAW);
     $network = is_array($config) && isset($config['M17 Network']) ? $config['M17 Network'] : array();
     $name = isset($network['Name']) ? trim((string)$network['Name']) : '';
-    if ($name === '') { return array('mode' => 'M17', 'target' => 'Not linked'); }
+    if ($name === '') { return array('id' => 'Not linked', 'room' => 'Not linked'); }
+    $identifier = $name;
     if (preg_match('/^(.+)\s+([A-Z0-9])$/', $name, $parts) && is_readable('/var/lib/mmdvm/M17Hosts.json')) {
+        $identifier = $parts[1].'-'.$parts[2];
         $catalog = json_decode((string)file_get_contents('/var/lib/mmdvm/M17Hosts.json'), true);
         foreach (is_array($catalog['reflectors'] ?? null) ? $catalog['reflectors'] : array() as $row) {
             if (!is_array($row) || ($row['designator'] ?? '') !== $parts[1]) { continue; }
@@ -27,7 +35,7 @@ function dvsM17CurrentDisplayTarget() {
             break;
         }
     }
-    return array('mode' => 'M17', 'target' => $name);
+    return array('id' => $identifier, 'room' => $name);
 }
 
 function dvsM17ShowNetCard() {
@@ -37,7 +45,9 @@ function dvsM17ShowNetCard() {
     $network = is_array($config) && isset($config['M17 Network']) ? $config['M17 Network'] : array();
     $name = isset($network['Name']) ? trim((string)$network['Name']) : '';
     $room = $name !== '' ? $name : 'M17 reflector';
+    $identifier = $name;
     if (preg_match('/^(.+)\s+([A-Z0-9])$/', $name, $parts) && is_readable('/var/lib/mmdvm/M17Hosts.json')) {
+        $identifier = $parts[1].'-'.$parts[2];
         $catalog = json_decode((string)file_get_contents('/var/lib/mmdvm/M17Hosts.json'), true);
         foreach (is_array($catalog['reflectors'] ?? null) ? $catalog['reflectors'] : array() as $row) {
             if (!is_array($row) || ($row['designator'] ?? '') !== $parts[1]) { continue; }
@@ -64,7 +74,8 @@ function dvsM17ShowNetCard() {
     $label = htmlspecialchars($room, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     echo '<br /><table><tr><th colspan="2">M17 Net</th></tr>';
     // Keep the stock copper color but omit !important so Light mode can apply its existing contrast override.
-    echo '<tr><td colspan="2" style="background:#ffffed;font-weight:bold;white-space:normal;overflow-wrap:anywhere;text-align:center;">Room<br /><span style="color:#b5651d;">'.$label.'</span></td></tr>';
+    $idLabel = htmlspecialchars($identifier, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    echo '<tr><td colspan="2" style="background:#ffffed;font-weight:bold;white-space:normal;overflow-wrap:anywhere;text-align:center;">Reflector<br /><span style="color:#b5651d;">'.$idLabel.'</span><br /><span class="dvs-m17-reflector-label">'.$label.'</span></td></tr>';
     echo '<tr><td colspan="2" style="background:'.($isActive ? '#0b0' : '#ffffed').';color:'.($isActive ? '#030' : '#b0b0b0').';font-weight:bold;text-align:center;">'.($isActive ? 'Connected' : 'OFFLINE').'</td></tr></table>';
 }
 ?>

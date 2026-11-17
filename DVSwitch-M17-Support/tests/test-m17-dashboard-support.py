@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.6
+# Version: 1.2.7
+# Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and dedicated Gateway Activity integration.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — verify live M17 RX heartbeat and TRX label behavior.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
@@ -253,6 +254,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert stat.S_IMODE(state.stat().st_mode) == 0o600
         assert 'dvsM17MergeActivity($lastHeard)' in functions.read_text()
         assert 'dvsM17ShowNetCard()' in status.read_text()
+        assert 'dvswitch-m17-gateway-activity.php' in installer
         patched_status=status.read_text()
         assert 'dvsM17CurrentDisplayTarget()' in patched_status
         assert "htmlspecialchars($m17Display['target']" in patched_status
@@ -278,6 +280,14 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert 'M17-123-C\tFriendly Room C' in history.read_text()
     layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
     card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
+    gateway = (ROOT / 'dashboard/dvswitch-m17-gateway-activity.php').read_text(encoding='utf-8')
+    activity = (ROOT / 'dashboard/dvswitch-m17-activity.php').read_text(encoding='utf-8')
+    assert "'target' => $target['id']" in card and "$identifier = $parts[1].'-'.$parts[2]" in card
+    assert "Reflector<br /><span style=\"color:#b5651d;\">'.$idLabel" in card
+    assert '<span class="dvs-m17-reflector-label">' in card and "'.$label." in card
+    assert "'node' => (string)($row[11] ?? '')" in gateway and "'mode' => 'M17'" in gateway
+    assert "$reflector = $selection[1]" in activity and "$reflector);" in activity
+    assert "'M17 Gateway Activity'" in layout and "result.mode !== 'M17'" in layout
     assert 'function dvsM17LiveBridgeMode()' not in card
     assert 'Analog_Bridge can' in card and 'report ASL while the selected and connected M17 mode is active' in card
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))

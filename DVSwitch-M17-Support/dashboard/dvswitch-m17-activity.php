@@ -1,6 +1,7 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.0
+// Version: 1.0.1
+// Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — retain reflector IDs for the dedicated M17 activity panel.
 // Created: 2026-11-09T23:33:00-05:00 by KE2HNI
 
 /** Read completed USRP2M17 voice events as rows compatible with DVSwitch history. */
@@ -53,16 +54,18 @@ function dvsM17ActivityRows($paths = null, $historyPath = null)
 
             $epoch = (int)$date->format('U');
             $target = 'M17 reflector';
+            $reflector = '';
             $historyAt = null;
             foreach ($history as $selection) {
                 if ($selection[0] <= $epoch && ($historyAt === null || $selection[0] >= $historyAt)) {
+                    $reflector = $selection[1];
                     $target = $selection[2] !== '' ? $selection[2] : $selection[1];
                     $historyAt = $selection[0];
                 }
             }
             $source = $match[3] === 'M17' ? 'Net' : 'LNet';
             $row = array($date->format('Y-m-d H:i:s.v'), 'M17', $call, '', $target, $source,
-                number_format((float)$match[5], 1, '.', ''), '0%', '0.0%', '', '');
+                number_format((float)$match[5], 1, '.', ''), '0%', '0.0%', '', '', $reflector);
             $events[] = array('row' => $row, 'sequence' => $sequence++);
         }
     }
