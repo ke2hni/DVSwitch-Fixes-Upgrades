@@ -142,6 +142,7 @@ the main column beyond the viewport, and uses a shorter header. The Dark Mode an
 do not require the standard component chain. STFU status, STFU activity, RX Monitor position, and the STFU
 logrotate restart repair are included at the end of the standard component
 installation and uninstall order. Option 0 exits without changing anything.
+Display layout v1.3.9 adds a desktop-only ASL offset to align the right network-card stack with the left Status cards.
 The standalone Mode Buttons, Dark Mode, and Widescreen installers are managed
 separately and are not removed by option 5. ASL 3 Support also keeps its own
 backups and is not part of the standard component uninstall.

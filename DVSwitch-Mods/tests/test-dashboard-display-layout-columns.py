@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise widescreen card layout installation and guarded restoration."""
-# Version: 1.0.0; Created: 2026-11-15T17:40:00Z by KE2HNI
+# Version: 1.0.1; Created: 2026-11-15T17:40:00Z by KE2HNI
+# Updated: 2026-11-16T19:36:05-05:00 by KE2HNI — verify the ASL-only right stack offset.
 from pathlib import Path
 import os
 import subprocess
@@ -61,6 +62,11 @@ with tempfile.TemporaryDirectory(prefix="dvs-display-layout-") as temp:
     require((root / "dvswitch-display-layout.js").read_bytes() == ASSET.read_bytes(), "layout JS asset not installed exactly")
     js = (root / "dvswitch-display-layout.js").read_text(encoding="utf-8")
     require("dvswitch-m17-audio" not in js and "toggleM17Audio" not in js, "generic display layout depends on M17 audio")
+    # Keep the screenshot-measured alignment correction limited to desktop ASL mode.
+    require(".dvs-network-cards-right{position:relative;left:10px;padding:21px 32px 0 0;box-sizing:border-box}" in js,
+            "normal-mode right card spacing changed")
+    require("@media(min-width:1101px){body:has(#dvs-asl-activity:not([hidden])) .dvs-network-cards-right{padding-top:28px}}" in js,
+            "desktop ASL right card stack does not receive its alignment correction")
 
     result = run("restore-latest")
     require(result.returncode == 0, f"restore-latest failed: {result.stdout}\n{result.stderr}")

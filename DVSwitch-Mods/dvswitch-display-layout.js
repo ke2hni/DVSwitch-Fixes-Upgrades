@@ -1,5 +1,6 @@
-/* DVSwitch-Mods display layout v1.3.8
+/* DVSwitch-Mods display layout v1.3.9
  * Created: 2026-11-15T17:35:00Z by KE2HNI
+ * Updated: 2026-11-16T19:36:05-05:00 by KE2HNI — align the right card stack with the left Status cards in ASL mode.
  * Generic widescreen activity and network-card layout; contains no M17 mode controls.
  */
 (function () {
@@ -41,6 +42,8 @@
       '#dvs-gateway-activity{grid-column:1;min-width:0;width:calc(100% - 4px);justify-self:start;display:flex;flex-direction:column;align-items:center}#dvs-gateway-activity #lastHerd,#dvs-gateway-activity #localTxs{width:100%;max-width:100%;box-sizing:border-box}#dvs-gateway-activity #localTxs{margin-top:8px}#dvs-gateway-activity #lastHerd fieldset,#dvs-gateway-activity #localTxs fieldset{width:100%!important;box-sizing:border-box;margin-left:0!important;margin-right:0!important}',
       '#dvs-network-sidebar-cards{width:calc(100% - 24px);box-sizing:border-box;margin:8px 0 0 24px}',
       '.dvs-network-cards{min-width:0;text-align:center}.dvs-network-cards-right{position:relative;left:10px;padding:21px 32px 0 0;box-sizing:border-box}',
+      // In desktop ASL mode, add the measured 7px offset so both side-card stacks start level.
+      '@media(min-width:1101px){body:has(#dvs-asl-activity:not([hidden])) .dvs-network-cards-right{padding-top:28px}}',
       '.nav #modeInfo>fieldset{margin-left:24px!important;width:calc(100% - 24px)!important;box-sizing:border-box}.nav #modeInfo>fieldset table th:first-child{white-space:nowrap}',
       '.dvs-network-card-panel{background-color:#e8e8e8e8;width:100%;box-sizing:border-box;margin:6px 0 8px;padding:4px;font-size:12px;border-radius:10px}.dvs-network-card-panel table{width:100%;table-layout:fixed;margin:0}.dvs-network-card-panel th,.dvs-network-card-panel td{overflow-wrap:anywhere;word-break:normal}',
       '@media(max-width:1100px){#dvs-network-layout{grid-template-columns:minmax(0,1fr)}#dvs-gateway-activity{grid-column:1;grid-row:1;width:100%}.dvs-network-cards-right{grid-column:1;grid-row:2;left:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:0 8px;padding:0}}'
