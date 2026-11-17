@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.4
-# Updated: 2026-11-17T12:05:00-05:00 by KE2HNI — reserve enough width for both strip labels.
+# Version: 1.0.6
+# Updated: 2026-11-17T12:12:46-05:00 by KE2HNI — refine separator/status widths and improve connected-cell contrast.
 
 # Add STFU, ASL, and M17 status cells to the dashboard Modes and Networks strip.
 # This standalone installer intentionally modifies only include/system.php.
@@ -10,7 +10,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.0.4"
+readonly SCRIPT_VERSION="1.0.6"
 readonly TARGET="${DVS_STFU_STATUS_TARGET:-/usr/share/dvswitch/include/system.php}"
 readonly BACKUP_ROOT="${DVS_STFU_STATUS_BACKUP_ROOT:-/var/backups/dvswitch-mods/dashboard-stfu-status}"
 
@@ -39,9 +39,11 @@ action = os.environ["STFU_ACTION"]
 target = Path(os.environ["STFU_TARGET"])
 backup_root = Path(os.environ["STFU_BACKUP_ROOT"])
 backup_name = os.environ["STFU_BACKUP_NAME"]
-marker = b"// DVSwitch-Mods: Modes and Networks status v4"
-previous_marker = b"// DVSwitch-Mods: Modes and Networks status v3"
-older_marker = b"// DVSwitch-Mods: Modes and Networks status v2"
+marker = b"// DVSwitch-Mods: Modes and Networks status v6"
+previous_marker = b"// DVSwitch-Mods: Modes and Networks status v5"
+older_marker = b"// DVSwitch-Mods: Modes and Networks status v4"
+oldest_marker = b"// DVSwitch-Mods: Modes and Networks status v3"
+ancient_marker = b"// DVSwitch-Mods: Modes and Networks status v2"
 old_marker = b"// DVSwitch-Mods: STFU Modes and Networks status v1"
 function_anchor = b"$rawuptime = shell_exec('cat /proc/uptime');"
 mode_original = b'    <?php showMode("D-Star", $mmdvmconfigs);?>'
@@ -57,9 +59,21 @@ style_marker = b'id="dvs-mods-mode-network-style"'
 style_block = (b'<style id="dvs-mods-mode-network-style">'
                b'/* Override upstream showMode inline widths only in this status strip. */'
                b'#dvs-mods-mode-network-strip{table-layout:fixed;width:100%}'
-               b'#dvs-mods-mode-network-strip th{width:7%!important;white-space:nowrap}'
-               b'#dvs-mods-mode-network-strip td{width:5.375%!important;white-space:nowrap}'
+               b'#dvs-mods-mode-network-strip th{width:5%!important;white-space:nowrap}'
+               b'#dvs-mods-mode-network-strip td{width:5.625%!important;white-space:nowrap}'
                b'</style>')
+wide_style_block = (b'<style id="dvs-mods-mode-network-style">'
+                      b'/* Override upstream showMode inline widths only in this status strip. */'
+                      b'#dvs-mods-mode-network-strip{table-layout:fixed;width:100%}'
+                      b'#dvs-mods-mode-network-strip th{width:7%!important;white-space:nowrap}'
+                      b'#dvs-mods-mode-network-strip td{width:5.375%!important;white-space:nowrap}'
+                      b'</style>')
+legacy_style_block = (b'<style id="dvs-mods-mode-network-style">'
+                      b'/* Override upstream showMode inline widths only in this status strip. */'
+                      b'#dvs-mods-mode-network-strip{table-layout:fixed;width:100%}'
+                      b'#dvs-mods-mode-network-strip th{width:4%!important;white-space:nowrap}'
+                      b'#dvs-mods-mode-network-strip td{width:5.75%!important;white-space:nowrap}'
+                      b'</style>')
 
 
 def installed_function(data):
@@ -69,7 +83,7 @@ def installed_function(data):
         b"if (!function_exists('dvsModsEmitNetworkStatus')) {",
         b"    function dvsModsEmitNetworkStatus($label, $connected) {",
         b'        $background = $connected ? "#12AD2A" : "#b00";',
-        b'        $foreground = $connected ? "#030" : "#f9f9f9";',
+        b'        $foreground = $connected ? "#000" : "#f9f9f9";',
         # Raw bytes preserve backslashes so PHP keeps the HTML attribute quotes inside its string.
         br"""        echo "<td style=\"background:".$background.";color:".$foreground.";white-space:nowrap;\">&nbsp;".$label."&nbsp;</td>\n";""",
         b"    }",
@@ -114,13 +128,25 @@ def inspect(data):
     markers = data.count(marker)
     if (markers == 1 and data.count(mode_added) == 1 and data.count(network_added) == 1
             and data.count(function) == 1 and data.count(table_marker) == 1
-            and data.count(style_block) == 1):
+            and data.count(style_block) == 1 and data.count(style_marker) == 1):
         return "installed"
     if (data.count(previous_marker) == 1 and function_signature in data
             and data.count(mode_added) == 1 and data.count(network_added) == 1
-            and data.count(table_marker) == 1 and data.count(style_marker) == 1):
-        return "upgrade_v3"
+            and data.count(table_marker) == 1 and data.count(wide_style_block) == 1
+            and data.count(style_marker) == 1):
+        return "upgrade_v5"
     if (data.count(older_marker) == 1 and function_signature in data
+            and data.count(mode_added) == 1 and data.count(network_added) == 1
+            and data.count(table_marker) == 1 and data.count(wide_style_block) == 1
+            and (data.count(style_marker) == 1 or
+                 (data.count(style_marker) == 2 and data.count(legacy_style_block) == 1))):
+        return "upgrade_v4"
+    if (data.count(oldest_marker) == 1 and function_signature in data
+            and data.count(mode_added) == 1 and data.count(network_added) == 1
+            and data.count(table_marker) == 1 and data.count(legacy_style_block) == 1
+            and data.count(style_marker) == 1):
+        return "upgrade_v3"
+    if (data.count(ancient_marker) == 1 and function_signature in data
             and data.count(mode_added) == 1 and data.count(network_added) == 1
             and data.count(table_marker) == 1 and style_marker not in data):
         return "upgrade_v2"
@@ -129,7 +155,9 @@ def inspect(data):
         network_count = data.count(network_base)
         if mode_count == 1 and network_count == 1 and table_marker not in data:
             return "upgrade"
-    if markers or previous_marker in data or older_marker in data or old_marker in data or function_signature in data or style_marker in data:
+    if (markers or previous_marker in data or older_marker in data or oldest_marker in data
+            or ancient_marker in data
+            or old_marker in data or function_signature in data or style_marker in data):
         fail("partial or ambiguous Modes and Networks status modification found; refusing to change system.php")
     counts = (data.count(function_anchor), data.count(mode_original), data.count(network_original))
     if counts != (1, 1, 1):
@@ -143,9 +171,11 @@ def make_candidate(data):
         return data
     newline = b"\r\n" if b"\r\n" in data else b"\n"
     function = installed_function(data)
-    if state in ("upgrade", "upgrade_v2", "upgrade_v3"):
-        source_marker = (previous_marker if state == "upgrade_v3" else
-                         older_marker if state == "upgrade_v2" else old_marker)
+    if state in ("upgrade", "upgrade_v2", "upgrade_v3", "upgrade_v4", "upgrade_v5"):
+        source_marker = {"upgrade_v5": previous_marker,
+                         "upgrade_v4": older_marker,
+                         "upgrade_v3": oldest_marker,
+                         "upgrade_v2": ancient_marker}.get(state, old_marker)
         start = data.index(source_marker)
         end = data.index(function_anchor, start)
         data = data[:start] + function + newline + data[end:]
@@ -166,14 +196,27 @@ def make_candidate(data):
         data = data.replace(function_anchor, function + newline + function_anchor, 1)
         data = data.replace(mode_original, mode_added, 1)
         data = data.replace(network_original, network_added, 1)
-    replacement = (style_block + b'\n<table id="dvs-mods-mode-network-strip" style="margin-top:2px;table-layout:fixed;width:100%;"><colgroup>'
-                   + b'<col style="width:7%;">' + b'<col style="width:5.375%;">' * 8
-                   + b'<col style="width:7%;">' + b'<col style="width:5.375%;">' * 8 + b'</colgroup>')
-    if state in ("upgrade_v2", "upgrade_v3"):
+    table_replacement = (b'<table id="dvs-mods-mode-network-strip" style="margin-top:2px;table-layout:fixed;width:100%;"><colgroup>'
+                         + b'<col style="width:5%;">' + b'<col style="width:5.625%;">' * 8
+                         + b'<col style="width:5%;">' + b'<col style="width:5.625%;">' * 8 + b'</colgroup>')
+    replacement = style_block + b'\n' + table_replacement
+    if state in ("upgrade_v2", "upgrade_v3", "upgrade_v4", "upgrade_v5"):
         previous_table = re.compile(rb'<table id="dvs-mods-mode-network-strip"[^>]*><colgroup>.*?</colgroup>', re.S)
         if len(previous_table.findall(data)) != 1:
             fail("previous Modes and Networks table sizing is missing or ambiguous during upgrade")
-        data = previous_table.sub(replacement, data, count=1)
+        data = previous_table.sub(replacement if state == "upgrade_v2" else table_replacement, data, count=1)
+        if state == "upgrade_v3":
+            if data.count(legacy_style_block) != 1:
+                fail("previous Modes and Networks style block is missing or ambiguous during upgrade")
+            data = data.replace(legacy_style_block, style_block, 1)
+        elif state in ("upgrade_v4", "upgrade_v5"):
+            if data.count(wide_style_block) != 1:
+                fail("previous Modes and Networks style block is missing or ambiguous during upgrade")
+            data = data.replace(wide_style_block, style_block, 1)
+        if state == "upgrade_v4" and data.count(legacy_style_block) == 1:
+            data = data.replace(legacy_style_block, b"", 1)
+        elif state == "upgrade_v4" and data.count(style_marker) != 1:
+            fail("duplicate Modes and Networks style blocks are not a recognized prior layout")
     elif table_marker not in data:
         table = b'<table style="margin-top:2px;">'
         if data.count(table) < 1:
