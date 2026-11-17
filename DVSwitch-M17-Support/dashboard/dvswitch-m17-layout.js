@@ -1,8 +1,9 @@
-/* DVSwitch M17 dashboard layout v1.2.7
+/* DVSwitch M17 dashboard layout v1.2.8
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — show RX M17 in TRX Info while M17 USRP audio is arriving.
  * Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — add an M17-only gateway activity card matching the ASL panel.
  * Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — use the shared Net-card copper color for M17 activity names.
+ * Updated: 2026-11-17T16:15:00-05:00 by KE2HNI — preserve copper text in dark theme for M17 Net labels.
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
  * Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — place the left card stack in the status sidebar below Analog Bridge and TRX.
@@ -132,6 +133,7 @@
       '.dvs-network-card-panel{background-color:#e8e8e8e8;width:100%;box-sizing:border-box;margin:6px 0 8px;padding:4px;font-size:12px;border-radius:10px}',
       '.dvs-network-card-panel table{width:100%;table-layout:fixed;margin:0}',
       '.dvs-network-card-panel th,.dvs-network-card-panel td{overflow-wrap:anywhere;word-break:normal}',
+      'body.theme-dark .dvs-network-cards [style*="color:#ef7215"],body.theme-auto.dvs-prefers-dark .dvs-network-cards [style*="color:#ef7215"]{color:#ef7215!important}',
       'body.theme-dark .dvs-network-cards *,body.theme-auto.dvs-prefers-dark .dvs-network-cards *{border-color:#374151!important}',
       '@media(max-width:1100px){#dvs-network-layout{grid-template-columns:minmax(0,1fr)}#dvs-gateway-activity{grid-column:1;grid-row:1;width:100%}.dvs-network-cards-right{grid-column:1;grid-row:2;left:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:0 8px;padding:0}}',
       '@media(max-width:650px){.dvs-network-cards-right{grid-template-columns:repeat(2,minmax(0,1fr))}}'
