@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Version: 1.0.3
+# Version: 1.0.5
+# Updated: 2026-11-16T23:22:12-05:00 by KE2HNI — show ASL and M17 TRX receive/listening states.
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 

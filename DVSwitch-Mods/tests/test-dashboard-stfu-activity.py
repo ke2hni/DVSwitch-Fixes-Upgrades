@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
+# Version: 1.0.6
+# Updated: 2026-11-16T23:22:50-05:00
+# Modified by KE2HNI
 # SPDX-License-Identifier: MIT
 
 """Regression tests for the separate STFU log activity integration."""
@@ -45,6 +47,7 @@ fixtures = {
     ),
     "status": (
         "<?php\n"
+        + "// TRX Status code\n"
         + '            if ($existingCondition) { echo "existing"; }\n'
         + '            elseif ($listElem[2] && $listElem[6] == null && $abinfo[\'tlv\'][\'ambe_mode\']== "DSTAR" && getActualMode($lastHeard, $mmdvmconfigs) === \'D-Star\') {\n'
         + '                    echo "<td style=\\"background:#0b0; color:#030;\\">Listening</td>";\n}\n'
@@ -79,6 +82,11 @@ with tempfile.TemporaryDirectory() as directory:
     require("RX STFU" in first["lh"], "Gateway Activity has no STFU RX indication")
     require('== "STFU"' in first["localtx"] and "dvsModsStfuTargetDisplay($listElem[4])" in first["localtx"], "Local Activity does not include STFU TX rows and targets")
     require("RX STFU" in first["status"] and "Listening STFU" in first["status"], "TRX Info has no STFU receive/listening state")
+    require("array('ASL', 'M17')" in first["status"] and 'Listening ".$dvsModsSelectedMode' in first["status"],
+            "TRX Info does not show the selected ASL or M17 listening mode")
+    require("if (in_array($dvsModsSelectedMode, array('ASL', 'M17'), true))" in first["status"],
+            "TRX Info idle state does not use the selected ASL/M17 label")
+    require("RX M17" in first["status"], "TRX Info has no M17 receive state")
     require("dvsModsStfuRenderCard($abinfo, $lastHeard);" in first["status"], "separate STFU status card is not rendered")
     if shutil.which("php"):
         for path in files.values():

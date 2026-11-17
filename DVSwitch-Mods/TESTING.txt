@@ -1,5 +1,6 @@
-Version: 1.0.5
+Version: 1.0.6
 DVSwitch-Mods dashboard-targets 1.2.2 live-link test package
+Updated: 2026-11-16T23:20:20-05:00 by KE2HNI — add ASL/M17 TRX and status strip checks.
 
 STFU logrotate restart repair (run on pi4test first):
 
@@ -95,7 +96,11 @@ shows RX STFU, and the separate
 STFU Net card remains visible in other modes, uses the dashboard's orange
 target color, and displays the friendly talkgroup name with (TG number) below
 it. TRX Info should show Listening DMR after selecting BM/TGIF with no current
-DMR receive; Gateway Activity history should retain each row's original mode.
+DMR receive. With ASL selected, it should show Listening ASL; with M17 selected,
+it should show Listening M17. The Modes and Networks strip should include ASL
+and M17 cells, green while their external ASL link or USRP2M17 process is active
+and red when disconnected. Gateway Activity history should retain each row's
+original mode.
 With DVSwitch-Mode-Buttons installed, tune an STFU target, switch to BM/TGIF,
 change the DMR target, and confirm STFU Net keeps its own saved target. Reboot
 and confirm it still shows that target; with no saved STFU target, show

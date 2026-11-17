@@ -1,4 +1,4 @@
-<!-- Version: 1.0.20; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-15T17:40:00+00:00 by KE2HNI --><div align="center">
+<!-- Version: 1.0.21; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-16T23:20:20-05:00 by KE2HNI --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -528,15 +528,18 @@ installation and before the display-layout installer.
 sudo ./dvswitch-dark-mode.sh apply
 ```
 
-### 9. STFU status cards
+### 9. STFU, ASL, and M17 status cards
 
-**What it adds:** STFU and STFU Net cells to the dashboard's existing green
-Modes and Networks status strip. Both cells show green while the STFU process
-is running and red while it is stopped. The update modifies only
-`/usr/share/dvswitch/include/system.php`, validates PHP syntax, creates a
-protected backup, and writes atomically. The manager installs it at the end of
-the standard component sequence and records its backup for ordered
-uninstallation.
+**What it adds:** STFU, ASL, and M17 cells to the dashboard's Modes and
+Networks status strip. STFU and M17 use their running bridge process as the
+connection signal. ASL uses the established external node links reported by
+the ASL support helper. Each cell is green while connected and red otherwise.
+The update modifies only `/usr/share/dvswitch/include/system.php`, validates
+PHP syntax, creates a protected backup, and writes atomically. It upgrades an
+existing STFU-only installation in place. The manager installs it at the end
+of the standard component sequence and records its backup for ordered
+uninstallation. The STFU activity component also labels TRX Info as Listening
+ASL or Listening M17 when either mode is selected and idle.
 
 ```bash
 sudo ./mod-dashboard-stfu-status.sh --check
