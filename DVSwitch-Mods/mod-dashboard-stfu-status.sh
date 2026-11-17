@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Version: 1.0.1
-# Updated: 2026-11-16T23:18:42-05:00 by KE2HNI — add ASL and M17 status indicators.
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
+# Version: 1.0.1
+# Updated: 2026-11-17T09:42:00-05:00 by KE2HNI — add ASL/M17 cells and preserve strip widths.
 
-# Add STFU, ASL, and M17 status cells to the existing dashboard Modes and Networks strip.
+# Add STFU, ASL, and M17 status cells to the dashboard Modes and Networks strip.
 # This standalone installer intentionally modifies only include/system.php.
 
 set -Eeuo pipefail
@@ -16,7 +16,7 @@ readonly BACKUP_ROOT="${DVS_STFU_STATUS_BACKUP_ROOT:-/var/backups/dvswitch-mods/
 
 die() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 usage() {
-    printf 'Dashboard mode status modification %s\n' "$SCRIPT_VERSION"
+    printf 'Dashboard Modes and Networks status modification %s\n' "$SCRIPT_VERSION"
     printf 'Usage: sudo %s {--check|--install|--uninstall BACKUP-NAME}\n' "$(basename "$0")"
 }
 require_root() { [[ ${EUID:-$(id -u)} -eq 0 ]] || die "Run this script with sudo."; }
@@ -39,23 +39,54 @@ action = os.environ["STFU_ACTION"]
 target = Path(os.environ["STFU_TARGET"])
 backup_root = Path(os.environ["STFU_BACKUP_ROOT"])
 backup_name = os.environ["STFU_BACKUP_NAME"]
-marker = b"// DVSwitch-Mods: STFU Modes and Networks status v1"
-asl_m17_marker = b"// DVSwitch-Mods: ASL and M17 Modes and Networks status v1"
+marker = b"// DVSwitch-Mods: Modes and Networks status v2"
+old_marker = b"// DVSwitch-Mods: STFU Modes and Networks status v1"
 function_anchor = b"$rawuptime = shell_exec('cat /proc/uptime');"
 mode_original = b'    <?php showMode("D-Star", $mmdvmconfigs);?>'
 network_original = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?></tr>'
-mode_added = mode_original + b'<?php dvsModsShowSTFUStatus("STFU"); ?>'
-network_added = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?><?php dvsModsShowSTFUStatus("STFU Net");?></tr>'
+mode_added = mode_original + b'<?php dvsModsShowSTFUStatus("STFU"); ?><?php dvsModsShowASLM17Status("ASL", "ASL"); ?><?php dvsModsShowASLM17Status("M17", "M17"); ?>'
+network_added = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?><?php dvsModsShowSTFUStatus("STFU Net"); ?><?php dvsModsShowASLM17Status("ASL", "ASL Net"); ?><?php dvsModsShowASLM17Status("M17", "M17 Net"); ?></tr>'
+old_mode_added = mode_original + b'<?php dvsModsShowSTFUStatus("STFU"); ?>'
+old_network_added = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?><?php dvsModsShowSTFUStatus("STFU Net");?></tr>'
+network_base = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?>'
 function_signature = b"function dvsModsShowSTFUStatus($label)"
-asl_m17_calls = (
-    b'<?php dvsModsShowASLM17Status("ASL", "ASL"); ?>',
-    b'<?php dvsModsShowASLM17Status("M17", "M17"); ?>',
-    b'<?php dvsModsShowASLM17Status("ASL Net", "ASL"); ?>',
-    b'<?php dvsModsShowASLM17Status("M17 Net", "M17"); ?>',
-)
-mode_with_extension = mode_added + asl_m17_calls[0] + asl_m17_calls[1]
-network_with_extension = network_added[:-len(b'</tr>')] + asl_m17_calls[2] + asl_m17_calls[3] + b'</tr>'
-asl_m17_function_signature = b"function dvsModsShowASLM17Status($label, $mode)"
+table_marker = b'id="dvs-mods-mode-network-strip"'
+
+
+def installed_function(data):
+    newline = b"\r\n" if b"\r\n" in data else b"\n"
+    lines = [
+        marker,
+        b"if (!function_exists('dvsModsEmitNetworkStatus')) {",
+        b"    function dvsModsEmitNetworkStatus($label, $connected) {",
+        b'        $background = $connected ? "#12AD2A" : "#b00";',
+        b'        $foreground = $connected ? "#030" : "#f9f9f9";',
+        b'        echo "<td style=\"background:".$background.";color:".$foreground.";white-space:nowrap;\">&nbsp;".$label."&nbsp;</td>\n";',
+        b"    }",
+        b"}",
+        b"if (!function_exists('dvsModsAslNetworkConnected')) {",
+        b"    function dvsModsAslNetworkConnected() {",
+        b"        if (!function_exists('exec') || !is_executable('/usr/local/sbin/dvswitch-asl3-node-links')) { return false; }",
+        b"        $nodes = array(); $status = 1;",
+        b"        exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links 2>/dev/null', $nodes, $status);",
+        b"        if ($status !== 0) { return false; }",
+        b"        foreach ($nodes as $node) { if (preg_match('/^[0-9]{1,8}$/D', trim((string)$node))) { return true; } }",
+        b"        return false;",
+        b"    }",
+        b"}",
+        b"if (!function_exists('dvsModsShowSTFUStatus')) {",
+        b"    function dvsModsShowSTFUStatus($label) {",
+        b'        dvsModsEmitNetworkStatus($label, isProcessRunning("STFU"));',
+        b"    }",
+        b"}",
+        b"if (!function_exists('dvsModsShowASLM17Status')) {",
+        b"    function dvsModsShowASLM17Status($mode, $label) {",
+        b"        $connected = ($mode === 'ASL') ? dvsModsAslNetworkConnected() : isProcessRunning('USRP2M17');",
+        b"        dvsModsEmitNetworkStatus($label, $connected);",
+        b"    }",
+        b"}",
+    ]
+    return newline.join(lines)
 
 
 def fail(message):
@@ -68,70 +99,18 @@ def read_target(path):
     return path.read_bytes()
 
 
-def installed_function(data):
-    newline = b"\r\n" if b"\r\n" in data else b"\n"
-    lines = [
-        marker,
-        b"if (!function_exists('dvsModsShowSTFUStatus')) {",
-        b"    function dvsModsShowSTFUStatus($label) {",
-        b'        if (isProcessRunning("STFU")) {',
-        b'            echo "<td style=\\"background:#12AD2A; color:#030; width:8%;\\">&nbsp;".$label."&nbsp;</td>\\n";',
-        b"        } else {",
-        b'            echo "<td style=\\"background:#b00; color:#f9f9f9; width:8%;\\">&nbsp;".$label."&nbsp;</td>\\n";',
-        b"        }",
-        b"    }",
-        b"}",
-    ]
-    return newline.join(lines)
-
-
-def installed_asl_m17_function(data):
-    newline = b"\r\n" if b"\r\n" in data else b"\n"
-    lines = [
-        asl_m17_marker,
-        b"if (!function_exists('dvsModsShowASLM17Status')) {",
-        b"    function dvsModsASLM17Connected($mode) {",
-        b"        static $states = array();",
-        b"        if (isset($states[$mode])) { return $states[$mode]; }",
-        b"        if ($mode === 'M17') { $states[$mode] = isProcessRunning('USRP2M17'); return $states[$mode]; }",
-        b"        if ($mode !== 'ASL' || !is_executable('/usr/local/sbin/dvswitch-asl3-node-links')) { $states[$mode] = false; return false; }",
-        b"        $links = array(); $status = 1;",
-        b"        exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links 2>/dev/null', $links, $status);",
-        b"        if ($status !== 0) { $states[$mode] = false; return false; }",
-        b"        foreach ($links as $node) { if (preg_match('/^[0-9]+$/', trim($node))) { $states[$mode] = true; return true; } }",
-        b"        $states[$mode] = false; return false;",
-        b"    }",
-        b"    function dvsModsShowASLM17Status($label, $mode) {",
-        b"        $connected = dvsModsASLM17Connected($mode);",
-        b"        $color = $connected ? '#12AD2A' : '#b00'; $text = $connected ? '#030' : '#f9f9f9';",
-        b"        echo '<td style=\"background:'.$color.'; color:'.$text.'; width:8%;\">&nbsp;'.htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'&nbsp;</td>'.PHP_EOL;",
-        b"    }",
-        b"}",
-    ]
-    return newline.join(lines)
-
-
 def inspect(data):
     function = installed_function(data)
     markers = data.count(marker)
-    mode_new = data.count(mode_added)
-    network_new = data.count(network_added)
-    function_count = data.count(function)
-    network_present = network_new == 1 or data.count(network_with_extension) == 1
-    legacy_stfu = markers == 1 and mode_new == 1 and network_present and function_count == 1
-    if markers and not legacy_stfu:
-        fail("partial or ambiguous STFU modification found; refusing to change system.php")
-    if not markers and (mode_new or network_new or function_signature in data):
-        fail("partial or ambiguous STFU modification found; refusing to change system.php")
-    ext_present = asl_m17_marker in data or asl_m17_function_signature in data or any(call in data for call in asl_m17_calls)
-    if ext_present:
-        extension = installed_asl_m17_function(data)
-        if (data.count(asl_m17_marker) != 1 or data.count(extension) != 1
-                or any(data.count(call) != 1 for call in asl_m17_calls) or not legacy_stfu):
-            fail("partial or ambiguous ASL/M17 status modification found; refusing to change system.php")
+    if markers == 1 and data.count(mode_added) == 1 and data.count(network_added) == 1 and data.count(function) == 1 and data.count(table_marker) == 1:
         return "installed"
-    if legacy_stfu:
-        return "legacy"
+    if data.count(old_marker) == 1 and function_signature in data:
+        mode_count = data.count(mode_original)
+        network_count = data.count(network_base)
+        if mode_count == 1 and network_count == 1 and table_marker not in data:
+            return "upgrade"
+    if markers or old_marker in data or function_signature in data:
+        fail("partial or ambiguous Modes and Networks status modification found; refusing to change system.php")
     counts = (data.count(function_anchor), data.count(mode_original), data.count(network_original))
     if counts != (1, 1, 1):
         fail(f"unsupported or ambiguous system.php sections; expected one each of the three matching anchors, found {counts}")
@@ -143,19 +122,38 @@ def make_candidate(data):
     if state == "installed":
         return data
     newline = b"\r\n" if b"\r\n" in data else b"\n"
-    candidate = data
-    if state == "ready":
-        function = installed_function(data)
-        candidate = candidate.replace(function_anchor, function + newline + function_anchor, 1)
-        candidate = candidate.replace(mode_original, mode_added, 1)
-        candidate = candidate.replace(network_original, network_added, 1)
-    extension = installed_asl_m17_function(candidate)
-    candidate = candidate.replace(function_anchor, extension + newline + function_anchor, 1)
-    candidate = candidate.replace(mode_added, mode_added + asl_m17_calls[0] + asl_m17_calls[1], 1)
-    candidate = candidate.replace(network_added, network_with_extension, 1)
-    if inspect(candidate) != "installed":
+    function = installed_function(data)
+    if state == "upgrade":
+        start = data.index(old_marker)
+        end = data.index(function_anchor, start)
+        data = data[:start] + function + newline + data[end:]
+        mode_start = data.index(mode_original)
+        networks_heading = re.search(rb'<th[^>]*>\s*(?:&nbsp;)?Networks(?:&nbsp;)?\s*</th>', data[mode_start:])
+        if networks_heading is None:
+            fail("Modes row separator is missing or ambiguous during upgrade")
+        heading_start = mode_start + networks_heading.start()
+        data = data[:mode_start] + mode_added + data[heading_start:]
+        network_start = data.index(network_base)
+        row_end = data.find(b"</tr>", network_start)
+        if row_end < 0:
+            fail("Networks row ending is missing or ambiguous during upgrade")
+        row_end += len(b"</tr>")
+        data = data[:network_start] + network_added + data[row_end:]
+    else:
+        data = data.replace(function_anchor, function + newline + function_anchor, 1)
+        data = data.replace(mode_original, mode_added, 1)
+        data = data.replace(network_original, network_added, 1)
+    table = b'<table style="margin-top:2px;">'
+    replacement = (b'<table id="dvs-mods-mode-network-strip" style="margin-top:2px;table-layout:fixed;width:100%;"><colgroup>'
+                   + b'<col style="width:4%;">' + b'<col style="width:5.75%;">' * 8
+                   + b'<col style="width:4%;">' + b'<col style="width:5.75%;">' * 8 + b'</colgroup>')
+    if data.count(table) < 1:
+        fail("Modes and Networks table anchor is missing")
+    if table_marker not in data:
+        data = data.replace(table, replacement, 1)
+    if inspect(data) != "installed":
         fail("candidate verification failed")
-    return candidate
+    return data
 
 
 def lint(path):
@@ -203,7 +201,7 @@ try:
         lint(target)
         if action == "check":
             if state == "installed":
-                print("ALREADY MODIFIED: STFU, ASL, and M17 status cells are installed. No files changed.")
+                print("ALREADY MODIFIED: the balanced Modes and Networks status strip is installed. No files changed.")
             else:
                 candidate = make_candidate(original)
                 fd, raw_temp = tempfile.mkstemp(prefix="dvswitch-stfu-check-", suffix=".php")
@@ -213,9 +211,9 @@ try:
                     lint(Path(raw_temp))
                 finally:
                     Path(raw_temp).unlink(missing_ok=True)
-                print("READY: supported Modes and Networks sections found; STFU, ASL, and M17 cells can be installed. No files changed.")
+                print("READY: exact Modes and Networks sections found; ASL/M17 cells and balanced columns can be installed. No files changed.")
         elif state == "installed":
-            print("PASS: STFU, ASL, and M17 status cells are already installed; no new backup created.")
+            print("PASS: the balanced Modes and Networks status strip is already installed; no new backup created.")
         else:
             candidate = make_candidate(original)
             fd, raw_temp = tempfile.mkstemp(prefix="dvswitch-stfu-install-", suffix=".php", dir=target.parent)
@@ -236,7 +234,7 @@ try:
             except Exception:
                 atomic_write(target, original, backup / target.name)
                 raise
-            print("PASS: STFU, ASL, and M17 status cells installed atomically.")
+            print("PASS: ASL/M17 cells and balanced Modes and Networks columns installed atomically.")
             print(f"Backup: {backup}")
     elif action == "uninstall":
         if not re.fullmatch(r"install-[0-9]{8}-[0-9]{6}(?:-[0-9]+)?", backup_name):

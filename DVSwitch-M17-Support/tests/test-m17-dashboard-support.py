@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.4
+# Version: 1.2.5
+# Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — verify live M17 RX heartbeat and TRX label behavior.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
 # Updated: 2026-11-10T19:16:00-05:00 by KE2HNI — verify M17 Analog Bridge card display integration and reversal.
@@ -137,6 +138,16 @@ def main():
     packet = ip_header + udp
     assert AUDIO.extract_pcm(packet, ('127.0.0.1', 34008, 32008)) == (1234, pcm)
     assert AUDIO.extract_pcm(packet, ('127.0.0.1', 34009, 32008)) is None
+    with tempfile.TemporaryDirectory() as directory:
+        rx_marker = Path(directory) / 'run/dvswitch-m17-audio-monitor/rx-active'
+        monitor = AUDIO.AudioMonitor(('127.0.0.1', 34008, 32008), rx_marker)
+        monitor.mark_audio_active(now=10.0)
+        assert rx_marker.is_file() and rx_marker.stat().st_mode & 0o777 == 0o644
+        previous = rx_marker.stat().st_mtime_ns
+        monitor.mark_audio_active(now=10.2)
+        assert rx_marker.stat().st_mtime_ns == previous
+        monitor.mark_audio_active(now=10.6)
+        assert rx_marker.stat().st_mtime_ns >= previous
     audio_frame = AUDIO.websocket_frame(pcm)
     assert audio_frame[:4] == bytes((0x82, 126, 1, 64)) and audio_frame[4:] == pcm
     usrp[15] = 0
@@ -159,6 +170,8 @@ def main():
     assert 'dvswitch-m17-audio.conf' in installer
     assert 'dvswitch-m17-audio.apache' in installer
     assert 'enable --now dvswitch-m17-audio-monitor.service' in installer
+    assert 'RuntimeDirectory=dvswitch-m17-audio-monitor' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.service').read_text()
+    assert 'ReadWritePaths=/run/dvswitch-m17-audio-monitor' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.service').read_text()
     assert 'Install DVSwitch Mode Buttons through manager option 2 first' not in installer
     assert "readonly STANDALONE_TARGET=/usr/share/dvswitch/dvswitch-m17-standalone.js" in installer
     assert "readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php" in installer
@@ -310,6 +323,8 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'body.theme-light [style*="color:#b5651d"]' in THEME and 'color: #6b2f00 !important;' in THEME
     standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
     api = (ROOT / 'dashboard/dvswitch-m17-dashboard.php').read_text(encoding='utf-8')
+    assert 'rx-active' in api and "'rx' => $rxActive" in api
+    assert 'function updateM17TrxStatus()' in layout and "receiving ? 'RX M17' : 'Listening M17'" in layout
     favorites_helper = (ROOT / 'dashboard/dvswitch-m17-favorites.py').read_text(encoding='utf-8')
     assert "if (document.getElementById('dvs-mode-buttons')" in standalone
     assert 'dvs-m17-edit' in standalone and 'dvs-m17-add' in standalone

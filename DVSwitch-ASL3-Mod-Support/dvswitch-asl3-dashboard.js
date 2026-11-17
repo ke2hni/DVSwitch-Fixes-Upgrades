@@ -1,4 +1,5 @@
-/* Version: 1.2.5 — keep light-mode Tune contrast correction scoped to light themes. */
+/* Version: 1.2.6 — show live ASL receive state in TRX Info. */
+/* Updated: 2026-11-17T09:31:00-05:00 by KE2HNI — derive RX ASL from live AllStar keying telemetry. */
 /* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
 /* Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — search the relocated sidebar card for connected ASL nodes. */
 /* Updated: 2026-11-11T23:15:00-05:00 by KE2HNI — make ASL Gateway Activity match the full Gateway Activity panel width. */
@@ -13,6 +14,7 @@
   var activeMode = '';
   var connectedNodes = [];
   var activityStarted = Object.create(null);
+  var aslReceiveActive = false;
   var controlEndpoint = '/dvswitch/dvswitch-asl3-control.php';
   var digitalModePending = '';
 
@@ -41,6 +43,27 @@
       return play.apply(this, arguments);
     };
     player.prototype.asl3AudioProxyInstalled = true;
+  }
+
+  function updateAslTrxStatus() {
+    if (activeMode !== 'ASL') return;
+    var table = Array.from(document.querySelectorAll('#modeInfo table')).find(function (item) {
+      var heading = item.querySelector('th');
+      return heading && normalizeHeader(heading.textContent) === 'TRX Info';
+    });
+    if (!table) return;
+    var row = table.querySelector('tr:last-child');
+    var cell = row && row.querySelector('td');
+    if (!cell) return;
+    var label = aslReceiveActive ? 'RX ASL' : 'Listening ASL';
+    if (cell.textContent !== label) cell.textContent = label;
+    cell.style.backgroundColor = aslReceiveActive ? '#4aa361' : '#0b0';
+    cell.style.color = '#030';
+  }
+
+  function isAslReceiveSource(row) {
+    var source = normalizeHeader(row && row.source);
+    return row && row.keyed === true && ['Radio RX', 'Node TX', 'Node RX', 'Node playback'].includes(source);
   }
 
   function updateAnalogBridgeNode() {
@@ -92,10 +115,12 @@
       // replace the confirmed UI state or invalidate an in-flight ASL favorites load.
       if (document.getElementById('dvs-mode-buttons') && activeMode) {
         updateAnalogBridgeTarget(activeMode);
+        updateAslTrxStatus();
         return;
       }
       if (mode !== activeMode) setTargetLabel(mode);
       else updateAnalogBridgeTarget(mode);
+      updateAslTrxStatus();
     }).observe(info, { childList: true, subtree: true });
   }
 
@@ -123,6 +148,7 @@
     var activity = document.getElementById('dvs-asl-activity');
     if (activity) activity.hidden = activeMode !== 'ASL';
     updateAnalogBridgeNode();
+    updateAslTrxStatus();
     if (activeMode === 'ASL') { loadAslFavorites(); refreshActivity(); }
   }
 
@@ -294,6 +320,8 @@
       var header = document.querySelector('#dvs-asl-activity table tr');
       if (header && result.timezone) header.cells[0].textContent = 'Time (' + result.timezone + ')';
       connectedNodes = result.rows.map(function (row) { return String(row.node || '').trim(); }).filter(function (node) { return /^[0-9]{1,8}$/.test(node); });
+      aslReceiveActive = result.telemetry === true && result.rows.some(isAslReceiveSource);
+      updateAslTrxStatus();
       updateAnalogBridgeNode(); body.replaceChildren();
       if (!result.rows.length) {
         var tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = 9; td.textContent = 'No external ASL nodes connected'; td.style.padding = '4px'; tr.appendChild(td); body.appendChild(tr); return;
@@ -312,7 +340,10 @@
         });
         body.appendChild(tr);
       });
-    }).catch(function () {});
+    }).catch(function () {
+      aslReceiveActive = false;
+      updateAslTrxStatus();
+    });
   }
 
   function repairGatewaySourceHeading() {

@@ -1,5 +1,6 @@
-/* DVSwitch M17 dashboard layout v1.2.4
+/* DVSwitch M17 dashboard layout v1.2.5
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
+ * Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — show RX M17 in TRX Info while M17 USRP audio is arriving.
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
  * Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — place the left card stack in the status sidebar below Analog Bridge and TRX.
@@ -189,6 +190,26 @@
     connectM17Audio(button);
   }
 
+  function updateM17TrxStatus() {
+    fetch('/dvswitch/dvswitch-m17-dashboard.php?status=1', { cache: 'no-store' }).then(function (response) {
+      if (!response.ok) return null;
+      return response.json();
+    }).then(function (data) {
+      if (!data || !data.ok || data.mode !== 'M17') return;
+      var table = Array.from(document.querySelectorAll('#modeInfo table')).find(function (item) {
+        var heading = item.querySelector('th');
+        return heading && heading.textContent.replace(/\s+/g, ' ').trim() === 'TRX Info';
+      });
+      var cell = table && table.querySelector('tr:last-child td');
+      if (!cell) return;
+      var receiving = data.rx === true;
+      var label = receiving ? 'RX M17' : 'Listening M17';
+      if (cell.textContent !== label) cell.textContent = label;
+      cell.style.backgroundColor = receiving ? '#4aa361' : '#0b0';
+      cell.style.color = '#030';
+    }).catch(function () {});
+  }
+
   function updateRxMonitorLabel() {
     var rx = Array.from(document.querySelectorAll('button')).find(function (button) {
       return /(?:M17 )?RX Monitor/.test(button.textContent.replace(/\s+/g, ' ').trim());
@@ -232,6 +253,8 @@
     makeLayout();
     placeCards();
     observeModeControls();
+    updateM17TrxStatus();
+    window.setInterval(updateM17TrxStatus, 1000);
     var info = document.getElementById('modeInfo');
     if (info && !info.dataset.dvsM17LayoutObserved) {
       observer = new MutationObserver(placeCards);

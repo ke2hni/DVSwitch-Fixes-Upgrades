@@ -1,4 +1,4 @@
-<!-- Version: 1.0.22; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-16T23:40:11-05:00 by KE2HNI --><div align="center">
+<!-- Version: 1.0.21; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-17T09:42:00-05:00 by KE2HNI — document ASL/M17 strip cells and balanced sizing. --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -528,19 +528,18 @@ installation and before the display-layout installer.
 sudo ./dvswitch-dark-mode.sh apply
 ```
 
-### 9. STFU, ASL, and M17 status cards
+### 9. Modes and Networks status strip
 
-**What it adds:** STFU, ASL, and M17 cells to the dashboard's Modes and
-Networks status strip. STFU and M17 use their running bridge process as the
-connection signal. ASL uses the established external node links reported by
-the ASL support helper. Each cell is green while connected and red otherwise.
-The update modifies only `/usr/share/dvswitch/include/system.php`, validates
-PHP syntax, creates a protected backup, and writes atomically. It upgrades an
-existing STFU-only installation in place. The manager installs it at the end
-of the standard component sequence and records its backup for ordered
-uninstallation. The STFU activity component also labels TRX Info as Listening
-ASL or Listening M17 when either mode is selected and idle. It upgrades the
-existing v2 STFU activity markers while preserving their target display logic.
+**Version 1.0.1 — Updated 2026-11-17T09:34:00-05:00 by KE2HNI.** Adds ASL,
+ASL Net, M17, and M17 Net cells beside the existing mode and network cells.
+ASL cells are green while an external AllStar node is connected; M17 cells are
+green while USRP2M17 is running. STFU keeps its process-based status. The strip
+uses fixed proportional columns so its rightmost labels retain the same width
+as the earlier cells. The update modifies only
+`/usr/share/dvswitch/include/system.php`, validates PHP syntax, creates a
+protected backup, and writes atomically. The manager installs it at the end of
+the standard component sequence and records its backup for ordered
+uninstallation.
 
 ```bash
 sudo ./mod-dashboard-stfu-status.sh --check

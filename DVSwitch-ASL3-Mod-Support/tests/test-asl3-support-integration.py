@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.17
+# Version: 1.0.18
+# Updated: 2026-11-17T09:31:00-05:00 by KE2HNI — verify ASL receive state reaches TRX Info from live keying telemetry.
 # Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — verify starter favorites and light-only Tune contrast correction.
 # SPDX-License-Identifier: MIT
 
@@ -60,6 +61,11 @@ require("input.maxLength = 35" in DASHBOARD and "input.style.width = 'calc(10ch 
         "node.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
         'maxlength="35"' in DASHBOARD and 'width:calc(10ch + 18px)' in DASHBOARD,
         'ASL shared tuner must stay compact and accept the 35-character field limit')
+require("function isAslReceiveSource(row)" in DASHBOARD and
+        "['Radio RX', 'Node TX', 'Node RX', 'Node playback'].includes(source)" in DASHBOARD and
+        "aslReceiveActive ? 'RX ASL' : 'Listening ASL'" in DASHBOARD and
+        'result.telemetry === true && result.rows.some(isAslReceiveSource)' in DASHBOARD,
+        'ASL TRX Info must switch between Listening ASL and RX ASL using live receive telemetry')
 require("select.replaceChildren(new Option('Select favorite', ''));" in DASHBOARD and
         DASHBOARD.index("select.replaceChildren(new Option('Select favorite', ''));", DASHBOARD.index('function loadAslFavorites')) <
         DASHBOARD.index("endpointJson(controlEndpoint + '?favorites=1')", DASHBOARD.index('function loadAslFavorites')),

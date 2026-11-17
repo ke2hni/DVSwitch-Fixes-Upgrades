@@ -1,6 +1,7 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.0; Created: 2026-11-11T11:30:00-05:00 by KE2HNI
+// Version: 1.0.1; Created: 2026-11-11T11:30:00-05:00 by KE2HNI
+// Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — report live M17 receive activity and prefer the newest selected-mode state.
 // M17-owned API for dashboard installs that do not include Mode Buttons.
 header('Content-Type: application/json; charset=utf-8');
 
@@ -31,11 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['favorites'])) {
     m17Reply(true, array('favorites' => is_array($saved) ? $saved : array()));
 }
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['status'])) {
-    $modePath = is_readable('/var/lib/dvswitch-mode-buttons/current-mode')
-        ? '/var/lib/dvswitch-mode-buttons/current-mode'
-        : '/var/lib/dvswitch-m17-dashboard/current-mode';
-    $mode = is_readable($modePath) ? strtoupper(trim((string)file_get_contents($modePath))) : '';
-    m17Reply(true, array('mode' => $mode));
+    $modePaths = is_file('/usr/share/dvswitch/dvswitch-mode-buttons.php')
+        ? array('/var/lib/dvswitch-mode-buttons/current-mode', '/var/lib/dvswitch-m17-dashboard/current-mode')
+        : array('/var/lib/dvswitch-m17-dashboard/current-mode', '/var/lib/dvswitch-mode-buttons/current-mode');
+    $mode = '';
+    foreach ($modePaths as $modePath) {
+        if (!is_readable($modePath) || is_link($modePath)) { continue; }
+        $mode = strtoupper(trim((string)file_get_contents($modePath)));
+        break;
+    }
+    $rxPath = '/run/dvswitch-m17-audio-monitor/rx-active';
+    $rxModified = is_file($rxPath) && !is_link($rxPath) ? @filemtime($rxPath) : false;
+    $rxActive = $mode === 'M17' && $rxModified !== false && time() >= $rxModified && time() - $rxModified <= 2;
+    m17Reply(true, array('mode' => $mode, 'rx' => $rxActive));
 }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { m17Reply(false, array('error' => 'Unsupported request.'), 405); }
 $request = json_decode((string)file_get_contents('php://input'), true);

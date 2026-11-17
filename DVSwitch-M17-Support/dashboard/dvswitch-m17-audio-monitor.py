@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.2
+# Version: 1.0.3
+# Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — publish a short-lived receive heartbeat for TRX Info.
 # Created: 2026-11-11T16:20:00-05:00 by KE2HNI
 # Updated: 2026-11-12T19:00:00-05:00 by KE2HNI — capture all loopback packet protocols; filter M17 USRP packets in extract_pcm.
 # Updated: 2026-11-12T19:15:00-05:00 by KE2HNI — use a raw IPv4 UDP socket because AF_PACKET captured no loopback traffic on pi4test.
 """Mirror decoded M17 USRP PCM to a local-only dashboard WebSocket."""
 from __future__ import annotations
-import base64, configparser, hashlib, socket, struct, threading
+import base64, configparser, hashlib, os, socket, struct, threading, time
 from pathlib import Path
 from urllib.parse import urlsplit
 CONFIG=Path('/etc/USRP2M17.ini')
 LISTEN_HOST='127.0.0.1'; LISTEN_PORT=8081
+RX_STATE_FILE=Path('/run/dvswitch-m17-audio-monitor/rx-active')
 WEBSOCKET_GUID='258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 
 def read_usrp_route(path: Path=CONFIG) -> tuple[str,int,int]:
@@ -43,7 +45,16 @@ def websocket_frame(payload: bytes,opcode: int=2) -> bytes:
     return header+payload
 
 class AudioMonitor:
-    def __init__(self,route): self.route=route; self.clients={}; self.clients_lock=threading.Lock()
+    def __init__(self,route,rx_state_file=RX_STATE_FILE):
+        self.route=route; self.clients={}; self.clients_lock=threading.Lock()
+        self.rx_state_file=Path(rx_state_file); self.last_rx_state_update=0.0
+    def mark_audio_active(self,now=None):
+        now=time.monotonic() if now is None else now
+        if now-self.last_rx_state_update<0.5: return
+        self.rx_state_file.parent.mkdir(parents=True,exist_ok=True)
+        descriptor=os.open(self.rx_state_file,os.O_WRONLY|os.O_CREAT|os.O_CLOEXEC,0o644)
+        os.close(descriptor); os.chmod(self.rx_state_file,0o644); os.utime(self.rx_state_file)
+        self.last_rx_state_update=now
     @staticmethod
     def _read_exact(client,count):
         data=bytearray()
@@ -134,7 +145,7 @@ class AudioMonitor:
             if audio is None: continue
             sequence,pcm=audio
             if sequence==last_sequence: continue
-            last_sequence=sequence; self.broadcast(pcm)
+            last_sequence=sequence; self.mark_audio_active(); self.broadcast(pcm)
 
 def main(): AudioMonitor(read_usrp_route()).run()
 if __name__=='__main__': main()

@@ -1,5 +1,5 @@
-# Version: 1.1.4
-# Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — add favorite starter and light-only contrast checks.
+# Version: 1.1.5
+# Updated: 2026-11-17T09:42:00-05:00 by KE2HNI — verify live RX ASL status in TRX Info.
 
 ASL dashboard integration test procedure
 
@@ -134,6 +134,10 @@ its own backup under /var/backups/dvswitch-mods/asl-mode-switch.
 14. Repeat the ASL Support install with Mode Buttons absent on a disposable test
     image; confirm ASL still provides its own mode button, node controls, and
     favorites without installing or invoking the Mode Buttons installer.
+15. With ASL selected and an external node connected, have that node transmit
+    voice. Confirm TRX Info changes to `RX ASL` while the activity source is
+    `Node TX` (or another inbound keyed source), then returns to `Listening ASL`
+    after the transmission. A `System TX` row alone must not be shown as RX.
 
 
 Version 1.1.0 dashboard and exit checks:

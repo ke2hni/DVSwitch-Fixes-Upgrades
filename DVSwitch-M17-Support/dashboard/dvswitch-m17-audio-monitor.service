@@ -1,4 +1,5 @@
-# DVSwitch-M17-Audio-Monitor v1.0.0
+# DVSwitch-M17-Audio-Monitor v1.0.1
+# Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — allow the monitor to publish its private receive heartbeat.
 # Created: 2026-11-11T16:20:00-05:00 by KE2HNI
 [Unit]
 Description=DVSwitch M17 RX audio monitor
@@ -14,6 +15,9 @@ NoNewPrivileges=true
 CapabilityBoundingSet=CAP_NET_RAW
 AmbientCapabilities=CAP_NET_RAW
 ProtectSystem=strict
+RuntimeDirectory=dvswitch-m17-audio-monitor
+RuntimeDirectoryMode=0755
+ReadWritePaths=/run/dvswitch-m17-audio-monitor
 ProtectHome=true
 PrivateTmp=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_PACKET
