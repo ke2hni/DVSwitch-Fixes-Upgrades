@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.2
-# Updated: 2026-11-17T11:00:53-05:00 by KE2HNI — fix generated PHP cell markup quoting.
+# Version: 1.0.3
+# Updated: 2026-11-17T11:33:38-05:00 by KE2HNI — override upstream cell widths in the Modes and Networks strip.
 
 # Add STFU, ASL, and M17 status cells to the dashboard Modes and Networks strip.
 # This standalone installer intentionally modifies only include/system.php.
@@ -10,7 +10,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.0.2"
+readonly SCRIPT_VERSION="1.0.3"
 readonly TARGET="${DVS_STFU_STATUS_TARGET:-/usr/share/dvswitch/include/system.php}"
 readonly BACKUP_ROOT="${DVS_STFU_STATUS_BACKUP_ROOT:-/var/backups/dvswitch-mods/dashboard-stfu-status}"
 
@@ -39,7 +39,8 @@ action = os.environ["STFU_ACTION"]
 target = Path(os.environ["STFU_TARGET"])
 backup_root = Path(os.environ["STFU_BACKUP_ROOT"])
 backup_name = os.environ["STFU_BACKUP_NAME"]
-marker = b"// DVSwitch-Mods: Modes and Networks status v2"
+marker = b"// DVSwitch-Mods: Modes and Networks status v3"
+previous_marker = b"// DVSwitch-Mods: Modes and Networks status v2"
 old_marker = b"// DVSwitch-Mods: STFU Modes and Networks status v1"
 function_anchor = b"$rawuptime = shell_exec('cat /proc/uptime');"
 mode_original = b'    <?php showMode("D-Star", $mmdvmconfigs);?>'
@@ -51,6 +52,13 @@ old_network_added = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?><?php 
 network_base = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?>'
 function_signature = b"function dvsModsShowSTFUStatus($label)"
 table_marker = b'id="dvs-mods-mode-network-strip"'
+style_marker = b'id="dvs-mods-mode-network-style"'
+style_block = (b'<style id="dvs-mods-mode-network-style">'
+               b'/* Override upstream showMode inline widths only in this status strip. */'
+               b'#dvs-mods-mode-network-strip{table-layout:fixed;width:100%}'
+               b'#dvs-mods-mode-network-strip th{width:4%!important;white-space:nowrap}'
+               b'#dvs-mods-mode-network-strip td{width:5.75%!important;white-space:nowrap}'
+               b'</style>')
 
 
 def installed_function(data):
@@ -103,14 +111,20 @@ def read_target(path):
 def inspect(data):
     function = installed_function(data)
     markers = data.count(marker)
-    if markers == 1 and data.count(mode_added) == 1 and data.count(network_added) == 1 and data.count(function) == 1 and data.count(table_marker) == 1:
+    if (markers == 1 and data.count(mode_added) == 1 and data.count(network_added) == 1
+            and data.count(function) == 1 and data.count(table_marker) == 1
+            and data.count(style_block) == 1):
         return "installed"
+    if (data.count(previous_marker) == 1 and function_signature in data
+            and data.count(mode_added) == 1 and data.count(network_added) == 1
+            and data.count(table_marker) == 1 and style_marker not in data):
+        return "upgrade_v2"
     if data.count(old_marker) == 1 and function_signature in data:
         mode_count = data.count(mode_original)
         network_count = data.count(network_base)
         if mode_count == 1 and network_count == 1 and table_marker not in data:
             return "upgrade"
-    if markers or old_marker in data or function_signature in data:
+    if markers or previous_marker in data or old_marker in data or function_signature in data or style_marker in data:
         fail("partial or ambiguous Modes and Networks status modification found; refusing to change system.php")
     counts = (data.count(function_anchor), data.count(mode_original), data.count(network_original))
     if counts != (1, 1, 1):
@@ -124,10 +138,12 @@ def make_candidate(data):
         return data
     newline = b"\r\n" if b"\r\n" in data else b"\n"
     function = installed_function(data)
-    if state == "upgrade":
-        start = data.index(old_marker)
+    if state in ("upgrade", "upgrade_v2"):
+        source_marker = previous_marker if state == "upgrade_v2" else old_marker
+        start = data.index(source_marker)
         end = data.index(function_anchor, start)
         data = data[:start] + function + newline + data[end:]
+    if state == "upgrade":
         mode_start = data.index(mode_original)
         networks_heading = re.search(rb'<th[^>]*>\s*(?:&nbsp;)?Networks(?:&nbsp;)?\s*</th>', data[mode_start:])
         if networks_heading is None:
@@ -140,17 +156,22 @@ def make_candidate(data):
             fail("Networks row ending is missing or ambiguous during upgrade")
         row_end += len(b"</tr>")
         data = data[:network_start] + network_added + data[row_end:]
-    else:
+    elif state == "ready":
         data = data.replace(function_anchor, function + newline + function_anchor, 1)
         data = data.replace(mode_original, mode_added, 1)
         data = data.replace(network_original, network_added, 1)
-    table = b'<table style="margin-top:2px;">'
-    replacement = (b'<table id="dvs-mods-mode-network-strip" style="margin-top:2px;table-layout:fixed;width:100%;"><colgroup>'
+    replacement = (style_block + b'\n<table id="dvs-mods-mode-network-strip" style="margin-top:2px;table-layout:fixed;width:100%;"><colgroup>'
                    + b'<col style="width:4%;">' + b'<col style="width:5.75%;">' * 8
                    + b'<col style="width:4%;">' + b'<col style="width:5.75%;">' * 8 + b'</colgroup>')
-    if data.count(table) < 1:
-        fail("Modes and Networks table anchor is missing")
-    if table_marker not in data:
+    if state == "upgrade_v2":
+        previous_table = re.compile(rb'<table id="dvs-mods-mode-network-strip"[^>]*><colgroup>.*?</colgroup>', re.S)
+        if len(previous_table.findall(data)) != 1:
+            fail("previous Modes and Networks table sizing is missing or ambiguous during upgrade")
+        data = previous_table.sub(replacement, data, count=1)
+    elif table_marker not in data:
+        table = b'<table style="margin-top:2px;">'
+        if data.count(table) < 1:
+            fail("Modes and Networks table anchor is missing")
         data = data.replace(table, replacement, 1)
     if inspect(data) != "installed":
         fail("candidate verification failed")

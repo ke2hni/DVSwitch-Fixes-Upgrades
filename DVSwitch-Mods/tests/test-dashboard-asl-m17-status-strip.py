@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# Version: 1.0.1
+# Version: 1.0.2
 # Created: 2026-11-17T09:38:00-05:00 by KE2HNI
-# Updated: 2026-11-17T11:00:53-05:00 by KE2HNI — catch generated PHP quoting regression.
+# Updated: 2026-11-17T11:33:38-05:00 by KE2HNI — verify width overrides and v2 migration.
 # SPDX-License-Identifier: MIT
-"""Verify the Modes and Networks strip upgrade and proportional cell layout."""
+"""Verify status-strip PHP escaping, cell widths, migration, and recovery paths."""
 
 from pathlib import Path
 import os
@@ -42,6 +42,13 @@ $rawuptime = shell_exec('cat /proc/uptime');
 ?>
 '''
 
+previous_table = (b'<table id="dvs-mods-mode-network-strip" style="margin-top:2px;table-layout:fixed;width:100%;"><colgroup>'
+                  + b'<col style="width:4%;">' + b'<col style="width:5.75%;">' * 8
+                  + b'<col style="width:4%;">' + b'<col style="width:5.75%;">' * 8 + b'</colgroup>')
+previous_system = old_system.replace(b'// DVSwitch-Mods: STFU Modes and Networks status v1',
+                                     b'// DVSwitch-Mods: Modes and Networks status v2', 1)
+previous_system = previous_system.replace(b'<table style="margin-top:2px;">', previous_table, 1)
+
 clean_system = b'''<?php
 $rawuptime = shell_exec('cat /proc/uptime');
 <fieldset><table style="margin-top:2px;">
@@ -65,13 +72,15 @@ import sys
 if len(sys.argv) != 3 or sys.argv[1] != '-l':
     raise SystemExit(2)
 content = Path(sys.argv[2]).read_bytes()
-if b'dvsModsEmitNetworkStatus' not in content:
+if b'DVSwitch-Mods: Modes and Networks status v3' not in content:
     raise SystemExit(0)
 php_line = next((line for line in content.splitlines() if b'echo ' in line and b'background:' in line), b'')
-if not php_line or php_line.count(bytes([92])) != 3 or b'&nbsp;' not in php_line:
-    print('Generated PHP echo escaping regression')
+if (not php_line or php_line.count(bytes([92])) != 3 or b'&nbsp;' not in php_line
+        or b'#dvs-mods-mode-network-strip th{width:4%!important' not in content
+        or b'#dvs-mods-mode-network-strip td{width:5.75%!important' not in content):
+    print('Generated PHP echo or scoped width override regression')
     raise SystemExit(1)
-print('Generated PHP echo escaping verified')
+print('Generated PHP escaping and scoped width overrides verified')
 """, encoding='utf-8')
     fake_php.chmod(0o755)
 
@@ -103,6 +112,10 @@ print('Generated PHP echo escaping verified')
         raise SystemExit('FAIL: strip table did not receive its scoped sizing rules')
     if installed.count(b'<col style="width:5.75%;">') != 16:
         raise SystemExit('FAIL: strip does not have 16 equal status columns')
+    if (installed.count(b'id="dvs-mods-mode-network-style"') != 1
+            or b'#dvs-mods-mode-network-strip th{width:4%!important' not in installed
+            or b'#dvs-mods-mode-network-strip td{width:5.75%!important' not in installed):
+        raise SystemExit('FAIL: scoped overrides for showMode inline widths were not installed')
     expected_features = (b'dvsModsShowASLM17Status("ASL", "ASL")',
                          b'dvsModsShowASLM17Status("M17", "M17")',
                          b'dvswitch-asl3-node-links', b"isProcessRunning('USRP2M17')")
@@ -119,6 +132,29 @@ print('Generated PHP echo escaping verified')
     result = run('uninstall', target, backup_root, backups[0].name)
     if result.returncode or target.read_bytes() != old_system:
         raise SystemExit('FAIL: upgrade uninstall did not restore the v1 file')
+
+    # Migrate the v2 strip with its old fixed columns, without duplicating cells.
+    v2_target = root / 'upgrade-v2' / 'system.php'
+    v2_target.parent.mkdir()
+    v2_target.write_bytes(previous_system)
+    v2_backups = root / 'upgrade-v2-backups'
+    result = run('check', v2_target, v2_backups)
+    if result.returncode or 'READY:' not in result.stdout or v2_target.read_bytes() != previous_system:
+        raise SystemExit('FAIL: v2 migration --check changed files or did not report READY')
+    result = run('install', v2_target, v2_backups)
+    if result.returncode:
+        raise SystemExit('FAIL: v2 migration failed: ' + result.stderr + result.stdout)
+    v2_installed = v2_target.read_bytes()
+    if (v2_installed.count(b'dvsModsShowASLM17Status("ASL"') != 2
+            or v2_installed.count(b'dvsModsShowASLM17Status("M17"') != 2
+            or v2_installed.count(b'id="dvs-mods-mode-network-style"') != 1):
+        raise SystemExit('FAIL: v2 migration duplicated cells or omitted equal-width overrides')
+    v2_backup = next(iter(v2_backups.glob('install-*')), None)
+    if v2_backup is None:
+        raise SystemExit('FAIL: v2 migration did not create a backup')
+    result = run('uninstall', v2_target, v2_backups, v2_backup.name)
+    if result.returncode or v2_target.read_bytes() != previous_system:
+        raise SystemExit('FAIL: v2 uninstall did not restore the previous layout')
 
     # Exercise fresh install from an unmodified dashboard and exact uninstall recovery.
     fresh_target = root / 'fresh' / 'system.php'
@@ -141,4 +177,4 @@ print('Generated PHP echo escaping verified')
     if result.returncode or fresh_target.read_bytes() != clean_system:
         raise SystemExit('FAIL: fresh-install uninstall did not restore the original file')
 
-print('PASS: status strip fresh install, v1 upgrade, --check, already-applied, uninstall recovery, and layout')
+print('PASS: status strip fresh install, v1/v2 migrations, check, already-applied, uninstall recovery, PHP escaping, and layout')
