@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-# Version: 1.1.5
+# Version: 1.1.6
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
 # Updated: 2026-11-13T21:04:52-05:00 by KE2HNI — verify the bridge config is readable by the Apache dashboard user.
 # Updated: 2026-11-13T21:52:49-05:00 by KE2HNI — verify upgrade repairs a bridge config left at mode 0600.
 # Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — verify adopted M17 nodes use duplex 0 and restore inherited duplex safely.
+# Updated: 2026-11-17T17:00:00-05:00 by KE2HNI — verify upgrades repair restrictive M17 log-directory permissions.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -311,11 +312,14 @@ def main() -> None:
             with patch("builtins.input", side_effect=answers):
                 BRIDGE.install()
                 assert paths["CONFIG"].stat().st_mode & 0o777 == 0o644
+                assert paths["LOG_DIR"].stat().st_mode & 0o777 == 0o755
                 original_backup = __import__("json").loads(paths["STATE_FILE"].read_text())["backup"]
-                # Reproduce older installs that created the INI under umask 077.
+                # Reproduce older installs that created Apache-inaccessible paths under umask 077.
                 paths["CONFIG"].chmod(0o600)
+                paths["LOG_DIR"].chmod(0o700)
                 BRIDGE.install()
                 assert paths["CONFIG"].stat().st_mode & 0o777 == 0o644
+                assert paths["LOG_DIR"].stat().st_mode & 0o777 == 0o755
                 upgraded = __import__("json").loads(paths["STATE_FILE"].read_text())
                 assert upgraded["backup"] == original_backup
                 assert "rxchannel = USRP/127.0.0.1:34008:32008" in paths["RPT_CONF"].read_text()
