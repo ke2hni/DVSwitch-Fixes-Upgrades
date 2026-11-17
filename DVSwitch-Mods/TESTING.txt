@@ -1,6 +1,6 @@
-Version: 1.0.6
+Version: 1.0.7
 DVSwitch-Mods dashboard-targets 1.2.2 live-link test package
-Updated: 2026-11-16T23:20:20-05:00 by KE2HNI — add ASL/M17 TRX and status strip checks.
+Updated: 2026-11-16T23:40:11-05:00 by KE2HNI — add ASL/M17 status checks and v2 migration coverage.
 
 STFU logrotate restart repair (run on pi4test first):
 

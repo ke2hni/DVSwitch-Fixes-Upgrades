@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.6
-# Updated: 2026-11-16T23:22:50-05:00
+# Version: 1.0.7
+# Updated: 2026-11-16T23:40:11-05:00
 # Modified by KE2HNI
 # SPDX-License-Identifier: MIT
 
@@ -77,6 +77,41 @@ with tempfile.TemporaryDirectory() as directory:
         "status": patcher.patch_status(files["status"].read_text()),
     }
     require(first == second, "STFU dashboard patch is not idempotent")
+    v2_functions = (
+        "<?php\n" + patcher.PREVIOUS_MARKER + "\n" + patcher.INCLUDE + "\n"
+        + "$lastHeard = getLastHeard($reverseLogLinesMMDVM);\n"
+        + "$lastHeard = dvsModsStfuMergeActivity($lastHeard);\n"
+    )
+    v2_lh = "<?php\n" + patcher.PREVIOUS_MARKER + "\n" + (
+        "$dvsModsTarget = ($listElem[1] === 'STFU') ? dvsModsStfuTargetDisplay($listElem[4]) : dvsModsTargetDisplay($listElem[1], $listElem[4], $listElem[6], $listElem[0]);\n"
+        + "RX STFU\n"
+    )
+    v2_localtx = "<?php\n" + patcher.PREVIOUS_MARKER + "\n" + (
+        "$dvsModsTarget = ($listElem[1] === 'STFU') ? dvsModsStfuTargetDisplay($listElem[4]) : dvsModsTargetDisplay($listElem[1], $listElem[4], $listElem[6], $listElem[0]);\n"
+        + '$listElem[1] == "STFU"\n'
+    )
+    for label, patch, sample in (("functions", patcher.patch_functions, v2_functions),
+                                 ("lh", patcher.patch_lh, v2_lh),
+                                 ("localtx", patcher.patch_localtx, v2_localtx)):
+        upgraded = patch(sample)
+        require(patcher.MARKER in upgraded and patcher.PREVIOUS_MARKER not in upgraded,
+                "v2 " + label + " integration did not migrate to the current marker")
+        require(patch(upgraded) == upgraded, "v2 " + label + " integration upgrade is not idempotent")
+    v2_status = """<?php
+// TRX Status code
+                    if (isset($abinfo['tlv']['ambe_mode']) && strtoupper($abinfo['tlv']['ambe_mode']) === 'STFU') {
+                            echo "<td>Listening STFU</td>";
+                    } else { echo "<td>Listening</td>"; }
+            elseif (isset($abinfo['tlv']['ambe_mode']) && strtoupper($abinfo['tlv']['ambe_mode']) === 'STFU' && getActualMode($lastHeard, $mmdvmconfigs) !== 'STFU') {
+                    echo "<td>Listening STFU</td>";
+                    }
+Listening DMR
+RX STFU
+""" + patcher.PREVIOUS_MARKER + "\ndvsModsStfuRenderCard($abinfo, $lastHeard);\n"
+    upgraded_status = patcher.patch_status(v2_status)
+    require(patcher.patch_status(upgraded_status) == upgraded_status, "v2 TRX integration upgrade is not idempotent")
+    require("RX M17" in upgraded_status and 'Listening ".$dvsModsSelectedMode' in upgraded_status,
+            "v2 TRX integration does not add ASL/M17 listening and receive state")
     require("dvsModsStfuMergeActivity($lastHeard)" in first["functions"], "STFU event rows are not merged into dashboard history")
     require("dvsModsStfuTargetDisplay($listElem[4])" in first["lh"], "Gateway Activity does not resolve STFU talkgroup names")
     require("RX STFU" in first["lh"], "Gateway Activity has no STFU RX indication")

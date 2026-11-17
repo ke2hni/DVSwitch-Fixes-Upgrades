@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Version: 1.0.5
-# Updated: 2026-11-16T23:22:12-05:00 by KE2HNI — show ASL and M17 TRX receive/listening states.
+# Version: 1.0.6
+# Updated: 2026-11-16T23:40:11-05:00 by KE2HNI — migrate installed v2 dashboard activity patches.
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 

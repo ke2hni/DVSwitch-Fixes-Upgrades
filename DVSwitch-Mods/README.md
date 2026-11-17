@@ -1,4 +1,4 @@
-<!-- Version: 1.0.21; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-16T23:20:20-05:00 by KE2HNI --><div align="center">
+<!-- Version: 1.0.22; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-16T23:40:11-05:00 by KE2HNI --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -539,7 +539,8 @@ PHP syntax, creates a protected backup, and writes atomically. It upgrades an
 existing STFU-only installation in place. The manager installs it at the end
 of the standard component sequence and records its backup for ordered
 uninstallation. The STFU activity component also labels TRX Info as Listening
-ASL or Listening M17 when either mode is selected and idle.
+ASL or Listening M17 when either mode is selected and idle. It upgrades the
+existing v2 STFU activity markers while preserving their target display logic.
 
 ```bash
 sudo ./mod-dashboard-stfu-status.sh --check

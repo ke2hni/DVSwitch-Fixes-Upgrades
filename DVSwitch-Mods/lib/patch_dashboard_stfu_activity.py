@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.3
-# Updated: 2026-11-16T23:22:50-05:00
+# Version: 1.0.4
+# Updated: 2026-11-16T23:40:11-05:00
 # Modified by KE2HNI
 # SPDX-License-Identifier: MIT
 """Add STFU log events to the existing Gateway, Local, and TRX views."""
@@ -33,6 +33,10 @@ def patch_functions(text: str) -> str:
         if text.count(OLD_MARKER) != 1 or text.count(INCLUDE) != 1 or text.count("dvsModsStfuMergeActivity($lastHeard)") != 1:
             raise PatchError("partial or duplicate legacy STFU functions.php integration")
         return text.replace(OLD_MARKER, MARKER, 1)
+    if PREVIOUS_MARKER in text and MARKER not in text:
+        if text.count(PREVIOUS_MARKER) != 1 or text.count(INCLUDE) != 1 or text.count("dvsModsStfuMergeActivity($lastHeard)") != 1:
+            raise PatchError("partial or duplicate v2 STFU functions.php integration")
+        return text.replace(PREVIOUS_MARKER, MARKER, 1)
     anchor = "$lastHeard = getLastHeard($reverseLogLinesMMDVM);"
     new = (f"{MARKER}\n{INCLUDE}\n" + anchor +
            "\n$lastHeard = dvsModsStfuMergeActivity($lastHeard);")
@@ -48,6 +52,11 @@ def patch_lh(text: str) -> str:
         if text.count(OLD_MARKER) != 1 or "dvsModsStfuTargetDisplay($listElem[4])" not in text or "RX STFU" not in text:
             raise PatchError("partial or duplicate legacy STFU Gateway Activity integration")
         return text.replace(OLD_MARKER, MARKER, 1)
+    if PREVIOUS_MARKER in text and MARKER not in text:
+        if (text.count(PREVIOUS_MARKER) != 1 or "dvsModsStfuTargetDisplay($listElem[4])" not in text
+                or "RX STFU" not in text):
+            raise PatchError("partial or duplicate v2 STFU Gateway Activity integration")
+        return text.replace(PREVIOUS_MARKER, MARKER, 1)
     rx = '                             if ($listElem[1] == "DMR Slot 1" && $listElem[5] == "Net")  {echo "<td colspan=\\"3\\" style=\\"background:#f93;\\">&nbsp;&nbsp;&nbsp;RX DMR&nbsp;&nbsp;&nbsp;</td>";}\n'
     if MARKER in text:
         if text.count(MARKER) != 1 or "dvsModsStfuTargetDisplay($listElem[4])" not in text or "RX STFU" not in text:
@@ -70,6 +79,11 @@ def patch_localtx(text: str) -> str:
         if text.count(OLD_MARKER) != 1 or "dvsModsStfuTargetDisplay($listElem[4])" not in text or '== "STFU"' not in text:
             raise PatchError("partial or duplicate legacy STFU Local Activity integration")
         return text.replace(OLD_MARKER, MARKER, 1)
+    if PREVIOUS_MARKER in text and MARKER not in text:
+        if (text.count(PREVIOUS_MARKER) != 1 or "dvsModsStfuTargetDisplay($listElem[4])" not in text
+                or '== "STFU"' not in text):
+            raise PatchError("partial or duplicate v2 STFU Local Activity integration")
+        return text.replace(PREVIOUS_MARKER, MARKER, 1)
     if MARKER in text:
         if text.count(MARKER) != 1 or "dvsModsStfuTargetDisplay($listElem[4])" not in text or '== "STFU"' not in text:
             raise PatchError("partial or duplicate STFU Local Activity integration")
