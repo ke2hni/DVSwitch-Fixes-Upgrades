@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.1
-# Updated: 2026-11-17T09:42:00-05:00 by KE2HNI — add ASL/M17 cells and preserve strip widths.
+# Version: 1.0.2
+# Updated: 2026-11-17T11:00:53-05:00 by KE2HNI — fix generated PHP cell markup quoting.
 
 # Add STFU, ASL, and M17 status cells to the dashboard Modes and Networks strip.
 # This standalone installer intentionally modifies only include/system.php.
@@ -10,7 +10,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.0.1"
+readonly SCRIPT_VERSION="1.0.2"
 readonly TARGET="${DVS_STFU_STATUS_TARGET:-/usr/share/dvswitch/include/system.php}"
 readonly BACKUP_ROOT="${DVS_STFU_STATUS_BACKUP_ROOT:-/var/backups/dvswitch-mods/dashboard-stfu-status}"
 
@@ -61,7 +61,8 @@ def installed_function(data):
         b"    function dvsModsEmitNetworkStatus($label, $connected) {",
         b'        $background = $connected ? "#12AD2A" : "#b00";',
         b'        $foreground = $connected ? "#030" : "#f9f9f9";',
-        b'        echo "<td style=\"background:".$background.";color:".$foreground.";white-space:nowrap;\">&nbsp;".$label."&nbsp;</td>\n";',
+        # Raw bytes preserve backslashes so PHP keeps the HTML attribute quotes inside its string.
+        br"""        echo "<td style=\"background:".$background.";color:".$foreground.";white-space:nowrap;\">&nbsp;".$label."&nbsp;</td>\n";""",
         b"    }",
         b"}",
         b"if (!function_exists('dvsModsAslNetworkConnected')) {",
