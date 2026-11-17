@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.8
+# Version: 1.0.9
+# Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — restart the RX monitor after upgrades so the heartbeat code is loaded.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — install live M17 RX heartbeat and TRX status updates.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
@@ -298,6 +299,7 @@ PY_SEED
 php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null
 php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null
 systemctl daemon-reload
-systemctl enable --now dvswitch-m17-audio-monitor.service >/dev/null || die 'M17 RX audio monitor service failed to start; check systemctl status dvswitch-m17-audio-monitor.'
+systemctl enable dvswitch-m17-audio-monitor.service >/dev/null || die 'M17 RX audio monitor service could not be enabled.'
+systemctl restart dvswitch-m17-audio-monitor.service >/dev/null || die 'M17 RX audio monitor service failed to restart with the installed dashboard version.'
 systemctl enable --now dvswitch-m17-catalog-update.timer >/dev/null
 printf 'PASS: M17 dashboard integration and isolated M17 RX audio monitor installed.\n'

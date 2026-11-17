@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.5
+# Version: 1.2.6
+# Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — verify live M17 RX heartbeat and TRX label behavior.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T16:40:00-05:00 by KE2HNI — cover Apache access to M17 install state under the installer's restrictive umask.
@@ -169,7 +170,9 @@ def main():
     assert 'dvswitch-m17-audio-monitor.service' in installer
     assert 'dvswitch-m17-audio.conf' in installer
     assert 'dvswitch-m17-audio.apache' in installer
-    assert 'enable --now dvswitch-m17-audio-monitor.service' in installer
+    monitor_enable = installer.index('systemctl enable dvswitch-m17-audio-monitor.service')
+    monitor_restart = installer.index('systemctl restart dvswitch-m17-audio-monitor.service')
+    assert monitor_enable < monitor_restart
     assert 'RuntimeDirectory=dvswitch-m17-audio-monitor' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.service').read_text()
     assert 'ReadWritePaths=/run/dvswitch-m17-audio-monitor' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.service').read_text()
     assert 'Install DVSwitch Mode Buttons through manager option 2 first' not in installer
