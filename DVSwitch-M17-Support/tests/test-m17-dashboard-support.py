@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Version: 1.2.9
+# Version: 1.2.10
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and dedicated Gateway Activity integration.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — verify live M17 RX heartbeat and TRX label behavior.
@@ -30,6 +30,7 @@
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover URF module ports, row ports, omitted-port fallback, and invalid explicit ports.
 # Updated: 2026-11-17T18:00:00-05:00 by KE2HNI — verify dark-theme row colors for M17 Gateway Activity.
 # Updated: 2026-11-18T10:00:00-05:00 by KE2HNI — verify M17 Gateway Activity keeps the newest row per callsign.
+# Updated: 2026-11-18T10:30:00-05:00 by KE2HNI — verify M17 visibility follows the selected button and dark labels match network-card copper.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -292,10 +293,14 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'function dvsM17LatestGatewayActivity($rows)' in activity
     assert '$callsign = strtoupper(trim((string)($row[2] ?? \'\')))' in activity
     assert "$reflector = $selection[1]" in activity and "$reflector);" in activity
-    assert "'M17 Gateway Activity'" in layout and "result.mode !== 'M17'" in layout
+    assert "'M17 Gateway Activity'" in layout and "activity.hidden = !isM17ModeSelected(result.mode)" in layout
     assert 'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(odd) td' in layout
     assert 'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(even) td' in layout
     assert 'body.theme-auto.dvs-prefers-dark #dvs-m17-activity' in layout
+    assert "function isM17ModeSelected(fallbackMode)" in layout
+    assert "activity.hidden = !isM17ModeSelected(result.mode)" in layout
+    assert "M17 activity feed unavailable" in layout
+    assert 'body.theme-dark .dvs-m17-reflector-label,body.theme-auto.dvs-prefers-dark .dvs-m17-reflector-label{color:#b5651d!important}' in layout
     assert 'function dvsM17LiveBridgeMode()' not in card
     assert 'Analog_Bridge can' in card and 'report ASL while the selected and connected M17 mode is active' in card
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
