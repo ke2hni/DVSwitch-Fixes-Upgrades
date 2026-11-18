@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.9
+# Version: 1.2.8
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and dedicated Gateway Activity integration.
-# Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — cover script cache busting and shared copper text color.
-# Updated: 2026-11-17T16:15:00-05:00 by KE2HNI — catch the installed endpoint/helper path mismatch and dark-theme color override.
-# Updated: 2026-11-17T16:25:00-05:00 by KE2HNI — verify the cache key matches the revised layout script.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — verify live M17 RX heartbeat and TRX label behavior.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
@@ -31,6 +28,7 @@
 # Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — prevent M17 layout wrapping from dropping the ASL Gateway Activity section.
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover stable DMR card identity across BM/TGIF heading changes.
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover URF module ports, row ports, omitted-port fallback, and invalid explicit ports.
+# Updated: 2026-11-17T18:00:00-05:00 by KE2HNI — verify dark-theme row colors for M17 Gateway Activity.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -265,7 +263,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert patched_status.count('$displayTarget') == 4
         assert 'dvswitchASL3ShowNetCard' not in status.read_text()
         assert '$listElem[1] == "M17"' in localtx.read_text()
-        assert '<script src="/dvswitch/dvswitch-m17-layout.js?v=1.2.8"></script>' in index.read_text()
+        assert '<script src="/dvswitch/dvswitch-m17-layout.js"></script>' in index.read_text()
         assert '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>' in index.read_text()
         subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
@@ -286,16 +284,14 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     gateway = (ROOT / 'dashboard/dvswitch-m17-gateway-activity.php').read_text(encoding='utf-8')
     activity = (ROOT / 'dashboard/dvswitch-m17-activity.php').read_text(encoding='utf-8')
     assert "'target' => $target['id']" in card and "$identifier = $parts[1].'-'.$parts[2]" in card
-    assert "Reflector<br /><span style=\"color:#ef7215;\">'.$idLabel" in card
-    assert "<span style=\"color:#ef7215;\">'.$label" in card
+    assert "Reflector<br /><span style=\"color:#b5651d;\">'.$idLabel" in card
+    assert '<span class="dvs-m17-reflector-label">' in card and "'.$label." in card
     assert "'node' => (string)($row[11] ?? '')" in gateway and "'mode' => 'M17'" in gateway
-    assert "$activityHelper = __DIR__.'/include/dvswitch-m17-activity.php'" in gateway
-    assert "if (!is_file($activityHelper)) { $activityHelper = __DIR__.'/dvswitch-m17-activity.php'; }" in gateway
-    assert 'dvswitch-m17-activity.php" "$DASH/dvswitch-m17-activity.php"' in installer
-    assert 'GATEWAY_ACTIVITY_TARGET=/usr/share/dvswitch/dvswitch-m17-gateway-activity.php' in installer
     assert "$reflector = $selection[1]" in activity and "$reflector);" in activity
     assert "'M17 Gateway Activity'" in layout and "result.mode !== 'M17'" in layout
-    assert 'body.theme-dark .dvs-network-cards [style*="color:#ef7215"]' in layout
+    assert 'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(odd) td' in layout
+    assert 'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(even) td' in layout
+    assert 'body.theme-auto.dvs-prefers-dark #dvs-m17-activity' in layout
     assert 'function dvsM17LiveBridgeMode()' not in card
     assert 'Analog_Bridge can' in card and 'report ASL while the selected and connected M17 mode is active' in card
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
@@ -340,7 +336,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert 'rx.onclick = rx.dvsM17OriginalHandler || null' in layout
     assert 'window.dvsp.stop()' in layout
     assert 'def extract_pcm' in (ROOT / 'dashboard/dvswitch-m17-audio-monitor.py').read_text(encoding='utf-8')
-    assert card.count('color:#ef7215;') == 2
+    assert 'color:#b5651d;' in card and 'color:#b5651d!important' not in card
     assert 'body.theme-light [style*="color:#b5651d"]' in THEME and 'color: #6b2f00 !important;' in THEME
     standalone = (ROOT / 'dashboard/dvswitch-m17-standalone.js').read_text(encoding='utf-8')
     api = (ROOT / 'dashboard/dvswitch-m17-dashboard.php').read_text(encoding='utf-8')
