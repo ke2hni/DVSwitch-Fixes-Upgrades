@@ -1,7 +1,8 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.1
+// Version: 1.0.2
 // Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — retain reflector IDs for the dedicated M17 activity panel.
+// Updated: 2026-11-18T10:00:00-05:00 by KE2HNI — keep only the newest M17 gateway event per callsign.
 // Created: 2026-11-09T23:33:00-05:00 by KE2HNI
 
 /** Read completed USRP2M17 voice events as rows compatible with DVSwitch history. */
@@ -93,6 +94,25 @@ function dvsM17MergeActivity($rows, $paths = null, $historyPath = null)
             if (isset($seen[$key])) { continue; }
             $seen[$key] = true;
         }
+        $latest[] = $row;
+    }
+    return $latest;
+}
+
+/** Keep only the newest row per callsign for the dedicated M17 Gateway Activity card. */
+function dvsM17LatestGatewayActivity($rows)
+{
+    $rows = is_array($rows) ? $rows : array();
+    usort($rows, function ($left, $right) {
+        return strcmp((string)($right[0] ?? ''), (string)($left[0] ?? ''));
+    });
+    $seen = array();
+    $latest = array();
+    foreach ($rows as $row) {
+        if (!is_array($row) || count($row) < 6 || ($row[1] ?? '') !== 'M17') { continue; }
+        $callsign = strtoupper(trim((string)($row[2] ?? '')));
+        if ($callsign === '' || isset($seen[$callsign])) { continue; }
+        $seen[$callsign] = true;
         $latest[] = $row;
     }
     return $latest;
