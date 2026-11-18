@@ -1,6 +1,6 @@
 # DVSwitch Fixes & Upgrades
 
-<!-- Version: 1.0.4; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI; Updated: 2026-11-09T23:19:00-05:00 by KE2HNI -->
+<!-- Version: 1.0.5; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI; Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — use shared Gateway Activity for live M17 RX callsigns. -->
 
 A combined repository for independently installable DVSwitch repairs, dashboard modifications, ASL 3 support, and M17 private-node switching support.
 

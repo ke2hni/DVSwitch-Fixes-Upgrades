@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.2
+# Version: 1.1.3
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — restart the RX monitor after upgrades so the heartbeat code is loaded.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — install reflector IDs and the M17-only Gateway Activity panel.
 # Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — version the layout script URL so browsers load the new activity card.
 # Updated: 2026-11-17T16:15:00-05:00 by KE2HNI — deploy the M17 activity endpoint helper at the path the endpoint resolves.
 # Updated: 2026-11-17T16:25:00-05:00 by KE2HNI — advance the script URL with the dark-theme styling update.
+# Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — use the main activity table for live M17 RX and remove the separate panel.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — install live M17 RX heartbeat and TRX status updates.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
@@ -24,6 +25,7 @@ readonly DASH=/usr/share/dvswitch/include
 readonly FUNCTIONS=$DASH/functions.php
 readonly STATUS=$DASH/status.php
 readonly LOCALTX=$DASH/localtx.php
+readonly LH=$DASH/lh.php
 readonly INDEX=/usr/share/dvswitch/index.php
 readonly LAYOUT="$DIR/dashboard/dvswitch-m17-layout.js"
 readonly LAYOUT_TARGET=/usr/share/dvswitch/dvswitch-m17-layout.js
@@ -31,8 +33,6 @@ readonly STANDALONE_JS="$DIR/dashboard/dvswitch-m17-standalone.js"
 readonly STANDALONE_TARGET=/usr/share/dvswitch/dvswitch-m17-standalone.js
 readonly ENDPOINT_SOURCE="$DIR/dashboard/dvswitch-m17-dashboard.php"
 readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php
-readonly GATEWAY_ACTIVITY_SOURCE="$DIR/dashboard/dvswitch-m17-gateway-activity.php"
-readonly GATEWAY_ACTIVITY_TARGET=/usr/share/dvswitch/dvswitch-m17-gateway-activity.php
 readonly FAVORITES_HELPER="$DIR/dashboard/dvswitch-m17-favorites.py"
 readonly MODE_HELPER="$DIR/dashboard/dvswitch-m17-dashboard-mode"
 readonly AUDIO_MONITOR_SOURCE="$DIR/dashboard/dvswitch-m17-audio-monitor.py"
@@ -51,17 +51,17 @@ action=${1:---install}
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die 'Run this installer with sudo.'
 for command in install php python3 systemctl visudo; do command -v "$command" >/dev/null 2>&1 || die "Required command not found: $command"; done
-for path in "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX"; do [[ -f "$path" && ! -L "$path" ]] || die "Dashboard file unavailable or unsafe: $path"; done
+for path in "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX" "$LH"; do [[ -f "$path" && ! -L "$path" ]] || die "Dashboard file unavailable or unsafe: $path"; done
 if [[ "$action" == --uninstall ]]; then
   [[ -f "$STATE" ]] || die 'No M17 dashboard installation record exists.'
 else
   [[ -f /etc/USRP2M17.ini ]] || die 'Install USRP2M17 through manager option 8 first.'
-  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$STANDALONE_JS" && -f "$ENDPOINT_SOURCE" && -f "$GATEWAY_ACTIVITY_SOURCE" && -f "$FAVORITES_HELPER" && -f "$MODE_HELPER" && -f "$AUDIO_MONITOR_SOURCE" && -f "$AUDIO_MONITOR_SERVICE" && -f "$AUDIO_PROXY_CONF_SOURCE" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
+  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$STANDALONE_JS" && -f "$ENDPOINT_SOURCE" && -f "$FAVORITES_HELPER" && -f "$MODE_HELPER" && -f "$AUDIO_MONITOR_SOURCE" && -f "$AUDIO_MONITOR_SERVICE" && -f "$AUDIO_PROXY_CONF_SOURCE" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
 fi
 
 if [[ "$action" == --check ]]; then
-  php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null && php -l "$ENDPOINT_SOURCE" >/dev/null
-  php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null && php -l "$GATEWAY_ACTIVITY_SOURCE" >/dev/null
+  php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null && php -l "$LH" >/dev/null && php -l "$ENDPOINT_SOURCE" >/dev/null
+  php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null
   python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$FAVORITES_HELPER"
   python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$AUDIO_MONITOR_SOURCE"
   printf 'PASS: M17 dashboard prerequisites and PHP syntax are ready; --check made no changes.\n'
@@ -71,7 +71,7 @@ fi
 
 if [[ "$action" == --uninstall ]]; then
   [[ -f "$STATE" ]] || die 'No M17 dashboard installation record exists.'
-  python3 - "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX" <<'PY_UNINSTALL'
+  python3 - "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX" "$LH" <<'PY_UNINSTALL'
 import os, re, stat, sys, tempfile
 from pathlib import Path
 for path in map(Path,sys.argv[1:]):
@@ -83,6 +83,10 @@ for path in map(Path,sys.argv[1:]):
         text=re.sub(r"(?ms)^// DVSwitch-M17-Dashboard: Analog Bridge mode display v1\n.*?^    if \(is_array\(\$m17Display\)\) \{.*\}\n",'',text,count=1)
         text=text.replace('$displayMode', "$abinfo['tlv']['ambe_mode']")
         text=text.replace('$displayTarget', '$txValue')
+    elif path.name=='lh.php':
+        marker='// DVSwitch-M17-Dashboard: Gateway Activity receive indicator v1'
+        addition='                             if ($listElem[1] === "M17" && $listElem[5] === "Net" && $listElem[6] === null)  {echo "<td colspan=\\"3\\" style=\\"background:#4aa361;\\">&nbsp;&nbsp;&nbsp;RX M17&nbsp;&nbsp;&nbsp;</td>";}\n'
+        text=text.replace(addition,'',1).replace(marker+'\n','',1)
     elif path.name=='localtx.php':
         marker='// DVSwitch-M17-Dashboard: Local Activity includes M17 v1\n'
         if marker in text:
@@ -100,7 +104,7 @@ PY_UNINSTALL
   systemctl disable --now dvswitch-m17-catalog-update.timer >/dev/null 2>&1 || true
   systemctl disable --now dvswitch-m17-audio-monitor.service >/dev/null 2>&1 || true
   if command -v a2disconf >/dev/null 2>&1; then a2disconf dvswitch-m17-audio >/dev/null 2>&1 || true; fi
-  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$AUDIO_MONITOR_SERVICE_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$AUDIO_MONITOR" "$SELECT" "$CATALOG_UPDATE" /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-dashboard-mode "$ENDPOINT" "$GATEWAY_ACTIVITY_TARGET" "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STANDALONE_TARGET" "$SUDOERS" "$STATE"
+  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$AUDIO_MONITOR_SERVICE_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$AUDIO_MONITOR" "$SELECT" "$CATALOG_UPDATE" /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-dashboard-mode "$ENDPOINT" /usr/share/dvswitch/dvswitch-m17-gateway-activity.php "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STANDALONE_TARGET" "$SUDOERS" "$STATE"
   systemctl daemon-reload
   if command -v apache2ctl >/dev/null 2>&1 && apache2ctl configtest >/dev/null 2>&1; then systemctl reload apache2 >/dev/null 2>&1 || true; fi
   printf 'PASS: M17 dashboard integration removed; favorites, bridge config, and reflector catalog were preserved.\n'
@@ -114,7 +118,6 @@ install -o root -g root -m 0644 "$DIR/dashboard/dvswitch-m17-net-card.php" "$DAS
 install -o root -g root -m 0644 "$LAYOUT" "$LAYOUT_TARGET"
 install -o root -g root -m 0644 "$STANDALONE_JS" "$STANDALONE_TARGET"
 install -o root -g root -m 0644 "$ENDPOINT_SOURCE" "$ENDPOINT"
-install -o root -g root -m 0644 "$GATEWAY_ACTIVITY_SOURCE" "$GATEWAY_ACTIVITY_TARGET"
 install -o root -g root -m 0755 "$DIR/dashboard/dvswitch-m17-select.py" "$SELECT"
 install -o root -g root -m 0755 "$FAVORITES_HELPER" /usr/local/sbin/dvswitch-m17-favorites
 install -o root -g root -m 0755 "$MODE_HELPER" /usr/local/sbin/dvswitch-m17-dashboard-mode
@@ -143,18 +146,18 @@ if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php && -x /usr/local/sbin/dvs
 fi
 visudo -cf "$SUDOERS" >/dev/null || die 'M17 dashboard sudoers validation failed.'
 
-python3 - "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX" "$STATE" "$BACKUPS" <<'PY_INSTALL'
+python3 - "$FUNCTIONS" "$STATUS" "$LOCALTX" "$INDEX" "$LH" "$STATE" "$BACKUPS" <<'PY_INSTALL'
 import json, os, re, stat, sys, tempfile
 from datetime import datetime
 from pathlib import Path
-functions,status,localtx,index,state_path,backup_root=map(Path,sys.argv[1:])
+functions,status,localtx,index,lh,state_path,backup_root=map(Path,sys.argv[1:])
 if not state_path.exists():
     backup_root.mkdir(mode=0o700,parents=True,exist_ok=True)
     stamp=datetime.now().strftime('%Y%m%d-%H%M%S'); backup=backup_root/('install-'+stamp)
     suffix=0
     while backup.exists(): suffix+=1; backup=backup_root/(f'install-{stamp}-{suffix}')
     backup.mkdir(mode=0o700)
-    for path in (functions,status,localtx,index):
+    for path in (functions,status,localtx,index,lh):
         import shutil; shutil.copy2(path,backup/path.name)
     state_path.parent.mkdir(mode=0o755,parents=True,exist_ok=True)
     state_path.write_text(json.dumps({'version':'1.0.0','backup':str(backup)},indent=2)+'\n',encoding='utf-8'); state_path.chmod(0o600)
@@ -163,9 +166,11 @@ if not state_path.exists():
 state_path.parent.chmod(0o755)
 changes=[]
 backup=Path(json.loads(state_path.read_text(encoding='utf-8'))['backup'])
-if backup.is_dir() and not (backup/index.name).exists():
-    import shutil; shutil.copy2(index,backup/index.name)
-for path in (functions,status,localtx,index):
+if backup.is_dir():
+    import shutil
+    for path in (index,lh):
+        if not (backup/path.name).exists(): shutil.copy2(path,backup/path.name)
+for path in (functions,status,localtx,index,lh):
     text=path.read_text(encoding='utf-8')
     if path.name=='functions.php':
         marker='// DVSwitch-M17-Dashboard: merge activity v1'
@@ -200,6 +205,16 @@ for path in (functions,status,localtx,index):
             text=re.sub(r"(?m)(^.*<th width=50%>Mode</th>.*)\$abinfo\[['\"]tlv['\"]\]\[['\"]ambe_mode['\"]\](.*$)",r"\1$displayMode\2",text)
             text=re.sub(r"(?m)(^.*<th width=50%>Tx TG/Ref</th>.*)\$txValue(.*$)",r"\1$displayTarget\2",text)
         elif text.count(display_marker)!=1: raise SystemExit('ERROR: duplicate M17 Analog Bridge display markers.')
+    elif path.name=='lh.php':
+        marker='// DVSwitch-M17-Dashboard: Gateway Activity receive indicator v1'
+        addition='                             if ($listElem[1] === "M17" && $listElem[5] === "Net" && $listElem[6] === null)  {echo "<td colspan=\\"3\\" style=\\"background:#4aa361;\\">&nbsp;&nbsp;&nbsp;RX M17&nbsp;&nbsp;&nbsp;</td>";}\n'
+        anchor='                             if ($listElem[1] == "DMR Slot 1"'
+        if marker not in text:
+            if text.count(anchor)!=1: raise SystemExit('ERROR: Gateway Activity receive-status anchor missing or ambiguous.')
+            text=text.replace('<?php\n','<?php\n'+marker+'\n',1)
+            text=text.replace(anchor,addition+anchor,1)
+        elif text.count(marker)!=1 or text.count(addition)!=1:
+            raise SystemExit('ERROR: partial or duplicate M17 Gateway Activity receive indicator.')
     elif path.name=='localtx.php':
         marker='// DVSwitch-M17-Dashboard: Local Activity includes M17 v1'
         if marker not in text:
@@ -209,7 +224,7 @@ for path in (functions,status,localtx,index):
             text=text.replace('$counter = 0;',marker+'\n$counter = 0;',1)
         elif text.count(marker)!=1: raise SystemExit('ERROR: duplicate M17 Local Activity markers.')
     else:
-        layout_tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.2.8"></script>'
+        layout_tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.2.9"></script>'
         old_layout=re.findall(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?"></script>',text)
         if len(old_layout)>1: raise SystemExit('ERROR: duplicate M17 layout script tags.')
         if old_layout: text=text.replace(old_layout[0],layout_tag,1)
@@ -309,10 +324,11 @@ else:
     print('PASS: existing M17 favorites preserved.')
 PY_SEED
 
-php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null
-php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null && php -l "$GATEWAY_ACTIVITY_SOURCE" >/dev/null
+php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null && php -l "$LH" >/dev/null
+php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null
 systemctl daemon-reload
 systemctl enable dvswitch-m17-audio-monitor.service >/dev/null || die 'M17 RX audio monitor service could not be enabled.'
 systemctl restart dvswitch-m17-audio-monitor.service >/dev/null || die 'M17 RX audio monitor service failed to restart with the installed dashboard version.'
 systemctl enable --now dvswitch-m17-catalog-update.timer >/dev/null
+rm -f /usr/share/dvswitch/dvswitch-m17-gateway-activity.php
 printf 'PASS: M17 dashboard integration and isolated M17 RX audio monitor installed.\n'

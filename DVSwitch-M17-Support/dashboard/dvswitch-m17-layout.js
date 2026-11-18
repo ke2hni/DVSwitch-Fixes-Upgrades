@@ -1,7 +1,7 @@
-/* DVSwitch M17 dashboard layout v1.2.8
+/* DVSwitch M17 dashboard layout v1.2.9
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — show RX M17 in TRX Info while M17 USRP audio is arriving.
- * Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — add an M17-only gateway activity card matching the ASL panel.
+ * Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — keep M17 in the main Gateway Activity table and smooth RX status updates.
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
  * Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — place the left card stack in the status sidebar below Analog Bridge and TRX.
@@ -30,6 +30,7 @@
   var modeObservers = [];
   var bodyObserver = null;
   var m17Audio = {active: false, socket: null, pcm: null, button: null, defaultColor: ''};
+  var m17LastRxAt = 0;
 
   function cardIdentity(name) {
     return /^DMR\s+(?:BM|TGIF)\s+Master$/i.test(name) ? 'DMR Master' : name;
@@ -45,7 +46,6 @@
     // ASL support inserts its own activity section beside #lastHerd. Preserve
     // that sibling when replacing the old DVSwitch center wrapper below.
     var aslActivity = oldCenter.querySelector('#dvs-asl-activity');
-    var m17Activity = oldCenter.querySelector('#dvs-m17-activity');
 
     var layout = document.createElement('div');
     layout.id = 'dvs-network-layout';
@@ -56,7 +56,6 @@
     right.setAttribute('aria-label', 'Network status, right column including M17');
     layout.append(center, right);
     if (aslActivity) center.appendChild(aslActivity);
-    if (m17Activity) center.appendChild(m17Activity);
     center.appendChild(activity);
     var localActivity = document.getElementById('localTxs');
     if (localActivity) {
@@ -68,79 +67,12 @@
 
   }
 
-  function renderM17Activity(result) {
-    var activity = document.getElementById('dvs-m17-activity');
-    if (!activity || !result || !Array.isArray(result.rows)) return;
-    activity.hidden = !isM17ModeSelected(result.mode);
-    var body = document.getElementById('dvs-m17-activity-rows');
-    var header = activity.querySelector('table tr');
-    if (header && result.timezone) header.cells[0].textContent = 'Time (' + result.timezone + ')';
-    body.replaceChildren();
-    if (!result.rows.length) {
-      var empty = document.createElement('tr'), cell = document.createElement('td');
-      cell.colSpan = 9; cell.textContent = 'No M17 gateway activity'; cell.style.padding = '4px';
-      empty.appendChild(cell); body.appendChild(empty); return;
-    }
-    result.rows.slice(0, 20).forEach(function (row) {
-      var tr = document.createElement('tr');
-      [row.time, row.mode, row.node || '—', row.name || '—', row.target || '—', row.source || '—', row.duration || '—', row.loss || '—', row.ber || '—'].forEach(function (value, index) {
-        var td = document.createElement('td'); td.style.padding = '4px';
-        if (index === 3) { var name = document.createElement('span'); name.style.cssText = 'display:block;color:#b5651d;font-weight:bold;white-space:normal'; name.textContent = value; td.appendChild(name); }
-        else td.textContent = value;
-        tr.appendChild(td);
-      });
-      body.appendChild(tr);
-    });
-  }
-
   function isM17ModeSelected(fallbackMode) {
     var activeMode = document.querySelector('#dvs-mode-buttons [data-mode].selected, #dvs-asl-mode-buttons [data-mode].selected');
     if (activeMode) return activeMode.dataset.mode === 'M17';
     var standalone = document.querySelector('#dvs-m17-standalone .dvs-m17-mode');
     if (standalone) return standalone.classList.contains('selected');
     return fallbackMode === 'M17';
-  }
-
-  function renderM17ActivityMessage(message) {
-    var body = document.getElementById('dvs-m17-activity-rows');
-    if (!body) return;
-    body.replaceChildren();
-    var row = document.createElement('tr'), cell = document.createElement('td');
-    cell.colSpan = 9; cell.textContent = message; cell.style.padding = '4px';
-    row.appendChild(cell); body.appendChild(row);
-  }
-
-  function ensureM17Activity() {
-    if (document.getElementById('dvs-m17-activity') || !document.getElementById('lastHerd')) return;
-    var section = document.createElement('section'); section.id = 'dvs-m17-activity'; section.hidden = !isM17ModeSelected('');
-    section.style.cssText = 'width:100%;max-width:100%;box-sizing:border-box;align-self:stretch;margin:8px 0;text-align:center';
-    var title = document.createElement('span'); title.textContent = 'M17 Gateway Activity'; title.style.cssText = 'font-weight:bold;font-size:14px';
-    var card = document.createElement('fieldset');
-    card.style.cssText = 'box-shadow:0 0 10px #999;background-color:#e8e8e8e8;width:100%;max-width:100%;box-sizing:border-box;margin:10px 0 0;font-size:12px;border-radius:10px';
-    var table = document.createElement('table'); table.style.cssText = 'width:100%;margin-top:3px;border-collapse:collapse';
-    var header = document.createElement('tr');
-    ['Time', 'Mode', 'Node', 'Name', 'Target', 'Src', 'Dur(s)', 'Loss', 'BER'].forEach(function (text) { var th = document.createElement('th'); th.textContent = text; header.appendChild(th); });
-    var body = document.createElement('tbody'); body.id = 'dvs-m17-activity-rows';
-    table.append(header, body); card.appendChild(table); section.append(title, card);
-    document.getElementById('lastHerd').insertAdjacentElement('beforebegin', section);
-  }
-
-  function refreshM17Activity() {
-    ensureM17Activity();
-    var selected = isM17ModeSelected('');
-    var activity = document.getElementById('dvs-m17-activity');
-    if (activity) activity.hidden = !selected;
-    fetch('/dvswitch/dvswitch-m17-gateway-activity.php', {cache:'no-store'}).then(function (response) { return response.json(); }).then(function (data) {
-      fetch('/dvswitch/dvswitch-m17-dashboard.php?status=1', {cache:'no-store'}).then(function (response) { return response.json(); }).then(function (status) {
-        data.mode = status && status.ok ? status.mode : (selected ? 'M17' : '');
-        renderM17Activity(data);
-      });
-    }).catch(function () {
-      if (isM17ModeSelected('')) {
-        if (activity) activity.hidden = false;
-        renderM17ActivityMessage('M17 activity feed unavailable');
-      }
-    });
   }
 
   function ensureLayoutStyles() {
@@ -160,10 +92,6 @@
       '.dvs-network-card-panel th,.dvs-network-card-panel td{overflow-wrap:anywhere;word-break:normal}',
       'body.theme-light .dvs-m17-reflector-label,body.theme-auto:not(.dvs-prefers-dark) .dvs-m17-reflector-label{color:#6b2f00!important}body.theme-dark .dvs-m17-reflector-label,body.theme-auto.dvs-prefers-dark .dvs-m17-reflector-label{color:#b5651d!important}',
       'body.theme-dark .dvs-network-cards *,body.theme-auto.dvs-prefers-dark .dvs-network-cards *{border-color:#374151!important}',
-      'body.theme-dark #dvs-m17-activity fieldset,body.theme-auto.dvs-prefers-dark #dvs-m17-activity fieldset{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}',
-      'body.theme-dark #dvs-m17-activity fieldset table th,body.theme-auto.dvs-prefers-dark #dvs-m17-activity fieldset table th{background-color:#111827!important;color:#ffffff!important;border-color:#374151!important}',
-      'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(odd) td,body.theme-auto.dvs-prefers-dark #dvs-m17-activity fieldset table tr:nth-child(odd) td{background-color:#111827!important;color:#e5e7eb!important;border-color:#374151!important}',
-      'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(even) td,body.theme-auto.dvs-prefers-dark #dvs-m17-activity fieldset table tr:nth-child(even) td{background-color:#1f2937!important;color:#e5e7eb!important;border-color:#374151!important}',
       '@media(max-width:1100px){#dvs-network-layout{grid-template-columns:minmax(0,1fr)}#dvs-gateway-activity{grid-column:1;grid-row:1;width:100%}.dvs-network-cards-right{grid-column:1;grid-row:2;left:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:0 8px;padding:0}}',
       '@media(max-width:650px){.dvs-network-cards-right{grid-template-columns:repeat(2,minmax(0,1fr))}}'
     ].join('');
@@ -279,14 +207,17 @@
       if (!response.ok) return null;
       return response.json();
     }).then(function (data) {
-      if (!data || !data.ok || data.mode !== 'M17') return;
+      if (!data || !data.ok) return;
+      if (data.mode !== 'M17') { m17LastRxAt = 0; return; }
       var table = Array.from(document.querySelectorAll('#modeInfo table')).find(function (item) {
         var heading = item.querySelector('th');
         return heading && heading.textContent.replace(/\s+/g, ' ').trim() === 'TRX Info';
       });
       var cell = table && table.querySelector('tr:last-child td');
       if (!cell) return;
-      var receiving = data.rx === true;
+      var now = Date.now();
+      if (data.rx === true) m17LastRxAt = now;
+      var receiving = data.rx === true || (m17LastRxAt > 0 && now - m17LastRxAt <= 5000);
       var label = receiving ? 'RX M17' : 'Listening M17';
       if (cell.textContent !== label) cell.textContent = label;
       cell.style.backgroundColor = receiving ? '#4aa361' : '#0b0';
@@ -335,13 +266,10 @@
 
   function start() {
     makeLayout();
-    ensureM17Activity();
     placeCards();
     observeModeControls();
     updateM17TrxStatus();
     window.setInterval(updateM17TrxStatus, 1000);
-    refreshM17Activity();
-    window.setInterval(refreshM17Activity, 3000);
     var info = document.getElementById('modeInfo');
     if (info && !info.dataset.dvsM17LayoutObserved) {
       observer = new MutationObserver(placeCards);

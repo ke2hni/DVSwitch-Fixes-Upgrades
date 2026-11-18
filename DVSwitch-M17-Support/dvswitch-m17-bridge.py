@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.1.4
+# Version: 1.1.5
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-13T21:04:52-05:00 by KE2HNI — make the non-secret bridge config readable by Apache for the M17 Net card and dashboard.
 # Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — force adopted private USRP nodes to duplex 0 and restore their prior setting on removal.
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — own node selection and switching; remove ASL-mod prerequisite.
 # Updated: 2026-11-17T17:00:00-05:00 by KE2HNI — make the M17 activity log directory traversable by Apache.
 # Updated: 2026-11-09T23:19:00-05:00 by KE2HNI — include source callsigns in M17 activity logs.
+# Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — log M17 callsigns at voice start for live Gateway Activity rows.
 # Interactive USRP2M17 installer for an ASL3 node; see INSTALL-USRP2M17.md.
 
 """Build and configure nostar/MMDVM_CM's USRP2M17 bridge on ASL3."""
@@ -27,7 +28,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.1.4"
+VERSION = "1.1.5"
 REPOSITORY = "https://github.com/nostar/MMDVM_CM.git"
 HOSTFILE = "https://m17-project.github.io/hostfiles/M17Hosts.txt"
 INSTALL_ROOT = Path("/opt/dvswitch-m17")
@@ -530,6 +531,26 @@ def patch_fixed_width_integer_includes(project: Path) -> list[Path]:
     return patched
 
 
+def patch_activity_logging(text: str) -> str:
+    """Log decoded M17 callsigns at the header so the dashboard can show live RX."""
+    activity_logs = {
+        'LogMessage("M17 received end of voice transmission, %.1f seconds", float(m_m17Frames) / 25.0F);':
+            'LogMessage("M17 received end of voice transmission from %s, %.1f seconds", m_usrpcs.c_str(), float(m_m17Frames) / 25.0F);',
+        'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);':
+            'LogMessage("USRP received end of voice transmission from %s, %.1f seconds", m_usrpcs.c_str(), float(m_usrpFrames) / 50.0F);',
+    }
+    for old, new in activity_logs.items():
+        if text.count(old) != 1:
+            raise SetupError("The checked-out USRP2M17 source has an unsupported activity-log structure; no binary was installed.")
+        text = text.replace(old, new, 1)
+    callsign_anchor = "m_usrpcs = css.substr(0, css.find(' '));"
+    if text.count(callsign_anchor) != 1:
+        raise SetupError("The checked-out USRP2M17 source has an unsupported M17 callsign decoder; no binary was installed.")
+    callsign_log = (callsign_anchor + "\n\t\t\t\tif (m_m17Frame[34U] == 0U && m_m17Frame[35U] == 0U)\n"
+                    "\t\t\t\t\tLogMessage(\"M17 received start of voice transmission from %s\", m_usrpcs.c_str());")
+    return text.replace(callsign_anchor, callsign_log, 1)
+
+
 def ensure_install_root() -> bool:
     marker = INSTALL_ROOT / ".dvswitch-m17-bridge-managed"
     if INSTALL_ROOT.exists():
@@ -574,16 +595,7 @@ def ensure_source() -> bytes:
                         ignore=shutil.ignore_patterns("*.o", "*.d", "USRP2M17", "*.bak", "*~"))
         source = build_project / "USRP2M17.cpp"
         text = source.read_text(encoding="utf-8")
-        activity_logs = {
-            'LogMessage("M17 received end of voice transmission, %.1f seconds", float(m_m17Frames) / 25.0F);':
-                'LogMessage("M17 received end of voice transmission from %s, %.1f seconds", m_usrpcs.c_str(), float(m_m17Frames) / 25.0F);',
-            'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);':
-                'LogMessage("USRP received end of voice transmission from %s, %.1f seconds", m_usrpcs.c_str(), float(m_usrpFrames) / 50.0F);',
-        }
-        for old, new in activity_logs.items():
-            if text.count(old) != 1:
-                raise SetupError("The checked-out USRP2M17 source has an unsupported activity-log structure; no binary was installed.")
-            text = text.replace(old, new, 1)
+        text = patch_activity_logging(text)
         source.write_text(text, encoding="utf-8")
         # Keep upstream's checkout clean while fixing missing direct integer headers in the build copy.
         patch_fixed_width_integer_includes(build_project)

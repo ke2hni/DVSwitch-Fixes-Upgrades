@@ -1,12 +1,11 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.2
-// Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — retain reflector IDs for the dedicated M17 activity panel.
-// Updated: 2026-11-18T10:00:00-05:00 by KE2HNI — keep only the newest M17 gateway event per callsign.
+// Version: 1.0.3
+// Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — include live M17 RX rows in the main Gateway Activity table.
 // Created: 2026-11-09T23:33:00-05:00 by KE2HNI
 
-/** Read completed USRP2M17 voice events as rows compatible with DVSwitch history. */
-function dvsM17ActivityRows($paths = null, $historyPath = null)
+/** Read active and completed USRP2M17 voice events as rows compatible with DVSwitch history. */
+function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath = null)
 {
     if ($paths === null) {
         $paths = glob('/var/log/usrp2m17/USRP2M17*.log') ?: array();
@@ -14,6 +13,7 @@ function dvsM17ActivityRows($paths = null, $historyPath = null)
     if ($historyPath === null) {
         $historyPath = '/var/lib/dvswitch-m17-dashboard/reflector-history.tsv';
     }
+    if ($rxHeartbeatPath === null) { $rxHeartbeatPath = '/run/dvswitch-m17-audio-monitor/rx-active'; }
 
     $history = array();
     if (is_file($historyPath) && is_readable($historyPath) && !is_link($historyPath)) {
@@ -26,7 +26,10 @@ function dvsM17ActivityRows($paths = null, $historyPath = null)
     }
 
     $events = array();
+    $open = array();
     $sequence = 0;
+    $paths = (array)$paths;
+    sort($paths, SORT_STRING);
     foreach ((array)$paths as $path) {
         if (!is_string($path) || !is_file($path) || !is_readable($path) || is_link($path)) { continue; }
         $handle = @fopen($path, 'rb');
@@ -45,12 +48,12 @@ function dvsM17ActivityRows($paths = null, $historyPath = null)
         if (count($lines) > 2000) { $lines = array_slice($lines, -2000); }
 
         foreach ($lines as $line) {
-            if (!preg_match('/^[A-Z]: (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\.(\d{1,6}) (M17|USRP) received end of voice transmission from ([^,\s]+), ([0-9]+(?:\.[0-9]+)?) seconds\s*$/', $line, $match)) { continue; }
+            if (!preg_match('/^[A-Z]: (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\.(\d{1,6}) (M17|USRP) received (start|end) of voice transmission from ([^,\s]+)(?:, ([0-9]+(?:\.[0-9]+)?) seconds)?\s*$/', $line, $match)) { continue; }
             $date = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s.u', $match[1].'.'.str_pad($match[2], 6, '0'), new DateTimeZone('UTC'));
             if ($date === false) { continue; }
             $errors = DateTimeImmutable::getLastErrors();
             if (is_array($errors) && ($errors['warning_count'] !== 0 || $errors['error_count'] !== 0)) { continue; }
-            $call = trim(preg_replace('/[\x00-\x1F\x7F]/', '', $match[4]));
+            $call = trim(preg_replace('/[\x00-\x1F\x7F]/', '', $match[5]));
             if ($call === '' || strlen($call) > 20) { continue; }
 
             $epoch = (int)$date->format('U');
@@ -66,10 +69,22 @@ function dvsM17ActivityRows($paths = null, $historyPath = null)
             }
             $source = $match[3] === 'M17' ? 'Net' : 'LNet';
             $row = array($date->format('Y-m-d H:i:s.v'), 'M17', $call, '', $target, $source,
-                number_format((float)$match[5], 1, '.', ''), '0%', '0.0%', '', '', $reflector);
+                null, '0%', '0.0%', '', '', $reflector);
+            if ($match[4] === 'start') {
+                $open[$match[3]] = array('row' => $row, 'epoch' => $epoch, 'sequence' => $sequence++);
+                continue;
+            }
+            $row[6] = number_format((float)($match[6] ?? 0), 1, '.', '');
             $events[] = array('row' => $row, 'sequence' => $sequence++);
+            unset($open[$match[3]]);
         }
     }
+
+    // Keep an unfinished network transmission visible only while the M17 audio heartbeat is fresh.
+    $rxModified = is_string($rxHeartbeatPath) && is_file($rxHeartbeatPath) && !is_link($rxHeartbeatPath)
+        ? @filemtime($rxHeartbeatPath) : false;
+    $rxActive = $rxModified !== false && time() >= $rxModified && time() - $rxModified <= 5;
+    if ($rxActive && isset($open['M17'])) { $events[] = $open['M17']; }
 
     usort($events, function ($left, $right) {
         $time = strcmp($right['row'][0], $left['row'][0]);
@@ -99,7 +114,7 @@ function dvsM17MergeActivity($rows, $paths = null, $historyPath = null)
     return $latest;
 }
 
-/** Keep only the newest row per callsign for the dedicated M17 Gateway Activity card. */
+/** Retain the legacy feed helper for existing direct consumers; the dashboard no longer installs or requests it. */
 function dvsM17LatestGatewayActivity($rows)
 {
     $rows = is_array($rows) ? $rows : array();
@@ -117,4 +132,5 @@ function dvsM17LatestGatewayActivity($rows)
     }
     return $latest;
 }
+
 ?>

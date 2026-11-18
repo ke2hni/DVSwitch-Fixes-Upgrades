@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-# Version: 1.1.6
+# Version: 1.1.7
 # Created: 2026-11-10T19:00:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — verify independent M17 installation paths.
 # Updated: 2026-11-13T21:04:52-05:00 by KE2HNI — verify the bridge config is readable by the Apache dashboard user.
 # Updated: 2026-11-13T21:52:49-05:00 by KE2HNI — verify upgrade repairs a bridge config left at mode 0600.
 # Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — verify adopted M17 nodes use duplex 0 and restore inherited duplex safely.
 # Updated: 2026-11-17T17:00:00-05:00 by KE2HNI — verify upgrades repair restrictive M17 log-directory permissions.
+# Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — verify callsign-at-start logging for live M17 receive rows.
 
 """Check the USRP2M17 installer config and reversible Asterisk node edits."""
 
@@ -51,7 +52,8 @@ def main() -> None:
             '#include "codec2/codec2.h"\nuint8_t tag;\n', encoding="utf-8")
         (project / "USRP2M17.cpp").write_text(
             'LogMessage("M17 received end of voice transmission, %.1f seconds", float(m_m17Frames) / 25.0F);\n'
-            'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);\n',
+            'LogMessage("USRP received end of voice transmission, %.1f seconds", float(m_usrpFrames) / 50.0F);\n'
+            "m_usrpcs = css.substr(0, css.find(' '));\n",
             encoding="utf-8")
         binary = project / "USRP2M17"
         binary.write_text("old installer build\n", encoding="utf-8")
@@ -59,6 +61,7 @@ def main() -> None:
             BRIDGE.SOURCE_ROOT, BRIDGE.INSTALL_ROOT, BRIDGE.run)
         calls = []
         patched_headers = []
+        patched_sources = []
 
         def fake_git_run(command, **kwargs):
             calls.append(command)
@@ -74,6 +77,7 @@ def main() -> None:
                 patched_headers.append({
                     name: (Path(kwargs["cwd"]) / name).read_text(encoding="utf-8")
                     for name in ("Conf.h", "ModeConv.h")})
+                patched_sources.append((Path(kwargs["cwd"]) / "USRP2M17.cpp").read_text(encoding="utf-8"))
                 Path(kwargs["cwd"] / "USRP2M17").write_text("rebuilt executable\n", encoding="utf-8")
             return subprocess.CompletedProcess(command, 0, "", "")
 
@@ -89,6 +93,10 @@ def main() -> None:
                 "#include <cstdint>" in text for text in patched_headers[0].values())
             assert "#include <cstdint>" not in (project / "Conf.h").read_text(encoding="utf-8")
             assert "#include <cstdint>" not in (project / "ModeConv.h").read_text(encoding="utf-8")
+            patched_source = patched_sources[0]
+            assert 'M17 received start of voice transmission from %s' in patched_source
+            assert 'M17 received end of voice transmission from %s' in patched_source
+            assert 'USRP received end of voice transmission from %s' in patched_source
             assert all(path.stat().st_mode & 0o777 == 0o755
                        for path in (root, source, project))
         finally:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.2.10
+# Version: 1.2.11
 # Updated: 2026-11-17T21:05:06-05:00 by KE2HNI — assert matching M17 reflector label copper in both themes.
-# Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and dedicated Gateway Activity integration.
+# Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and Gateway Activity integration.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — verify live M17 RX heartbeat and TRX label behavior.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
@@ -29,8 +29,7 @@
 # Updated: 2026-11-11T22:35:00-05:00 by KE2HNI — prevent M17 layout wrapping from dropping the ASL Gateway Activity section.
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover stable DMR card identity across BM/TGIF heading changes.
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — cover URF module ports, row ports, omitted-port fallback, and invalid explicit ports.
-# Updated: 2026-11-17T18:00:00-05:00 by KE2HNI — verify dark-theme row colors for M17 Gateway Activity.
-# Updated: 2026-11-18T10:00:00-05:00 by KE2HNI — verify M17 Gateway Activity keeps the newest row per callsign.
+# Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — check live callsigns in the main Gateway Activity table and remove the duplicate panel.
 """Check M17 reflector selection, config preservation, and install script syntax."""
 
 import importlib.util
@@ -182,6 +181,7 @@ def main():
     assert 'Install DVSwitch Mode Buttons through manager option 2 first' not in installer
     assert "readonly STANDALONE_TARGET=/usr/share/dvswitch/dvswitch-m17-standalone.js" in installer
     assert "readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php" in installer
+    assert "readonly LH=$DASH/lh.php" in installer
     assert "M17_FAVORITES=/etc/dvswitch-m17-dashboard/favorites.json" in installer
     assert 'DVSwitch Mode Buttons is not installed. Install it separately' not in installer
     blocks = {}
@@ -225,6 +225,7 @@ def main():
         status = root / 'status.php'
         localtx = root / 'localtx.php'
         index = root / 'index.php'
+        lh = root / 'lh.php'
         state = root / 'install-state.json'
         backups = root / 'backups'
         functions.write_text('$lastHeard = dvsModsStfuMergeActivity($lastHeard);\n', encoding='utf-8')
@@ -246,18 +247,20 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
 ''', encoding='utf-8')
         localtx.write_text('$counter = 0;\nif ($listElem[5] == "LNet" && ($listElem[1] == "STFU")) {\n', encoding='utf-8')
         index.write_text('<html><body></body></html>\n', encoding='utf-8')
-        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(index), str(state), str(backups)], check=True,
+        lh.write_text('<?php\n                             if ($listElem[1] == "DMR Slot 1" && $listElem[5] == "Net") {\n', encoding='utf-8')
+        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(index), str(lh), str(state), str(backups)], check=True,
                        preexec_fn=lambda: os.umask(0o077))
         assert stat.S_IMODE(state.parent.stat().st_mode) == 0o755
         assert stat.S_IMODE(state.stat().st_mode) == 0o600
         state.parent.chmod(0o700)
-        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(index), str(state), str(backups)], check=True,
+        subprocess.run(['python3', '-c', blocks['PY_INSTALL'], str(functions), str(status), str(localtx), str(index), str(lh), str(state), str(backups)], check=True,
                        preexec_fn=lambda: os.umask(0o077))
         assert stat.S_IMODE(state.parent.stat().st_mode) == 0o755
         assert stat.S_IMODE(state.stat().st_mode) == 0o600
         assert 'dvsM17MergeActivity($lastHeard)' in functions.read_text()
         assert 'dvsM17ShowNetCard()' in status.read_text()
-        assert 'dvswitch-m17-gateway-activity.php' in installer
+        assert 'GATEWAY_ACTIVITY_SOURCE' not in installer
+        assert 'rm -f /usr/share/dvswitch/dvswitch-m17-gateway-activity.php' in installer
         patched_status=status.read_text()
         assert 'dvsM17CurrentDisplayTarget()' in patched_status
         assert "htmlspecialchars($m17Display['target']" in patched_status
@@ -265,15 +268,17 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert patched_status.count('$displayTarget') == 4
         assert 'dvswitchASL3ShowNetCard' not in status.read_text()
         assert '$listElem[1] == "M17"' in localtx.read_text()
+        assert 'RX M17' in lh.read_text() and 'Gateway Activity receive indicator v1' in lh.read_text()
         # Accept the installer's cache-busted layout tag as well as the unversioned form.
         assert re.search(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?">', index.read_text())
         assert '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>' in index.read_text()
-        subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index)], check=True)
+        subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index), str(lh)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
         assert 'dvsM17ShowNetCard' not in status.read_text()
         assert 'dvsM17CurrentDisplayTarget' not in status.read_text()
         assert "$abinfo['tlv']['ambe_mode']" in status.read_text()
         assert '$listElem[1] == "M17"' not in localtx.read_text()
+        assert 'RX M17' not in lh.read_text() and 'Gateway Activity receive indicator v1' not in lh.read_text()
         assert 'dvswitch-m17-layout.js' not in index.read_text()
         assert 'dvswitch-m17-standalone.js' not in index.read_text()
     with tempfile.TemporaryDirectory() as directory:
@@ -284,22 +289,45 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert 'M17-123-C\tFriendly Room C' in history.read_text()
     layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
     card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
-    gateway = (ROOT / 'dashboard/dvswitch-m17-gateway-activity.php').read_text(encoding='utf-8')
     activity = (ROOT / 'dashboard/dvswitch-m17-activity.php').read_text(encoding='utf-8')
     assert "'target' => $target['id']" in card and "$identifier = $parts[1].'-'.$parts[2]" in card
     # Both inline labels must use the copper text color shared by the other Net cards.
     assert "Reflector<br /><span style=\"color:#b5651d;\">'.$idLabel" in card
     assert "<span style=\"color:#b5651d;\">'.$label" in card
     assert '#ef7215' not in card
-    assert "'node' => (string)($row[11] ?? '')" in gateway and "'mode' => 'M17'" in gateway
-    assert 'dvsM17LatestGatewayActivity(dvsM17ActivityRows())' in gateway
-    assert 'function dvsM17LatestGatewayActivity($rows)' in activity
-    assert '$callsign = strtoupper(trim((string)($row[2] ?? \'\')))' in activity
     assert "$reflector = $selection[1]" in activity and "$reflector);" in activity
-    assert "'M17 Gateway Activity'" in layout and "result.mode !== 'M17'" in layout
-    assert 'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(odd) td' in layout
-    assert 'body.theme-dark #dvs-m17-activity fieldset table tr:nth-child(even) td' in layout
-    assert 'body.theme-auto.dvs-prefers-dark #dvs-m17-activity' in layout
+    assert 'received (start|end) of voice transmission from' in activity
+    assert "'/run/dvswitch-m17-audio-monitor/rx-active'" in activity
+    assert 'function dvsM17LatestGatewayActivity($rows)' in activity
+    if shutil.which('php'):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / 'USRP2M17.log'
+            history = root / 'reflector-history.tsv'
+            heartbeat = root / 'rx-active'
+            log.write_text(
+                'M: 2026-11-17 23:00:00.000 M17 received start of voice transmission from N0ABC\n'
+                'M: 2026-11-17 23:00:05.000 M17 received end of voice transmission from N0ABC, 5.0 seconds\n'
+                'M: 2026-11-17 23:01:00.000 M17 received start of voice transmission from K1XYZ\n',
+                encoding='utf-8')
+            history.write_text('', encoding='utf-8')
+            heartbeat.touch()
+            php_check = ('require $argv[1]; echo json_encode(dvsM17ActivityRows([$argv[2]], $argv[3], $argv[4]));')
+            rows = json.loads(subprocess.run(
+                ['php', '-r', php_check, str(ROOT / 'dashboard/dvswitch-m17-activity.php'),
+                 str(log), str(history), str(heartbeat)], check=True, capture_output=True, text=True).stdout)
+            completed = next(row for row in rows if row[2] == 'N0ABC')
+            active = next(row for row in rows if row[2] == 'K1XYZ')
+            assert completed[6] == '5.0' and completed[5] == 'Net'
+            assert active[6] is None and active[5] == 'Net'
+            inactive_rows = json.loads(subprocess.run(
+                ['php', '-r', php_check, str(ROOT / 'dashboard/dvswitch-m17-activity.php'),
+                 str(log), str(history), str(root / 'missing-heartbeat')],
+                check=True, capture_output=True, text=True).stdout)
+            assert not any(row[2] == 'K1XYZ' for row in inactive_rows)
+    assert 'dvs-m17-activity' not in layout and 'refreshM17Activity' not in layout
+    assert 'dvswitch-m17-gateway-activity.php' not in layout
+    assert 'm17LastRxAt' in layout and 'now - m17LastRxAt <= 5000' in layout
     assert 'function dvsM17LiveBridgeMode()' not in card
     assert 'Analog_Bridge can' in card and 'report ASL while the selected and connected M17 mode is active' in card
     assert all(name in layout for name in ('ASL Net', 'DMR TGIF Master', 'D-Star Net', 'M17 Net', 'NXDN Net', 'P25 Net', 'STFU Net', 'YSF Net'))
