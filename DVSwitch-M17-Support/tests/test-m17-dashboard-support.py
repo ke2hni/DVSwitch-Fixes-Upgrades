@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.15
+# Version: 1.2.16
+# Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — test Apache-readable reflector history on install and after reflector changes.
 # Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — verify M17 target-field sizing without changing unrelated card layout.
 # Updated: 2026-11-17T21:05:06-05:00 by KE2HNI — assert matching M17 reflector label copper in both themes.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and Gateway Activity integration.
@@ -287,11 +288,20 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         root=Path(directory); catalog=root/'M17Hosts.json'; config=root/'USRP2M17.ini'; history=root/'history.tsv'
         catalog.write_text(json.dumps({'reflectors':[{'designator':'M17-123','name':'Friendly Room','modules':['C']}]}),encoding='utf-8')
         config.write_text('[M17 Network]\nName=M17-123 C\n',encoding='utf-8')
-        subprocess.run(['python3','-c',blocks['PY_CURRENT'],str(catalog),str(config),str(history)],check=True)
+        subprocess.run(['python3','-c',blocks['PY_CURRENT'],str(catalog),str(config),str(history)],
+                       check=True, preexec_fn=lambda: os.umask(0o077))
         assert 'M17-123-C\tFriendly Room C' in history.read_text()
+        assert history.stat().st_mode & 0o777 == 0o644
+        history.chmod(0o600)
+        subprocess.run(['python3','-c',blocks['PY_CURRENT'],str(catalog),str(config),str(history)],
+                       check=True, preexec_fn=lambda: os.umask(0o077))
+        assert history.stat().st_mode & 0o777 == 0o644
     layout = (ROOT / 'dashboard/dvswitch-m17-layout.js').read_text(encoding='utf-8')
     card = (ROOT / 'dashboard/dvswitch-m17-net-card.php').read_text(encoding='utf-8')
     activity = (ROOT / 'dashboard/dvswitch-m17-activity.php').read_text(encoding='utf-8')
+    selector = (ROOT / 'dashboard/dvswitch-m17-select.py').read_text(encoding='utf-8')
+    assert "os.chmod(history_path, 0o644)" in selector
+    assert "os.chmod(history_path, 0o644)" in (ROOT / 'dvswitch-m17-dashboard.sh').read_text(encoding='utf-8')
     assert "'target' => $target['id']" in card and "$identifier = $parts[1].'-'.$parts[2]" in card
     # Both inline labels must use the copper text color shared by the other Net cards.
     assert "Reflector<br /><span style=\"color:#b5651d;\">'.$idLabel" in card

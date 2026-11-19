@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.5
+# Version: 1.1.6
+# Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — make reflector history readable to the dashboard during install and upgrade.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — restart the RX monitor after upgrades so the heartbeat code is loaded.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — install reflector IDs and the M17-only Gateway Activity panel.
 # Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — version the layout script URL so browsers load the new activity card.
@@ -250,7 +251,7 @@ PY_INSTALL
 
 python3 "$CATALOG_UPDATE"
 python3 - /var/lib/mmdvm/M17Hosts.json /etc/USRP2M17.ini /var/lib/dvswitch-m17-dashboard/reflector-history.tsv <<'PY_CURRENT'
-import configparser, json, re, sys, time
+import configparser, json, os, re, sys, time
 from pathlib import Path
 catalog_path, config_path, history_path = map(Path, sys.argv[1:])
 if not history_path.exists() or not history_path.stat().st_size:
@@ -279,6 +280,8 @@ if not history_path.exists() or not history_path.stat().st_size:
             with history_path.open('a',encoding='utf-8') as history:
                 history.write(f"{int(time.time())}\t{designator}-{desired_module}\t{friendly.strip()} {desired_module}\n")
             break
+if history_path.is_file() and not history_path.is_symlink():
+    os.chmod(history_path, 0o644)
 PY_CURRENT
 if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]; then
   M17_FAVORITES=/etc/dvswitch-mode-buttons/favorites.json

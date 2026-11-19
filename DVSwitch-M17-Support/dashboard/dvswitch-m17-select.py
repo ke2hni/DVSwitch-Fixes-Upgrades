@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.1
+# Version: 1.0.2
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — keep reflector history readable so Gateway Activity can resolve names and IDs.
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — accept URF entries with module or row ports and default omitted M17 reflector ports.
 """Select an M17 reflector by updating USRP2M17's INI and restarting its service."""
 
@@ -182,8 +183,10 @@ def main():
         fail(f'could not activate {friendly}; the previous config was restored ({error}).')
 
     STATE_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
-    with (STATE_DIR / 'reflector-history.tsv').open('a', encoding='utf-8') as history:
+    history_path = STATE_DIR / 'reflector-history.tsv'
+    with history_path.open('a', encoding='utf-8') as history:
         history.write(f'{int(datetime.datetime.now().timestamp())}\t{target}\t{friendly.replace(chr(9), " ")}\n')
+    os.chmod(history_path, 0o644)
     print(f'PASS: selected {friendly}; USRP2M17 restarted. Backup: {backup}')
 
 

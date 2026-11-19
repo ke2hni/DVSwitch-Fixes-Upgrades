@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.6.6; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — document M17 target-field sizing and stable reflector history. -->
+<!-- Version: 1.6.7; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — document dashboard-readable reflector history permissions. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -28,6 +28,8 @@ After USRP2M17 and the M17 private-node commands are installed, choose manager o
 The install-state directory is set to mode `0755` so Apache can test whether M17 dashboard support is installed and show the M17 mode button in the shared toolbar. The install-state file remains root-only (`0600`). When the shared toolbar is absent, the M17-owned dashboard script renders a standalone M17 control row instead.
 
 In M17 mode, Analog Bridge Info displays the reflector/module identifier (for example `M17-404-A`), and the M17 Net card shows that identifier together with the catalog friendly name. Its friendly name uses the same copper text color as other network cards in dark mode. M17 activity stays in the main Gateway Activity table alongside the other modes, with targets formatted as `Friendly Name (M17-404-A)`, live callsigns shown as `RX M17`, and completed durations replacing the live indicator for that callsign. Each event uses the newest reflector selection recorded at or before that event; later tuning does not relabel older rows. If an event predates the saved history, it uses the first recorded reflector rather than changing to the current selection. The older dedicated M17 Gateway Activity panel is removed during layout startup.
+
+The M17 reflector history is readable by Apache so Gateway Activity can resolve each event to `Friendly Name (Reflector-ID)`. The installer corrects permissions on existing history files during upgrade, and reflector changes keep newly appended history readable. Without readable history, activity rows fall back to the generic `M17 reflector` label.
 
 When M17 is the selected dashboard mode, the Analog Bridge Info card shows `M17` and the configured M17 reflector/module in its visible mode and target rows. The diagnostic tooltip continues to show Analog_Bridge's actual telemetry. The RX Monitor button changes in place to **M17 RX Monitor** and plays decoded PCM from USRP2M17's configured loopback audio port through an M17-only local WebSocket monitor; it does not use DVSwitch's generic port 8080 stream. Leaving M17 stops that stream and restores the normal RX Monitor action. A root-owned service mirrors only the configured loopback packets, and Apache exposes it through a same-origin WebSocket proxy.
 
