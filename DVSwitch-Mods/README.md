@@ -1,4 +1,4 @@
-<!-- Version: 1.0.29; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — document D-Star Net cell sizing and alignment in the bottom Networks row. --><div align="center">
+<!-- Version: 1.0.31; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-19T14:45:00-05:00 by KE2HNI — document registration-aware ASL network status. --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -530,10 +530,13 @@ sudo ./dvswitch-dark-mode.sh apply
 
 ### 9. Modes and Networks status strip
 
-**Version 1.0.8 — Updated 2026-11-18T22:45:00-05:00 by KE2HNI.** Adds ASL,
+**Version 1.0.9 — Updated 2026-11-19T14:15:00-05:00 by KE2HNI.** Adds ASL,
 ASL Net, M17, and M17 Net cells beside the existing mode and network cells.
-ASL cells are green while an external AllStar node is connected; M17 cells are
-green while USRP2M17 is running. STFU keeps its process-based status. The strip
+The Modes ASL cell is green when ASL is the selected mode. The ASL Net cell is
+green when the local public node is registered with the AllStarLink network,
+even when no external node is linked; it turns red when its HTTP or legacy IAX
+registration is unavailable. It does not require an external peer connection.
+M17 cells are green while USRP2M17 is running. STFU keeps its process-based status. The strip
 uses 5% separator columns for “Modes” and “Networks”; the eight mode cells are
 5.625%, and the Networks group gives D-Star Net 6.5% while its other seven
 cells receive 5.5% each. Scoped `!important` widths override the inline widths
@@ -546,9 +549,10 @@ PHP escapes HTML attribute quotes inside the existing `echo` string, preventing
 a PHP parse error while preserving the
 established output behavior. The installer upgrades prior STFU-only and v2/v3
 layouts, repairs the v1.0.4 duplicate-style state, upgrades v1.0.5 sizing, and
-upgrades v6 strips to add centered labels and bold active cells, then migrates
-the Networks group sizing while preserving other dashboard cards. It preserves
-a backup for uninstall. The update modifies only
+upgrades older strips to add centered labels and bold active cells, migrates the
+Networks group sizing, and separates selected ASL mode from ASL network
+availability while preserving other dashboard cards. It preserves a backup for
+uninstall. The update modifies only
 `/usr/share/dvswitch/include/system.php`, validates PHP syntax, creates a
 protected backup, and writes atomically. The manager installs it at the end of
 the standard component sequence and records its backup for ordered

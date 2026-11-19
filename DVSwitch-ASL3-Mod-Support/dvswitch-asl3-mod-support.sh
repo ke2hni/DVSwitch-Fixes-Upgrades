@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.12
+# Version: 1.1.13
+# Updated: 2026-11-19T14:45:00-05:00 by KE2HNI — authorize registration-aware ASL network status checks.
 # Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — display 12-character digital targets and cache-bust the dashboard script.
 # Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — seed starter favorites and install theme-aware Tune text colors.
 
@@ -252,7 +253,7 @@ install_sudoers() {
     local temporary
     install -d -o root -g root -m 0755 /etc/sudoers.d
     temporary=$(mktemp /etc/sudoers.d/.dvswitch-asl3-support.XXXXXX)
-    printf '%s\n' 'www-data ALL=(root) NOPASSWD: /opt/MMDVM_Bridge/dvswitch.sh mode ASL, /usr/local/sbin/dvswitch-asl3-node-link, /usr/local/sbin/dvswitch-asl3-node-links, /usr/local/sbin/dvswitch-asl3-ami-status "", /usr/local/sbin/dvswitch-asl3-favorites' > "$temporary"
+    printf '%s\n' 'www-data ALL=(root) NOPASSWD: /opt/MMDVM_Bridge/dvswitch.sh mode ASL, /usr/local/sbin/dvswitch-asl3-node-link, /usr/local/sbin/dvswitch-asl3-node-links, /usr/local/sbin/dvswitch-asl3-node-links --network-status, /usr/local/sbin/dvswitch-asl3-ami-status "", /usr/local/sbin/dvswitch-asl3-favorites' > "$temporary"
     chown root:root "$temporary"
     chmod 0440 "$temporary"
     visudo -cf "$temporary" >/dev/null || { rm -f "$temporary"; die 'ASL sudo rule validation failed.'; }

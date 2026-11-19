@@ -1,6 +1,6 @@
 # DVSwitch ASL 3 Mod Support
 
-<!-- Version: 1.1.12; Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — document starter favorites and light-only Tune contrast. -->
+<!-- Version: 1.1.13; Updated: 2026-11-19T14:45:00-05:00 by KE2HNI — document registration-based ASL network status. -->
 
 Repository: <https://github.com/ke2hni/DVSwitch-Fixes-Upgrades>
 
@@ -57,7 +57,9 @@ and `python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-dashboard-layout.py` to
 check the mode-switch repair and dashboard layout patch. Run
 `python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-multiple-private-nodes.py`
 to verify explicit selection with multiple private USRP nodes, including
-identical default port pairs.
+identical default port pairs. Run
+`python3 DVSwitch-ASL3-Mod-Support/tests/test-asl3-network-registration.py`
+to verify ASL HTTP/IAX registration status without requiring an external peer.
 
 Version 1.0.1 moved link-state checks to 250ms intervals. Version 1.1.0
 reduces the external-link disconnect verification window to five seconds before
@@ -68,6 +70,15 @@ The ASL node-link helper version 1.0.2 verifies Connect requests in
 `rpt lstats` on the discovered public node and reports success only when the
 requested external node reaches `ESTABLISHED`. It allows up to 30 seconds for
 the remote connection and reports an error if the link does not establish.
+
+Version 1.1.13 adds a dedicated `--network-status` check to the node-links
+helper. The Modes and Networks strip uses the local public node's registration
+state (`Registered` from `rpt show registrations`, or legacy `iax2 show
+registry`) for the ASL Net cell. This stays green with no external node linked
+when the public node is registered, and turns red when registration is lost.
+The ASL mode cell continues to indicate the selected mode independently. The
+ASL status installer updates its narrowly scoped sudoers permission when this
+support installer is rerun.
 
 
 Version 1.1.0 restores the ASL-owned mode button and shared Tune/Favorites workflow. Selecting ASL runs `sudo /opt/MMDVM_Bridge/dvswitch.sh mode ASL`; Tune runs only the checked ASL link action. The target placeholder is `Enter Node #` in ASL and `Enter TG/Reflector` in digital modes. Leaving ASL disconnects external links on the discovered public node, verifies they are gone within five seconds, preserves the private bridge, and then lets the one requested `dvswitch.sh mode <MODE>` command continue. Stale Mode Buttons status polls no longer change ASL's selected state.

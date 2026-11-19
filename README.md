@@ -1,6 +1,6 @@
 # DVSwitch Fixes & Upgrades
 
-<!-- Version: 1.0.9; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI; Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — correct the Networks-row D-Star Net cell and retain M17 dashboard fixes. -->
+<!-- Version: 1.0.11; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI; Updated: 2026-11-19T14:45:00-05:00 by KE2HNI — report ASL Net green only while registered to AllStarLink. -->
 
 A combined repository for independently installable DVSwitch repairs, dashboard modifications, ASL 3 support, and M17 private-node switching support.
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# Version: 1.0.7
+# Version: 1.0.9
+# Updated: 2026-11-19T14:45:00-05:00 by KE2HNI — assert ASL Net uses registered network status, not external peer presence.
 # Created: 2026-11-17T09:38:00-05:00 by KE2HNI
-# Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — verify D-Star Net Networks-row width and centering without changing the sidebar card.
+# Updated: 2026-11-19T14:15:00-05:00 by KE2HNI — verify ASL mode selection and network availability are separate.
 # SPDX-License-Identifier: MIT
 """Verify status-strip PHP escaping, cell widths, migration, and recovery paths."""
 
@@ -80,6 +81,12 @@ if (not php_line or php_line.count(bytes([92])) != 3 or b'&nbsp;' not in php_lin
         or b'#dvs-mods-mode-network-strip td{width:5.625%!important' not in content
         or (b'id="dvs-mods-mode-network-dstar-style"' in content and
             b'#dvs-mods-mode-network-strip td:nth-child(15){width:6.5%!important;text-align:center!important' not in content)
+        or (b'function dvsModsASLModeSelected()' in content and (
+            b"strtoupper(trim((string)file_get_contents($modePath))) === 'ASL'" not in content
+            or b'function dvsModsASLNetworkAvailable()' not in content
+            or b'return $status === 0;' not in content
+            or b'dvswitch-asl3-node-links --network-status' not in content
+            or b"if ($mode === 'ASL' && $label === 'ASL')" not in content))
         or (b'id="dvs-mods-mode-network-cell-style"' in content and (
             b'#dvs-mods-mode-network-strip td{text-align:center!important}' not in content
             or b'td[style*="#12AD2A"]' not in content
@@ -142,6 +149,12 @@ print('Generated PHP escaping and scoped width overrides verified')
             or b'td:nth-child(n+11){width:5.5%!important}' not in installed
             or b'td:nth-child(15){width:6.5%!important;text-align:center!important' not in installed):
         raise SystemExit('FAIL: the Networks-row D-Star Net cell is not explicitly centered and sized')
+    if (b'function dvsModsASLModeSelected()' not in installed
+            or b"strtoupper(trim((string)file_get_contents($modePath))) === 'ASL'" not in installed
+            or b'function dvsModsASLNetworkAvailable()' not in installed
+            or b'return $status === 0;' not in installed
+            or b"if ($mode === 'ASL' && $label === 'ASL')" not in installed):
+        raise SystemExit('FAIL: ASL Modes selection and ASL Net availability still share one connection check')
     if b'#sidebar' in installed or b'dstar-net-card' in installed:
         raise SystemExit('FAIL: status-strip update unexpectedly adds sidebar-card styling')
     expected_features = (b'dvsModsShowASLM17Status("ASL", "ASL")',
@@ -151,6 +164,52 @@ print('Generated PHP escaping and scoped width overrides verified')
         raise SystemExit('FAIL: ASL/M17 status behavior is missing')
     if installed.count(b'dvsModsShowASLM17Status("ASL"') != 2 or installed.count(b'dvsModsShowASLM17Status("M17"') != 2:
         raise SystemExit('FAIL: ASL/M17 mode and network cells were not both installed')
+    legacy_function = b'\n'.join([
+        b'// DVSwitch-Mods: Modes and Networks status v6',
+        b"if (!function_exists('dvsModsEmitNetworkStatus')) {",
+        b"    function dvsModsEmitNetworkStatus($label, $connected) {",
+        b'        $background = $connected ? "#12AD2A" : "#b00";',
+        b'        $foreground = $connected ? "#000" : "#f9f9f9";',
+        br'''        echo "<td style=\"background:".$background.";color:".$foreground.";white-space:nowrap;\">&nbsp;".$label."&nbsp;</td>\n";''',
+        b"    }", b"}",
+        b"if (!function_exists('dvsModsAslNetworkConnected')) {",
+        b"    function dvsModsAslNetworkConnected() {",
+        b"        if (!function_exists('exec') || !is_executable('/usr/local/sbin/dvswitch-asl3-node-links')) { return false; }",
+        b"        $nodes = array(); $status = 1;",
+        b"        exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links 2>/dev/null', $nodes, $status);",
+        b"        if ($status !== 0) { return false; }",
+        b"        foreach ($nodes as $node) { if (preg_match('/^[0-9]{1,8}$/D', trim((string)$node))) { return true; } }",
+        b"        return false;", b"    }", b"}",
+        b"if (!function_exists('dvsModsShowSTFUStatus')) {",
+        b"    function dvsModsShowSTFUStatus($label) {",
+        b'        dvsModsEmitNetworkStatus($label, isProcessRunning("STFU"));', b"    }", b"}",
+        b"if (!function_exists('dvsModsShowASLM17Status')) {",
+        b"    function dvsModsShowASLM17Status($mode, $label) {",
+        b"        $connected = ($mode === 'ASL') ? dvsModsAslNetworkConnected() : isProcessRunning('USRP2M17');",
+        b"        dvsModsEmitNetworkStatus($label, $connected);", b"    }", b"}",
+    ])
+    function_start = installed.index(b'// DVSwitch-Mods: Modes and Networks status v6')
+    function_end = installed.index(b"$rawuptime = shell_exec('cat /proc/uptime');", function_start)
+    legacy_system = installed[:function_start] + legacy_function + b'\n' + installed[function_end:]
+    legacy_target = root / 'upgrade-asl-status' / 'system.php'
+    legacy_target.parent.mkdir()
+    legacy_target.write_bytes(legacy_system)
+    legacy_backups = root / 'upgrade-asl-status-backups'
+    result = run('check', legacy_target, legacy_backups)
+    if result.returncode or 'READY:' not in result.stdout or legacy_target.read_bytes() != legacy_system:
+        raise SystemExit('FAIL: old ASL status --check changed files or missed the migration: ' + result.stdout + result.stderr)
+    result = run('install', legacy_target, legacy_backups)
+    upgraded_legacy = legacy_target.read_bytes()
+    if (result.returncode or b'function dvsModsASLModeSelected()' not in upgraded_legacy
+            or b'function dvsModsASLNetworkAvailable()' not in upgraded_legacy
+            or upgraded_legacy.count(b'dvsModsShowASLM17Status("ASL"') != 2):
+        raise SystemExit('FAIL: installed ASL status semantics were not upgraded: ' + result.stderr + result.stdout)
+    legacy_backup = next(iter(legacy_backups.glob('install-*')), None)
+    if legacy_backup is None:
+        raise SystemExit('FAIL: ASL status migration did not create a backup')
+    result = run('uninstall', legacy_target, legacy_backups, legacy_backup.name)
+    if result.returncode or legacy_target.read_bytes() != legacy_system:
+        raise SystemExit('FAIL: ASL status migration uninstall did not restore the prior file')
     result = run('check', target, backup_root)
     if result.returncode or 'ALREADY MODIFIED' not in result.stdout:
         raise SystemExit('FAIL: repeat --check did not recognize the installed state')
@@ -332,4 +391,4 @@ print('Generated PHP escaping and scoped width overrides verified')
     if result.returncode or fresh_target.read_bytes() != clean_system:
         raise SystemExit('FAIL: fresh-install uninstall did not restore the original file')
 
-print('PASS: status strip fresh install, v1-v6 migrations, D-Star Net Networks-cell sizing and centering, duplicate-style recovery, check, uninstall, PHP escaping, and active-cell contrast')
+print('PASS: status strip fresh install, v1-v6 migrations, ASL mode/network state separation, D-Star Net Networks-cell sizing and centering, duplicate-style recovery, check, uninstall, PHP escaping, and active-cell contrast')

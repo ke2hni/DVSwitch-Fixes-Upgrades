@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Version: 1.0.0
+# Version: 1.0.1
 # Created: 2026-10-26T20:18:55-04:00 by KE2HNI
+# Updated: 2026-11-19T14:45:00-05:00 by KE2HNI — report ASL network availability from the public node registration state.
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
 
 set -Eeuo pipefail
 [[ ${EUID:-$(id -u)} -eq 0 ]] || exit 2
-[[ $# -eq 0 ]] || exit 2
+[[ $# -eq 0 || ( $# -eq 1 && $1 == --network-status ) ]] || exit 2
+network_status=0
+[[ $# -eq 0 ]] || network_status=1
 
 readonly RPT_CONF=/etc/asterisk/rpt.conf
 readonly ASTERISK=/usr/sbin/asterisk
@@ -17,5 +20,23 @@ private_nodes=$(python3 "$RPT_CONF_TOOL" private-nodes "$RPT_CONF")
 public_node=$(python3 "$RPT_CONF_TOOL" public-node "$RPT_CONF")
 links=$("$ASTERISK" -rx "rpt lstats $public_node" 2>&1)
 awk '$1 == "NODE" && $2 == "PEER" { header=1 } END { exit !header }' <<< "$links" || exit 1
+if (( network_status )); then
+    # ASL3 HTTP registration is authoritative; also accept legacy IAX registration.
+    http_regs=$("$ASTERISK" -rx "rpt show registrations" 2>&1) || http_regs=
+    iax_regs=$("$ASTERISK" -rx "iax2 show registry" 2>&1) || iax_regs=
+    awk -v node="$public_node" '
+        $NF == "Registered" {
+            for (i=1; i<NF; i++) if ($i == node) found=1
+        }
+        END { exit !found }
+    ' <<< "$http_regs" && exit 0
+    awk -v node="$public_node" '
+        $NF == "Registered" {
+            for (i=1; i<NF; i++) if ($i == node) found=1
+        }
+        END { exit !found }
+    ' <<< "$iax_regs" && exit 0
+    exit 1
+fi
 # Treat every configured USRP node as private so M17 and DVSwitch stay out of external-link listings.
 awk -v privates="$private_nodes" 'BEGIN { count=split(privates, ids, "\n"); for (i=1; i<=count; i++) private[ids[i]]=1 } $1 ~ /^[0-9]+$/ && !private[$1] && $NF == "ESTABLISHED" && !seen[$1]++ { print $1 }' <<< "$links"

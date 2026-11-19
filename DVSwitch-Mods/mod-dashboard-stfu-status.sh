@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.8
-# Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — give the Networks-row D-Star Net cell extra width and center its label.
+# Version: 1.1.0
+# Updated: 2026-11-19T14:45:00-05:00 by KE2HNI — mark ASL Net green only while the configured public node is registered.
 
 # Add STFU, ASL, and M17 status cells to the dashboard Modes and Networks strip.
 # This standalone installer intentionally modifies only include/system.php.
@@ -10,7 +10,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.0.8"
+readonly SCRIPT_VERSION="1.1.0"
 readonly TARGET="${DVS_STFU_STATUS_TARGET:-/usr/share/dvswitch/include/system.php}"
 readonly BACKUP_ROOT="${DVS_STFU_STATUS_BACKUP_ROOT:-/var/backups/dvswitch-mods/dashboard-stfu-status}"
 
@@ -100,16 +100,21 @@ def installed_function(data):
         br"""        echo "<td style=\"background:".$background.";color:".$foreground.";white-space:nowrap;\">&nbsp;".$label."&nbsp;</td>\n";""",
         b"    }",
         b"}",
-        b"if (!function_exists('dvsModsAslNetworkConnected')) {",
-        b"    function dvsModsAslNetworkConnected() {",
-        b"        if (!function_exists('exec') || !is_executable('/usr/local/sbin/dvswitch-asl3-node-links')) { return false; }",
-        b"        $nodes = array(); $status = 1;",
-        b"        exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links 2>/dev/null', $nodes, $status);",
-        b"        if ($status !== 0) { return false; }",
-        b"        foreach ($nodes as $node) { if (preg_match('/^[0-9]{1,8}$/D', trim((string)$node))) { return true; } }",
-        b"        return false;",
-        b"    }",
-        b"}",
+    b"if (!function_exists('dvsModsASLModeSelected')) {",
+    b"    function dvsModsASLModeSelected() {",
+    b"        $modePath = is_file('/usr/share/dvswitch/dvswitch-mode-buttons.php') ? '/var/lib/dvswitch-mode-buttons/current-mode' : '/var/lib/dvswitch-m17-dashboard/current-mode';",
+    b"        if (!is_readable($modePath)) { $modePath = ($modePath === '/var/lib/dvswitch-mode-buttons/current-mode') ? '/var/lib/dvswitch-m17-dashboard/current-mode' : '/var/lib/dvswitch-mode-buttons/current-mode'; }",
+    b"        return is_readable($modePath) && strtoupper(trim((string)file_get_contents($modePath))) === 'ASL';",
+    b"    }",
+    b"}",
+    b"if (!function_exists('dvsModsASLNetworkAvailable')) {",
+    b"    function dvsModsASLNetworkAvailable() {",
+    b"        if (!function_exists('exec') || !is_executable('/usr/local/sbin/dvswitch-asl3-node-links')) { return false; }",
+    b"        $links = array(); $status = 1;",
+    b"        exec('/usr/bin/sudo -n /usr/local/sbin/dvswitch-asl3-node-links --network-status 2>/dev/null', $links, $status);",
+    b"        return $status === 0;",
+    b"    }",
+    b"}",
         b"if (!function_exists('dvsModsShowSTFUStatus')) {",
         b"    function dvsModsShowSTFUStatus($label) {",
         b'        dvsModsEmitNetworkStatus($label, isProcessRunning("STFU"));',
@@ -117,7 +122,8 @@ def installed_function(data):
         b"}",
         b"if (!function_exists('dvsModsShowASLM17Status')) {",
         b"    function dvsModsShowASLM17Status($mode, $label) {",
-        b"        $connected = ($mode === 'ASL') ? dvsModsAslNetworkConnected() : isProcessRunning('USRP2M17');",
+        b"        if ($mode === 'ASL' && $label === 'ASL') { $connected = dvsModsASLModeSelected(); }",
+        b"        else { $connected = ($mode === 'ASL') ? dvsModsASLNetworkAvailable() : isProcessRunning('USRP2M17'); }",
         b"        dvsModsEmitNetworkStatus($label, $connected);",
         b"    }",
         b"}",
@@ -145,6 +151,12 @@ def inspect(data):
             and data.count(dstar_style_block) == 1 and data.count(dstar_style_marker) == 1):
         return "installed"
     known_current_sizing = (style_block, wide_style_block, legacy_style_block)
+    if (markers == 1 and function_signature in data and data.count(mode_added) == 1
+            and data.count(network_added) == 1 and data.count(table_marker) == 1
+            and sum(data.count(item) for item in known_current_sizing) == 1
+            and data.count(cell_style_block) == 1 and data.count(cell_style_marker) == 1
+            and data.count(dstar_style_block) == 1 and data.count(dstar_style_marker) == 1):
+        return "upgrade_asl_status"
     if (markers == 1 and function_signature in data and data.count(mode_added) == 1
             and data.count(network_added) == 1 and data.count(table_marker) == 1
             and sum(data.count(item) for item in known_current_sizing) == 1
@@ -185,7 +197,7 @@ def inspect(data):
     if (markers or previous_marker in data or older_marker in data or oldest_marker in data
             or ancient_marker in data
             or old_marker in data or function_signature in data or style_marker in data
-            or cell_style_marker in data):
+            or cell_style_marker in data or dstar_style_marker in data):
         fail("partial or ambiguous Modes and Networks status modification found; refusing to change system.php")
     counts = (data.count(function_anchor), data.count(mode_original), data.count(network_original))
     if counts != (1, 1, 1):
@@ -199,11 +211,15 @@ def make_candidate(data):
         return data
     newline = b"\r\n" if b"\r\n" in data else b"\n"
     function = installed_function(data)
-    if state in ("upgrade", "upgrade_v2", "upgrade_v3", "upgrade_v4", "upgrade_v5"):
-        source_marker = {"upgrade_v5": previous_marker,
-                         "upgrade_v4": older_marker,
-                         "upgrade_v3": oldest_marker,
-                         "upgrade_v2": ancient_marker}.get(state, old_marker)
+    if state in ("upgrade", "upgrade_v2", "upgrade_v3", "upgrade_v4", "upgrade_v5",
+                 "upgrade_asl_status", "upgrade_dstar_cell", "upgrade_v6"):
+        source_marker = ({"upgrade_v5": previous_marker,
+                          "upgrade_v4": older_marker,
+                          "upgrade_v3": oldest_marker,
+                          "upgrade_v2": ancient_marker,
+                          "upgrade_asl_status": marker,
+                          "upgrade_dstar_cell": marker,
+                          "upgrade_v6": marker}.get(state, old_marker))
         start = data.index(source_marker)
         end = data.index(function_anchor, start)
         data = data[:start] + function + newline + data[end:]
