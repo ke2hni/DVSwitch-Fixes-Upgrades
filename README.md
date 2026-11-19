@@ -1,6 +1,6 @@
 # DVSwitch Fixes & Upgrades
 
-<!-- Version: 1.0.6; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI; Updated: 2026-11-17T23:02:59-05:00 by KE2HNI — remove the legacy M17 activity panel and include reflector IDs in shared activity rows. -->
+<!-- Version: 1.0.7; Created: 2026-10-25T18:39:04-04:00; Created by KE2HNI; Updated: 2026-11-18T21:49:00-05:00 by KE2HNI — preserve M17 event reflector history and improve active strip readability. -->
 
 A combined repository for independently installable DVSwitch repairs, dashboard modifications, ASL 3 support, and M17 private-node switching support.
 

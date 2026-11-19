@@ -1,4 +1,4 @@
-<!-- Version: 1.0.27; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-17T12:12:46-05:00 by KE2HNI — document refined status widths and contrast. --><div align="center">
+<!-- Version: 1.0.28; Created: 2026-10-25T18:41:47-04:00; Created by KE2HNI; Updated: 2026-11-18T21:44:18-05:00 by KE2HNI — document active-cell emphasis and centered status labels. --><div align="center">
 :radioactive:Not required but highly suggested to install my DVSwitch Mode Buttons Repository after installing this repository.
 [https://github.com/ke2hni/DVSwitch-Mode-Buttons](https://github.com/ke2hni/DVSwitch-Mode-Buttons)
 
@@ -530,19 +530,21 @@ sudo ./dvswitch-dark-mode.sh apply
 
 ### 9. Modes and Networks status strip
 
-**Version 1.0.6 — Updated 2026-11-17T12:12:46-05:00 by KE2HNI.** Adds ASL,
+**Version 1.0.7 — Updated 2026-11-18T21:44:18-05:00 by KE2HNI.** Adds ASL,
 ASL Net, M17, and M17 Net cells beside the existing mode and network cells.
 ASL cells are green while an external AllStar node is connected; M17 cells are
 green while USRP2M17 is running. STFU keeps its process-based status. The strip
 uses 5% separator columns for “Modes” and “Networks” plus 16 equal 5.625% status
 columns, with scoped `!important` widths to override the inline widths emitted
 by DVSwitch `showMode`. The 100% allocation gives both labels enough room and
-keeps all status cells evenly sized. Connected cells use neutral black text for
-clearer contrast against the green background. Its generated PHP escapes HTML attribute quotes inside
+keeps all status cells evenly sized. Connected cells keep their black text color
+and use bold weight for readability; all status labels are centered, including
+D-Star Net. Its generated PHP escapes HTML attribute quotes inside
 the existing `echo` string, preventing a PHP parse error while preserving the
 established output behavior. The installer upgrades prior STFU-only and v2/v3
-layouts, repairs the v1.0.4 duplicate-style state, and upgrades v1.0.5 sizing
-without duplicating style IDs or status cells. It preserves a backup for
+layouts, repairs the v1.0.4 duplicate-style state, upgrades v1.0.5 sizing, and
+upgrades v6 strips to add centered labels and bold active cells without changing
+column widths. It preserves a backup for
 uninstall. The update modifies only
 `/usr/share/dvswitch/include/system.php`, validates PHP syntax, creates a
 protected backup, and writes atomically. The manager installs it at the end of

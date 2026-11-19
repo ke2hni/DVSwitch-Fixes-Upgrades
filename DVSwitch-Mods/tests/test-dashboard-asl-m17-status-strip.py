@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.5
+# Version: 1.0.6
 # Created: 2026-11-17T09:38:00-05:00 by KE2HNI
-# Updated: 2026-11-17T12:12:46-05:00 by KE2HNI — verify refined cell sizing and green text contrast.
+# Updated: 2026-11-18T21:44:18-05:00 by KE2HNI — verify active-cell bolding and D-Star Net label centering.
 # SPDX-License-Identifier: MIT
 """Verify status-strip PHP escaping, cell widths, migration, and recovery paths."""
 
@@ -78,8 +78,18 @@ php_line = next((line for line in content.splitlines() if b'echo ' in line and b
 if (not php_line or php_line.count(bytes([92])) != 3 or b'&nbsp;' not in php_line
         or b'#dvs-mods-mode-network-strip th{width:5%!important' not in content
         or b'#dvs-mods-mode-network-strip td{width:5.625%!important' not in content
+        or (b'id="dvs-mods-mode-network-cell-style"' in content and (
+            b'#dvs-mods-mode-network-strip td{text-align:center!important}' not in content
+            or b'td[style*="#12AD2A"]' not in content
+            or b'font-weight:bold!important' not in content))
         or b'$foreground = $connected ? "#000"' not in content):
-    print('Generated PHP echo or scoped width override regression')
+    print('Generated PHP echo or scoped width override regression', len(php_line), php_line.count(bytes([92])),
+          b'#dvs-mods-mode-network-strip th{width:5%!important' in content,
+          b'#dvs-mods-mode-network-strip td{width:5.625%!important' in content,
+          b'#dvs-mods-mode-network-strip td{text-align:center!important}' in content,
+          b'td[style*="#12AD2A"]' in content, b'font-weight:bold!important' in content,
+          b'id="dvs-mods-mode-network-cell-style"' in content,
+          b'$foreground = $connected ? "#000"' in content)
     raise SystemExit(1)
 print('Generated PHP escaping and scoped width overrides verified')
 """, encoding='utf-8')
@@ -118,6 +128,11 @@ print('Generated PHP escaping and scoped width overrides verified')
             or b'#dvs-mods-mode-network-strip th{width:5%!important' not in installed
             or b'#dvs-mods-mode-network-strip td{width:5.625%!important' not in installed):
         raise SystemExit('FAIL: scoped overrides for showMode inline widths were not installed')
+    if (installed.count(b'id="dvs-mods-mode-network-cell-style"') != 1
+            or b'#dvs-mods-mode-network-strip td{text-align:center!important}' not in installed
+            or b'td[style*="#12AD2A"]' not in installed
+            or b'font-weight:bold!important' not in installed):
+        raise SystemExit('FAIL: active-cell emphasis or centered labels were not installed')
     expected_features = (b'dvsModsShowASLM17Status("ASL", "ASL")',
                          b'dvsModsShowASLM17Status("M17", "M17")',
                          b'dvswitch-asl3-node-links', b"isProcessRunning('USRP2M17')")
@@ -134,6 +149,28 @@ print('Generated PHP escaping and scoped width overrides verified')
     result = run('uninstall', target, backup_root, backups[0].name)
     if result.returncode or target.read_bytes() != old_system:
         raise SystemExit('FAIL: upgrade uninstall did not restore the v1 file')
+
+    # Upgrade the installed v6 strip in place, preserving its existing column sizing.
+    cell_start = installed.index(b'\n<style id="dvs-mods-mode-network-cell-style">')
+    cell_end = installed.index(b'</style>', cell_start) + len(b'</style>')
+    old_v6_system = installed[:cell_start] + installed[cell_end:]
+    v6_target = root / 'upgrade-v6' / 'system.php'
+    v6_target.parent.mkdir()
+    v6_target.write_bytes(old_v6_system)
+    v6_backups = root / 'upgrade-v6-backups'
+    result = run('check', v6_target, v6_backups)
+    if result.returncode or 'READY:' not in result.stdout or v6_target.read_bytes() != old_v6_system:
+        raise SystemExit('FAIL: v6 migration --check changed files or did not report READY: ' + result.stdout + result.stderr)
+    result = run('install', v6_target, v6_backups)
+    if (result.returncode or v6_target.read_bytes() != installed
+            or v6_target.read_bytes().count(b'id="dvs-mods-mode-network-cell-style"') != 1):
+        raise SystemExit('FAIL: v6 active-cell style migration failed: ' + result.stderr + result.stdout)
+    v6_backup = next(iter(v6_backups.glob('install-*')), None)
+    if v6_backup is None:
+        raise SystemExit('FAIL: v6 migration did not create a backup')
+    result = run('uninstall', v6_target, v6_backups, v6_backup.name)
+    if result.returncode or v6_target.read_bytes() != old_v6_system:
+        raise SystemExit('FAIL: v6 uninstall did not restore the previous layout')
 
     # Migrate the v2 strip with its old fixed columns, without duplicating cells.
     v2_target = root / 'upgrade-v2' / 'system.php'
@@ -161,7 +198,7 @@ print('Generated PHP escaping and scoped width overrides verified')
     # Migrate the just-installed v3 sizing, preserving the same cells.
     v3_target = root / 'upgrade-v3' / 'system.php'
     v3_target.parent.mkdir()
-    v3_system = installed.replace(b'Modes and Networks status v6', b'Modes and Networks status v3', 1)
+    v3_system = old_v6_system.replace(b'Modes and Networks status v6', b'Modes and Networks status v3', 1)
     v3_system = v3_system.replace(b'width:5%!important', b'width:4%!important').replace(
         b'width:5.625%!important', b'width:5.75%!important')
     v3_system = v3_system.replace(b'width:5%;', b'width:4%;').replace(
@@ -187,7 +224,7 @@ print('Generated PHP escaping and scoped width overrides verified')
     # Repair v1.0.4's duplicate style state observed on 446901; retain only the current rules.
     v4_target = root / 'upgrade-v4' / 'system.php'
     v4_target.parent.mkdir()
-    v4_current = installed.replace(b'Modes and Networks status v6', b'Modes and Networks status v4', 1)
+    v4_current = old_v6_system.replace(b'Modes and Networks status v6', b'Modes and Networks status v4', 1)
     legacy_style = (b'<style id="dvs-mods-mode-network-style">'
                     b'/* Override upstream showMode inline widths only in this status strip. */'
                     b'#dvs-mods-mode-network-strip{table-layout:fixed;width:100%}'
@@ -231,7 +268,7 @@ print('Generated PHP escaping and scoped width overrides verified')
     # Upgrade the clean v1.0.5 layout as used by the preceding package.
     v5_target = root / 'upgrade-v5' / 'system.php'
     v5_target.parent.mkdir()
-    v5_system = installed.replace(b'Modes and Networks status v6', b'Modes and Networks status v5', 1)
+    v5_system = old_v6_system.replace(b'Modes and Networks status v6', b'Modes and Networks status v5', 1)
     v5_system = v5_system.replace(b'width:5%!important', b'width:7%!important').replace(
         b'width:5.625%!important', b'width:5.375%!important')
     v5_system = v5_system.replace(b'width:5%;', b'width:7%;').replace(
@@ -277,4 +314,4 @@ print('Generated PHP escaping and scoped width overrides verified')
     if result.returncode or fresh_target.read_bytes() != clean_system:
         raise SystemExit('FAIL: fresh-install uninstall did not restore the original file')
 
-print('PASS: status strip fresh install, v1/v2/v3/v4/v5 migrations, duplicate-style recovery, check, uninstall, PHP escaping, contrast, and layout')
+print('PASS: status strip fresh install, v1-v6 migrations, duplicate-style recovery, check, uninstall, PHP escaping, contrast, and layout')

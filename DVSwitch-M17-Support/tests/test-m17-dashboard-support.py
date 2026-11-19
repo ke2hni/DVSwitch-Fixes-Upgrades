@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.12
-# Updated: 2026-11-17T23:02:59-05:00 by KE2HNI — verify M17 activity targets include the reflector friendly name and ID.
+# Version: 1.2.13
+# Updated: 2026-11-18T21:49:00-05:00 by KE2HNI — keep past M17 activity targets unchanged after reflector switches.
 # Updated: 2026-11-17T21:05:06-05:00 by KE2HNI — assert matching M17 reflector label copper in both themes.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and Gateway Activity integration.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
@@ -44,6 +44,7 @@ import stat
 import struct
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from unittest.mock import patch
 from pathlib import Path
 
@@ -296,7 +297,9 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert "Reflector<br /><span style=\"color:#b5651d;\">'.$idLabel" in card
     assert "<span style=\"color:#b5651d;\">'.$label" in card
     assert '#ef7215' not in card
+    assert "$selected = $selectionAtEvent !== null ? $selectionAtEvent : $firstSelection" in activity
     assert "$reflector = $selected[1]" in activity and "$target = $friendly.' ('.$reflector.')'" in activity
+    assert '$latestSelection' not in activity and 'selected reflector in USRP2M17.ini' not in activity
     assert 'received (start|end) of voice transmission from' in activity
     assert "'/run/dvswitch-m17-audio-monitor/rx-active'" in activity
     assert 'function dvsM17LatestGatewayActivity($rows)' in activity
@@ -311,24 +314,25 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
                 'M: 2026-11-17 23:00:05.000 M17 received end of voice transmission from N0ABC, 5.0 seconds\n'
                 'M: 2026-11-17 23:01:00.000 M17 received start of voice transmission from K1XYZ\n',
                 encoding='utf-8')
-            history.write_text('', encoding='utf-8')
+            old_selection = int(datetime(2026, 11, 17, 23, 0, 10, tzinfo=timezone.utc).timestamp())
+            new_selection = int(datetime(2026, 11, 17, 23, 0, 30, tzinfo=timezone.utc).timestamp())
+            history.write_text(
+                f'{old_selection}\tM17-123-C\tFriendly Room C\n'
+                f'{new_selection}\tM17-456-A\tNew Room A\n', encoding='utf-8')
             heartbeat.touch()
-            config = root / 'USRP2M17.ini'
-            catalog = root / 'M17Hosts.json'
-            config.write_text('[M17 Network]\nName=M17-123 C\n', encoding='utf-8')
-            catalog.write_text(json.dumps({'reflectors': [{'designator': 'M17-123', 'name': 'Friendly Room'}]}), encoding='utf-8')
-            php_check = ('require $argv[1]; echo json_encode(dvsM17ActivityRows([$argv[2]], $argv[3], $argv[4], $argv[5], $argv[6]));')
+            php_check = ('require $argv[1]; echo json_encode(dvsM17ActivityRows([$argv[2]], $argv[3], $argv[4]));')
             rows = json.loads(subprocess.run(
                 ['php', '-r', php_check, str(ROOT / 'dashboard/dvswitch-m17-activity.php'),
-                 str(log), str(history), str(heartbeat), str(config), str(catalog)], check=True, capture_output=True, text=True).stdout)
+                 str(log), str(history), str(heartbeat)], check=True, capture_output=True, text=True).stdout)
             completed = next(row for row in rows if row[2] == 'N0ABC')
             active = next(row for row in rows if row[2] == 'K1XYZ')
             assert completed[6] == '5.0' and completed[5] == 'Net'
             assert completed[4] == 'Friendly Room C (M17-123-C)'
             assert active[6] is None and active[5] == 'Net'
+            assert active[4] == 'New Room A (M17-456-A)'
             inactive_rows = json.loads(subprocess.run(
                 ['php', '-r', php_check, str(ROOT / 'dashboard/dvswitch-m17-activity.php'),
-                 str(log), str(history), str(root / 'missing-heartbeat'), str(config), str(catalog)],
+                 str(log), str(history), str(root / 'missing-heartbeat')],
                 check=True, capture_output=True, text=True).stdout)
             assert not any(row[2] == 'K1XYZ' for row in inactive_rows)
     assert 'ensureM17Activity' not in layout and 'refreshM17Activity' not in layout

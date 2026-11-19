@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.6
-# Updated: 2026-11-17T12:12:46-05:00 by KE2HNI — refine separator/status widths and improve connected-cell contrast.
+# Version: 1.0.7
+# Updated: 2026-11-18T21:44:18-05:00 by KE2HNI — bold active green cells and center all status labels.
 
 # Add STFU, ASL, and M17 status cells to the dashboard Modes and Networks strip.
 # This standalone installer intentionally modifies only include/system.php.
@@ -10,7 +10,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.0.6"
+readonly SCRIPT_VERSION="1.0.7"
 readonly TARGET="${DVS_STFU_STATUS_TARGET:-/usr/share/dvswitch/include/system.php}"
 readonly BACKUP_ROOT="${DVS_STFU_STATUS_BACKUP_ROOT:-/var/backups/dvswitch-mods/dashboard-stfu-status}"
 
@@ -56,6 +56,7 @@ network_base = b'  <?php showMode("D-Star Network", $mmdvmconfigs);?>'
 function_signature = b"function dvsModsShowSTFUStatus($label)"
 table_marker = b'id="dvs-mods-mode-network-strip"'
 style_marker = b'id="dvs-mods-mode-network-style"'
+cell_style_marker = b'id="dvs-mods-mode-network-cell-style"'
 style_block = (b'<style id="dvs-mods-mode-network-style">'
                b'/* Override upstream showMode inline widths only in this status strip. */'
                b'#dvs-mods-mode-network-strip{table-layout:fixed;width:100%}'
@@ -74,6 +75,11 @@ legacy_style_block = (b'<style id="dvs-mods-mode-network-style">'
                       b'#dvs-mods-mode-network-strip th{width:4%!important;white-space:nowrap}'
                       b'#dvs-mods-mode-network-strip td{width:5.75%!important;white-space:nowrap}'
                       b'</style>')
+cell_style_block = (b'<style id="dvs-mods-mode-network-cell-style">'
+                    b'/* Keep labels centered and emphasize active green cells without changing their colors. */'
+                    b'#dvs-mods-mode-network-strip td{text-align:center!important}'
+                    b'#dvs-mods-mode-network-strip td[style*="#12AD2A"],#dvs-mods-mode-network-strip td[style*="#0b0"]{font-weight:bold!important}'
+                    b'</style>')
 
 
 def installed_function(data):
@@ -128,8 +134,15 @@ def inspect(data):
     markers = data.count(marker)
     if (markers == 1 and data.count(mode_added) == 1 and data.count(network_added) == 1
             and data.count(function) == 1 and data.count(table_marker) == 1
-            and data.count(style_block) == 1 and data.count(style_marker) == 1):
+            and data.count(style_block) == 1 and data.count(style_marker) == 1
+            and data.count(cell_style_block) == 1 and data.count(cell_style_marker) == 1):
         return "installed"
+    known_v6_styles = (style_block, wide_style_block, legacy_style_block)
+    if (markers == 1 and function_signature in data and data.count(mode_added) == 1
+            and data.count(network_added) == 1 and data.count(table_marker) == 1
+            and sum(data.count(item) for item in known_v6_styles) == 1 and data.count(style_marker) == 1
+            and cell_style_marker not in data):
+        return "upgrade_v6"
     if (data.count(previous_marker) == 1 and function_signature in data
             and data.count(mode_added) == 1 and data.count(network_added) == 1
             and data.count(table_marker) == 1 and data.count(wide_style_block) == 1
@@ -157,7 +170,8 @@ def inspect(data):
             return "upgrade"
     if (markers or previous_marker in data or older_marker in data or oldest_marker in data
             or ancient_marker in data
-            or old_marker in data or function_signature in data or style_marker in data):
+            or old_marker in data or function_signature in data or style_marker in data
+            or cell_style_marker in data):
         fail("partial or ambiguous Modes and Networks status modification found; refusing to change system.php")
     counts = (data.count(function_anchor), data.count(mode_original), data.count(network_original))
     if counts != (1, 1, 1):
@@ -222,6 +236,15 @@ def make_candidate(data):
         if data.count(table) < 1:
             fail("Modes and Networks table anchor is missing")
         data = data.replace(table, replacement, 1)
+    if cell_style_marker not in data:
+        if data.count(style_marker) != 1:
+            fail("Modes and Networks sizing style is missing or ambiguous while installing label alignment")
+        style_start = data.index(style_marker)
+        style_end = data.find(b"</style>", style_start)
+        if style_end < 0:
+            fail("Modes and Networks sizing style has no closing tag")
+        style_end += len(b"</style>")
+        data = data[:style_end] + newline + cell_style_block + data[style_end:]
     if inspect(data) != "installed":
         fail("candidate verification failed")
     return data
