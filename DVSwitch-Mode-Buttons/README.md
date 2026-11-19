@@ -1,4 +1,4 @@
-<!-- Version: 1.1.1; Created: 2026-11-09T23:19:00-05:00 by KE2HNI; Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — document optional M17 favorites handoff. -->
+<!-- Version: 1.1.2; Created: 2026-11-09T23:19:00-05:00 by KE2HNI; Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — document 12-character Tune and favorite target fields. -->
 
 ![Platform](https://img.shields.io/badge/platform-DVSwitch-24527a)
 ![Debian](https://img.shields.io/badge/tested-Debian%2012%20%7C%2013-a80030)
@@ -325,3 +325,6 @@ Version 1.0.0-test88 adds optional M17 favorite storage and dashboard endpoint s
 Version 1.0.0-test89 keeps the mode buttons in alphabetical order as optional ASL and M17 buttons are added to the dashboard.
 
 Version 1.0.0-test90 imports favorites from an already-installed standalone M17 dashboard on first install; the import is optional and does not make M17 a Mode Buttons prerequisite.
+
+
+Version 1.0.0-test95 widens the shared TG/Ref Tune field to 12 visible characters, including padding. The favorites editor target field also shows 12 characters; the 35-character input limit and validation remain unchanged.

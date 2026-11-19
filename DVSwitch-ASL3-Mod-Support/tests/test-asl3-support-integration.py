@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.0.18
+# Version: 1.0.20
+# Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — verify 12-character digital targets and compact ASL nodes.
 # Updated: 2026-11-17T09:31:00-05:00 by KE2HNI — verify ASL receive state reaches TRX Info from live keying telemetry.
 # Updated: 2026-11-14T16:10:00-05:00 by KE2HNI — verify starter favorites and light-only Tune contrast correction.
 # SPDX-License-Identifier: MIT
@@ -40,7 +41,7 @@ require('SKIP: ASL 3 is not installed' in SUPPORT and 'DVSwitch remains usable w
 require('BUTTONS_DIR' not in SUPPORT and 'BUTTONS_INSTALLER' not in SUPPORT and '--refresh-asl' not in SUPPORT,
         'ASL installation must not invoke or require Mode Buttons')
 require('CONTROL_ENDPOINT_TARGET' in SUPPORT and 'FAVORITES_HELPER_TARGET' in SUPPORT and
-        'install_index_script' in SUPPORT and 'dvswitch-asl3-dashboard.js' in SUPPORT,
+        'install_index_script' in SUPPORT and 'dvswitch-asl3-dashboard.js?v=1.2.7' in SUPPORT,
         'ASL install must own and install its dashboard controls')
 require("'action' => 'mode'" not in CONTROL and "'mode'" in CONTROL and
         "'/opt/MMDVM_Bridge/dvswitch.sh', 'mode', 'ASL'" in CONTROL and
@@ -55,7 +56,7 @@ require('astdb.txt' in CONTROL and 'Disconnect before Connect' in DASHBOARD and
         "getElementById('dvs-target-input')" in DASHBOARD and "'Node #'" in DASHBOARD and
         "'TG/Ref'" in DASHBOARD and 'dvs-target-tuner' in DASHBOARD,
         'ASL dashboard must own its mode button and reuse the shared target form')
-require("input.maxLength = 35" in DASHBOARD and "input.style.width = 'calc(10ch + 18px)'" in DASHBOARD and
+require("input.maxLength = 35" in DASHBOARD and "input.style.width = mode === 'ASL' ? 'calc(10ch + 18px)' : 'calc(12ch + 18px)'" in DASHBOARD and
         'body.theme-light #dvs-target-input' in DASHBOARD and 'body.theme-auto:not(.dvs-prefers-dark) #dvs-target-input' in DASHBOARD and
         'color:#6b2f00!important' in DASHBOARD and 'body.theme-dark #dvs-target-input' not in DASHBOARD and
         "node.style.width = 'calc(10ch + 18px)'" in DASHBOARD and

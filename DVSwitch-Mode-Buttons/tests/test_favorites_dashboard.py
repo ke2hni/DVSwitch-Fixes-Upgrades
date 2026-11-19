@@ -1,6 +1,6 @@
-"""Version: 1.0.6. Cover M17 favorites, friendly names, and compact target inputs."""
+"""Version: 1.0.7. Cover M17 favorites, friendly names, and expanded target inputs."""
 
-# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — verify optional import from standalone M17 favorites.
+# Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — verify the 12-character reflector target fields.
 
 from pathlib import Path
 import re
@@ -43,12 +43,12 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn("target.maxLength = 35", SCRIPT)
         self.assertIn("width:min(35ch,55vw)", INSTALLER)
         self.assertIn("width:min(35ch,calc(100vw - 220px))", INSTALLER)
-        self.assertIn("target.style.width = '10ch'", SCRIPT)
+        self.assertIn("target.style.width = 'calc(12ch + 18px)'", SCRIPT)
         self.assertIn('.dvs-favorite-edit-row input:nth-child(2){box-sizing:border-box;width:10ch}', INSTALLER)
         self.assertIn("/^[A-Za-z0-9_-]{1,35}$/", SCRIPT)
         self.assertIn('maxlength="35"', INSTALLER)
         self.assertIn('placeholder="TG/Ref"', INSTALLER)
-        self.assertIn('width:10ch', INSTALLER)
+        self.assertIn('width:calc(12ch + 18px)', INSTALLER)
         self.assertIn("'/^[A-Za-z0-9_-]{1,35}$/D'", ENDPOINT)
         self.assertIn('{1,35}', TARGETS)
         self.assertIn('{1,35}', TUNE)
@@ -68,7 +68,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test90"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test95"', INSTALLER)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -120,11 +120,11 @@ class FavoritesDashboardTests(unittest.TestCase):
 
     def test_favorites_editor_and_upgrade_markup_remain(self):
         self.assertIn('<strong>Cancel or Esc</strong> closes this editor and discards unsaved changes.', INSTALLER)
-        self.assertIn('dvswitch-mode-favorites.js', INSTALLER)
+        self.assertIn('dvswitch-mode-favorites.js?v=1.1.0', INSTALLER)
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test90"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test95"', INSTALLER)
 
     def test_first_install_imports_standalone_m17_favorites_optionally(self):
         match = re.search(r"python3 - \"\$FAVORITES_STARTER\" /etc/dvswitch-m17-dashboard/favorites\.json > \"\$favorite_tmp\" <<'PY_M17_IMPORT'\n(.*?)\nPY_M17_IMPORT", INSTALLER, re.S)

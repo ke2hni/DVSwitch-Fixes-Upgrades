@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.0.7
-# Updated: 2026-11-18T21:44:18-05:00 by KE2HNI — bold active green cells and center all status labels.
+# Version: 1.0.8
+# Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — give the Networks-row D-Star Net cell extra width and center its label.
 
 # Add STFU, ASL, and M17 status cells to the dashboard Modes and Networks strip.
 # This standalone installer intentionally modifies only include/system.php.
@@ -10,7 +10,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.0.7"
+readonly SCRIPT_VERSION="1.0.8"
 readonly TARGET="${DVS_STFU_STATUS_TARGET:-/usr/share/dvswitch/include/system.php}"
 readonly BACKUP_ROOT="${DVS_STFU_STATUS_BACKUP_ROOT:-/var/backups/dvswitch-mods/dashboard-stfu-status}"
 
@@ -57,6 +57,7 @@ function_signature = b"function dvsModsShowSTFUStatus($label)"
 table_marker = b'id="dvs-mods-mode-network-strip"'
 style_marker = b'id="dvs-mods-mode-network-style"'
 cell_style_marker = b'id="dvs-mods-mode-network-cell-style"'
+dstar_style_marker = b'id="dvs-mods-mode-network-dstar-style"'
 style_block = (b'<style id="dvs-mods-mode-network-style">'
                b'/* Override upstream showMode inline widths only in this status strip. */'
                b'#dvs-mods-mode-network-strip{table-layout:fixed;width:100%}'
@@ -80,6 +81,11 @@ cell_style_block = (b'<style id="dvs-mods-mode-network-cell-style">'
                     b'#dvs-mods-mode-network-strip td{text-align:center!important}'
                     b'#dvs-mods-mode-network-strip td[style*="#12AD2A"],#dvs-mods-mode-network-strip td[style*="#0b0"]{font-weight:bold!important}'
                     b'</style>')
+dstar_style_block = (b'<style id="dvs-mods-mode-network-dstar-style">'
+                     b'/* Center only the D-Star Net cell in the bottom Networks row and give its longer label room. */'
+                     b'#dvs-mods-mode-network-strip td:nth-child(n+11){width:5.5%!important}'
+                     b'#dvs-mods-mode-network-strip td:nth-child(15){width:6.5%!important;text-align:center!important;padding-left:0!important;padding-right:0!important}'
+                     b'</style>')
 
 
 def installed_function(data):
@@ -135,8 +141,16 @@ def inspect(data):
     if (markers == 1 and data.count(mode_added) == 1 and data.count(network_added) == 1
             and data.count(function) == 1 and data.count(table_marker) == 1
             and data.count(style_block) == 1 and data.count(style_marker) == 1
-            and data.count(cell_style_block) == 1 and data.count(cell_style_marker) == 1):
+            and data.count(cell_style_block) == 1 and data.count(cell_style_marker) == 1
+            and data.count(dstar_style_block) == 1 and data.count(dstar_style_marker) == 1):
         return "installed"
+    known_current_sizing = (style_block, wide_style_block, legacy_style_block)
+    if (markers == 1 and function_signature in data and data.count(mode_added) == 1
+            and data.count(network_added) == 1 and data.count(table_marker) == 1
+            and sum(data.count(item) for item in known_current_sizing) == 1
+            and data.count(cell_style_block) == 1 and data.count(cell_style_marker) == 1
+            and dstar_style_marker not in data):
+        return "upgrade_dstar_cell"
     known_v6_styles = (style_block, wide_style_block, legacy_style_block)
     if (markers == 1 and function_signature in data and data.count(mode_added) == 1
             and data.count(network_added) == 1 and data.count(table_marker) == 1
@@ -212,7 +226,8 @@ def make_candidate(data):
         data = data.replace(network_original, network_added, 1)
     table_replacement = (b'<table id="dvs-mods-mode-network-strip" style="margin-top:2px;table-layout:fixed;width:100%;"><colgroup>'
                          + b'<col style="width:5%;">' + b'<col style="width:5.625%;">' * 8
-                         + b'<col style="width:5%;">' + b'<col style="width:5.625%;">' * 8 + b'</colgroup>')
+                         + b'<col style="width:5%;">' + b'<col style="width:5.5%;">' * 4
+                         + b'<col style="width:6.5%;">' + b'<col style="width:5.5%;">' * 3 + b'</colgroup>')
     replacement = style_block + b'\n' + table_replacement
     if state in ("upgrade_v2", "upgrade_v3", "upgrade_v4", "upgrade_v5"):
         previous_table = re.compile(rb'<table id="dvs-mods-mode-network-strip"[^>]*><colgroup>.*?</colgroup>', re.S)
@@ -231,6 +246,11 @@ def make_candidate(data):
             data = data.replace(legacy_style_block, b"", 1)
         elif state == "upgrade_v4" and data.count(style_marker) != 1:
             fail("duplicate Modes and Networks style blocks are not a recognized prior layout")
+    elif state in ("upgrade_dstar_cell", "upgrade_v6"):
+        previous_table = re.compile(rb'<table id="dvs-mods-mode-network-strip"[^>]*><colgroup>.*?</colgroup>', re.S)
+        if len(previous_table.findall(data)) != 1:
+            fail("previous Modes and Networks table sizing is missing or ambiguous during D-Star Net cell upgrade")
+        data = previous_table.sub(table_replacement, data, count=1)
     elif table_marker not in data:
         table = b'<table style="margin-top:2px;">'
         if data.count(table) < 1:
@@ -245,6 +265,15 @@ def make_candidate(data):
             fail("Modes and Networks sizing style has no closing tag")
         style_end += len(b"</style>")
         data = data[:style_end] + newline + cell_style_block + data[style_end:]
+    if dstar_style_marker not in data:
+        if data.count(cell_style_marker) != 1:
+            fail("Modes and Networks label style is missing or ambiguous while sizing D-Star Net")
+        style_start = data.index(cell_style_marker)
+        style_end = data.find(b"</style>", style_start)
+        if style_end < 0:
+            fail("Modes and Networks label style has no closing tag")
+        style_end += len(b"</style>")
+        data = data[:style_end] + newline + dstar_style_block + data[style_end:]
     if inspect(data) != "installed":
         fail("candidate verification failed")
     return data
@@ -295,7 +324,7 @@ try:
         lint(target)
         if action == "check":
             if state == "installed":
-                print("ALREADY MODIFIED: the balanced Modes and Networks status strip is installed. No files changed.")
+                print("ALREADY MODIFIED: the Modes and Networks status strip is installed. No files changed.")
             else:
                 candidate = make_candidate(original)
                 fd, raw_temp = tempfile.mkstemp(prefix="dvswitch-stfu-check-", suffix=".php")
@@ -305,9 +334,9 @@ try:
                     lint(Path(raw_temp))
                 finally:
                     Path(raw_temp).unlink(missing_ok=True)
-                print("READY: exact Modes and Networks sections found; ASL/M17 cells and balanced columns can be installed. No files changed.")
+                print("READY: exact Modes and Networks sections found; ASL/M17 cells and D-Star Net cell sizing can be installed. No files changed.")
         elif state == "installed":
-            print("PASS: the balanced Modes and Networks status strip is already installed; no new backup created.")
+            print("PASS: the Modes and Networks status strip is already installed; no new backup created.")
         else:
             candidate = make_candidate(original)
             fd, raw_temp = tempfile.mkstemp(prefix="dvswitch-stfu-install-", suffix=".php", dir=target.parent)
@@ -328,7 +357,7 @@ try:
             except Exception:
                 atomic_write(target, original, backup / target.name)
                 raise
-            print("PASS: ASL/M17 cells and balanced Modes and Networks columns installed atomically.")
+            print("PASS: ASL/M17 cells and Modes/Networks strip sizing installed atomically.")
             print(f"Backup: {backup}")
     elif action == "uninstall":
         if not re.fullmatch(r"install-[0-9]{8}-[0-9]{6}(?:-[0-9]+)?", backup_name):

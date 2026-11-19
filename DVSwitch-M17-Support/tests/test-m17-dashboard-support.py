@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.13
-# Updated: 2026-11-18T21:49:00-05:00 by KE2HNI — keep past M17 activity targets unchanged after reflector switches.
+# Version: 1.2.15
+# Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — verify M17 target-field sizing without changing unrelated card layout.
 # Updated: 2026-11-17T21:05:06-05:00 by KE2HNI — assert matching M17 reflector label copper in both themes.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — cover M17 reflector IDs and Gateway Activity integration.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — require M17 monitor restart when dashboard support is upgraded.
@@ -273,7 +273,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert 'RX M17' in lh.read_text() and 'Gateway Activity receive indicator v1' in lh.read_text()
         # Accept the installer's cache-busted layout tag as well as the unversioned form.
         assert re.search(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?">', index.read_text())
-        assert '<script src="/dvswitch/dvswitch-m17-standalone.js"></script>' in index.read_text()
+        assert '<script src="/dvswitch/dvswitch-m17-standalone.js?v=1.0.1"></script>' in index.read_text()
         subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index), str(lh)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
         assert 'dvsM17ShowNetCard' not in status.read_text()

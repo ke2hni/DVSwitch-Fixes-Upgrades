@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Version: 1.0.6
+# Version: 1.0.7
 # Created: 2026-11-17T09:38:00-05:00 by KE2HNI
-# Updated: 2026-11-18T21:44:18-05:00 by KE2HNI — verify active-cell bolding and D-Star Net label centering.
+# Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — verify D-Star Net Networks-row width and centering without changing the sidebar card.
 # SPDX-License-Identifier: MIT
 """Verify status-strip PHP escaping, cell widths, migration, and recovery paths."""
 
@@ -78,6 +78,8 @@ php_line = next((line for line in content.splitlines() if b'echo ' in line and b
 if (not php_line or php_line.count(bytes([92])) != 3 or b'&nbsp;' not in php_line
         or b'#dvs-mods-mode-network-strip th{width:5%!important' not in content
         or b'#dvs-mods-mode-network-strip td{width:5.625%!important' not in content
+        or (b'id="dvs-mods-mode-network-dstar-style"' in content and
+            b'#dvs-mods-mode-network-strip td:nth-child(15){width:6.5%!important;text-align:center!important' not in content)
         or (b'id="dvs-mods-mode-network-cell-style"' in content and (
             b'#dvs-mods-mode-network-strip td{text-align:center!important}' not in content
             or b'td[style*="#12AD2A"]' not in content
@@ -88,6 +90,7 @@ if (not php_line or php_line.count(bytes([92])) != 3 or b'&nbsp;' not in php_lin
           b'#dvs-mods-mode-network-strip td{width:5.625%!important' in content,
           b'#dvs-mods-mode-network-strip td{text-align:center!important}' in content,
           b'td[style*="#12AD2A"]' in content, b'font-weight:bold!important' in content,
+          b'td:nth-child(15){width:6.5%!important;text-align:center!important' in content,
           b'id="dvs-mods-mode-network-cell-style"' in content,
           b'$foreground = $connected ? "#000"' in content)
     raise SystemExit(1)
@@ -122,8 +125,10 @@ print('Generated PHP escaping and scoped width overrides verified')
     if installed.count(b'id="dvs-mods-mode-network-strip"') != 1:
         raise SystemExit('FAIL: strip table did not receive its scoped sizing rules')
     if (installed.count(b'<col style="width:5%;">') != 2
-            or installed.count(b'<col style="width:5.625%;">') != 16):
-        raise SystemExit('FAIL: compact separator columns and 16 equal status columns do not total 100%')
+            or installed.count(b'<col style="width:5.625%;">') != 8
+            or installed.count(b'<col style="width:5.5%;">') != 7
+            or installed.count(b'<col style="width:6.5%;">') != 1):
+        raise SystemExit('FAIL: Modes and Networks strip columns do not allocate extra width to the D-Star Net cell')
     if (installed.count(b'id="dvs-mods-mode-network-style"') != 1
             or b'#dvs-mods-mode-network-strip th{width:5%!important' not in installed
             or b'#dvs-mods-mode-network-strip td{width:5.625%!important' not in installed):
@@ -133,6 +138,12 @@ print('Generated PHP escaping and scoped width overrides verified')
             or b'td[style*="#12AD2A"]' not in installed
             or b'font-weight:bold!important' not in installed):
         raise SystemExit('FAIL: active-cell emphasis or centered labels were not installed')
+    if (installed.count(b'id="dvs-mods-mode-network-dstar-style"') != 1
+            or b'td:nth-child(n+11){width:5.5%!important}' not in installed
+            or b'td:nth-child(15){width:6.5%!important;text-align:center!important' not in installed):
+        raise SystemExit('FAIL: the Networks-row D-Star Net cell is not explicitly centered and sized')
+    if b'#sidebar' in installed or b'dstar-net-card' in installed:
+        raise SystemExit('FAIL: status-strip update unexpectedly adds sidebar-card styling')
     expected_features = (b'dvsModsShowASLM17Status("ASL", "ASL")',
                          b'dvsModsShowASLM17Status("M17", "M17")',
                          b'dvswitch-asl3-node-links', b"isProcessRunning('USRP2M17')")
@@ -150,10 +161,15 @@ print('Generated PHP escaping and scoped width overrides verified')
     if result.returncode or target.read_bytes() != old_system:
         raise SystemExit('FAIL: upgrade uninstall did not restore the v1 file')
 
-    # Upgrade the installed v6 strip in place, preserving its existing column sizing.
-    cell_start = installed.index(b'\n<style id="dvs-mods-mode-network-cell-style">')
-    cell_end = installed.index(b'</style>', cell_start) + len(b'</style>')
-    old_v6_system = installed[:cell_start] + installed[cell_end:]
+    # Upgrade the installed v6 strip in place, preserving its existing behavior while resizing D-Star Net.
+    dstar_start = installed.index(b'\n<style id="dvs-mods-mode-network-dstar-style">')
+    dstar_end = installed.index(b'</style>', dstar_start) + len(b'</style>')
+    old_v6_system = installed[:dstar_start] + installed[dstar_end:]
+    cell_start = old_v6_system.index(b'\n<style id="dvs-mods-mode-network-cell-style">')
+    cell_end = old_v6_system.index(b'</style>', cell_start) + len(b'</style>')
+    old_v6_system = old_v6_system[:cell_start] + old_v6_system[cell_end:]
+    old_v6_system = old_v6_system.replace(b'<col style="width:5.5%;">', b'<col style="width:5.625%;">')
+    old_v6_system = old_v6_system.replace(b'<col style="width:6.5%;">', b'<col style="width:5.625%;">')
     v6_target = root / 'upgrade-v6' / 'system.php'
     v6_target.parent.mkdir()
     v6_target.write_bytes(old_v6_system)
@@ -162,9 +178,11 @@ print('Generated PHP escaping and scoped width overrides verified')
     if result.returncode or 'READY:' not in result.stdout or v6_target.read_bytes() != old_v6_system:
         raise SystemExit('FAIL: v6 migration --check changed files or did not report READY: ' + result.stdout + result.stderr)
     result = run('install', v6_target, v6_backups)
-    if (result.returncode or v6_target.read_bytes() != installed
-            or v6_target.read_bytes().count(b'id="dvs-mods-mode-network-cell-style"') != 1):
-        raise SystemExit('FAIL: v6 active-cell style migration failed: ' + result.stderr + result.stdout)
+    v6_installed = v6_target.read_bytes()
+    if (result.returncode or v6_installed.count(b'id="dvs-mods-mode-network-cell-style"') != 1
+            or v6_installed.count(b'id="dvs-mods-mode-network-dstar-style"') != 1
+            or v6_installed.count(b'<col style="width:6.5%;">') != 1):
+        raise SystemExit('FAIL: v6 D-Star Net Networks-cell migration failed: ' + result.stderr + result.stdout)
     v6_backup = next(iter(v6_backups.glob('install-*')), None)
     if v6_backup is None:
         raise SystemExit('FAIL: v6 migration did not create a backup')
@@ -314,4 +332,4 @@ print('Generated PHP escaping and scoped width overrides verified')
     if result.returncode or fresh_target.read_bytes() != clean_system:
         raise SystemExit('FAIL: fresh-install uninstall did not restore the original file')
 
-print('PASS: status strip fresh install, v1-v6 migrations, duplicate-style recovery, check, uninstall, PHP escaping, contrast, and layout')
+print('PASS: status strip fresh install, v1-v6 migrations, D-Star Net Networks-cell sizing and centering, duplicate-style recovery, check, uninstall, PHP escaping, and active-cell contrast')

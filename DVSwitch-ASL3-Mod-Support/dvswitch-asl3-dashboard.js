@@ -1,4 +1,5 @@
-/* Version: 1.2.6 — show live ASL receive state in TRX Info. */
+/* Version: 1.2.7 — fit M17 reflector IDs in the shared Tune field. */
+/* Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — keep Node at 10 characters and digital targets at 12. */
 /* Updated: 2026-11-17T09:31:00-05:00 by KE2HNI — derive RX ASL from live AllStar keying telemetry. */
 /* Updated: 2026-11-11T00:50:00-05:00 by KE2HNI. */
 /* Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — search the relocated sidebar card for connected ASL nodes. */
@@ -132,10 +133,10 @@
       // Keep the visible hint short enough for the compact shared target field.
       input.placeholder = activeMode === 'ASL' ? 'Node #' : 'TG/Ref';
       input.setAttribute('aria-label', activeMode === 'ASL' ? 'AllStar node number' : 'Talkgroup or reflector');
-      // The field stays 10 characters wide while allowing long target text where needed.
+      // ASL nodes stay compact; digital targets need 12 visible characters for M17 IDs.
       input.maxLength = 35;
       input.style.boxSizing = 'border-box';
-      input.style.width = 'calc(10ch + 18px)';
+      input.style.width = mode === 'ASL' ? 'calc(10ch + 18px)' : 'calc(12ch + 18px)';
     }
     document.querySelectorAll('#dvs-mode-buttons [data-mode], #dvs-asl-mode-buttons [data-mode]').forEach(function (button) {
       if (button.dataset.mode === 'ASL') button.classList.toggle('selected', activeMode === 'ASL');

@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.6.4; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-18T21:49:00-05:00 by KE2HNI — document event-time reflector history in shared activity rows. -->
+<!-- Version: 1.6.6; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — document M17 target-field sizing and stable reflector history. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -39,3 +39,6 @@ Uninstall dashboard support with manager option 9 and select **Uninstall M17 das
 The M17 dashboard layout places the eight network cards in alphabetical order around Gateway Activity. Each network card keeps a rounded panel outline matching Analog Bridge Info. The first three cards sit in the left status sidebar below Analog Bridge Info and TRX Info; M17 Net and the remaining four cards sit in the right column, offset down 21 pixels to line up with the left status stack. The left and right card columns use equal widths and balanced outer insets, centering Gateway Activity between them. Gateway Activity and Local Activity share the same width and have equal gaps to the side card columns. Local Activity has additional separation below Gateway Activity. Analog Bridge Info keeps its row labels on one line. Refreshed status data replaces old card renders without making the cards flash or accumulate copies. BM and TGIF use one stable DMR card identity, so changing the heading between `DMR BM Master` and `DMR TGIF Master` updates the existing panel instead of leaving a stale duplicate. Mode buttons are alphabetized. The M17 reflector name retains the normal copper color in dark themes; the existing light-theme overlay darkens that label to `#6b2f00` for contrast.
 
 The M17 selector reads the chosen module's UDP port when the catalog provides one, otherwise the reflector row's port, and defaults to 17000 when neither is present. An explicitly configured invalid port is rejected with a clear error.
+
+
+The standalone M17 Tune field shows 12 characters. When shared Mode Buttons and ASL support are installed, digital target entry likewise displays 12 characters while ASL node entry remains 10 characters; the 35-character input limit and target validation are unchanged.

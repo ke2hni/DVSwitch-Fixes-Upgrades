@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.11
+# Version: 1.1.12
+# Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — display 12-character digital targets and cache-bust the dashboard script.
 # Updated: 2026-11-14T15:20:00-05:00 by KE2HNI — seed starter favorites and install theme-aware Tune text colors.
 
 set -Eeuo pipefail
@@ -105,13 +106,13 @@ preflight() {
     python3 "$SCRIPT_DIR/lib/patch_dvswitch_asl_mode_switch.py" --help >/dev/null
     python3 - "$DASHBOARD_INDEX" <<'PY_ASL_INDEX_CHECK'
 from pathlib import Path
-import sys
+import re, sys
 path = Path(sys.argv[1])
 text = path.read_text(encoding='utf-8')
 if text.lower().count('</body>') != 1:
     raise SystemExit('ERROR: expected exactly one dashboard </body> script anchor')
-tag = '<script src="/dvswitch/dvswitch-asl3-dashboard.js"></script>'
-if text.count(tag) > 1:
+tags = re.findall(r'<script src="/dvswitch/dvswitch-asl3-dashboard\.js(?:\?[^"]*)?"></script>', text)
+if len(tags) > 1:
     raise SystemExit('ERROR: duplicate ASL dashboard script references found')
 PY_ASL_INDEX_CHECK
     python3 "$RPT_CONF_TOOL" check "$RPT_CONF" --analog-bridge "$ANALOG_BRIDGE_CONF" --private-node "$SELECTED_PRIVATE_NODE"
@@ -215,20 +216,30 @@ trap rollback_install EXIT
 
 install_index_script() {
     python3 - "$DASHBOARD_INDEX" <<'PY_ASL_INDEX_INSTALL'
-import os, stat, sys, tempfile
+import os, re, stat, sys, tempfile
 path = sys.argv[1]
 if os.path.islink(path) or not os.path.isfile(path): raise SystemExit('ERROR: dashboard index.php is not a regular file')
 data = open(path, 'rb').read()
-tag = b'<script src="/dvswitch/dvswitch-asl3-dashboard.js"></script>'
-if tag not in data:
+tag = b'<script src="/dvswitch/dvswitch-asl3-dashboard.js?v=1.2.7"></script>'
+pattern = re.compile(rb'<script src="/dvswitch/dvswitch-asl3-dashboard\.js(?:\?[^"]*)?"></script>')
+references = list(pattern.finditer(data))
+if len(references) > 1: raise SystemExit('ERROR: duplicate ASL dashboard script references found')
+if references and references[0].group(0) == tag:
+    pass
+elif references:
+    data = data[:references[0].start()] + tag + data[references[0].end():]
+else:
     pos = data.lower().rfind(b'</body>')
     if pos < 0 or data.lower().count(b'</body>') != 1: raise SystemExit('ERROR: dashboard script anchor is missing or ambiguous')
+    data = data[:pos] + tag + (b'\r\n' if b'\r\n' in data else b'\n') + data[pos:]
+if references and references[0].group(0) == tag:
+    pass
+else:
     info = os.stat(path)
-    newline = b'\r\n' if b'\r\n' in data else b'\n'
     fd, tmp = tempfile.mkstemp(prefix='.index.php.asl3-', dir=os.path.dirname(path))
     try:
         with os.fdopen(fd, 'wb') as out:
-            out.write(data[:pos] + tag + newline + data[pos:])
+            out.write(data)
         os.chown(tmp, info.st_uid, info.st_gid)
         os.chmod(tmp, stat.S_IMODE(info.st_mode))
         os.replace(tmp, path)
