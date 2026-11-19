@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.3
+# Version: 1.1.4
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — restart the RX monitor after upgrades so the heartbeat code is loaded.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — install reflector IDs and the M17-only Gateway Activity panel.
 # Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — version the layout script URL so browsers load the new activity card.
 # Updated: 2026-11-17T16:15:00-05:00 by KE2HNI — deploy the M17 activity endpoint helper at the path the endpoint resolves.
 # Updated: 2026-11-17T16:25:00-05:00 by KE2HNI — advance the script URL with the dark-theme styling update.
 # Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — use the main activity table for live M17 RX and remove the separate panel.
+# Updated: 2026-11-17T23:02:59-05:00 by KE2HNI — cache-bust layout cleanup for the removed dedicated M17 activity panel.
 # Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — install live M17 RX heartbeat and TRX status updates.
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-10T15:20:00-05:00 by KE2HNI — insert M17 card without requiring the ASL add-on.
@@ -224,7 +225,7 @@ for path in (functions,status,localtx,index,lh):
             text=text.replace('$counter = 0;',marker+'\n$counter = 0;',1)
         elif text.count(marker)!=1: raise SystemExit('ERROR: duplicate M17 Local Activity markers.')
     else:
-        layout_tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.2.9"></script>'
+        layout_tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.3.0"></script>'
         old_layout=re.findall(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?"></script>',text)
         if len(old_layout)>1: raise SystemExit('ERROR: duplicate M17 layout script tags.')
         if old_layout: text=text.replace(old_layout[0],layout_tag,1)

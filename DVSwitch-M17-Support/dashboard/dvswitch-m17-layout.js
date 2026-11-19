@@ -1,7 +1,7 @@
-/* DVSwitch M17 dashboard layout v1.2.9
+/* DVSwitch M17 dashboard layout v1.3.0
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
  * Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — show RX M17 in TRX Info while M17 USRP audio is arriving.
- * Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — keep M17 in the main Gateway Activity table and smooth RX status updates.
+ * Updated: 2026-11-17T23:02:59-05:00 by KE2HNI — remove legacy M17 activity panel left by cached dashboard layouts.
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
  * Updated: 2026-11-11T12:35:00-05:00 by KE2HNI — preserve card panels and disconnect the observer while repositioning refreshed tables.
  * Updated: 2026-11-11T13:10:00-05:00 by KE2HNI — place the left card stack in the status sidebar below Analog Bridge and TRX.
@@ -19,7 +19,7 @@
  * Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — reuse one network-card panel when the DMR heading changes between BM and TGIF.
  * Updated: 2026-11-15T17:45:00Z by KE2HNI — keep M17 theme styling when the shared widescreen layout creates the activity columns first.
  * Updated: 2026-11-17T18:00:00-05:00 by KE2HNI — apply dark-theme row colors to the M17 Gateway Activity table.
- * Updated: 2026-11-18T10:30:00-05:00 by KE2HNI — keep the M17 activity panel visible from the selected mode and use the matching copper label color.
+ * Updated: 2026-11-17T23:02:59-05:00 by KE2HNI — keep M17 activity in the shared Gateway Activity table.
  * Keeps the eight network cards ordered around centered activity without flicker or duplicate panels.
  */
 (function () {
@@ -37,6 +37,7 @@
   }
 
   function makeLayout() {
+    removeLegacyM17Activity();
     var activity = document.getElementById('lastHerd');
     if (!activity) return;
     ensureLayoutStyles();
@@ -65,6 +66,11 @@
     }
     oldCenter.parentNode.replaceChild(layout, oldCenter);
 
+  }
+
+  function removeLegacyM17Activity() {
+    var legacy = document.getElementById('dvs-m17-activity');
+    if (legacy) legacy.remove();
   }
 
   function isM17ModeSelected(fallbackMode) {
@@ -265,6 +271,7 @@
   }
 
   function start() {
+    removeLegacyM17Activity();
     makeLayout();
     placeCards();
     observeModeControls();

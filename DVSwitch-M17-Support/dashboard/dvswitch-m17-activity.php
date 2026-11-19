@@ -1,11 +1,11 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.3
-// Updated: 2026-11-17T22:06:15-05:00 by KE2HNI — include live M17 RX rows in the main Gateway Activity table.
+// Version: 1.0.4
+// Updated: 2026-11-17T23:02:59-05:00 by KE2HNI — show M17 reflector friendly name and ID in shared activity rows.
 // Created: 2026-11-09T23:33:00-05:00 by KE2HNI
 
 /** Read active and completed USRP2M17 voice events as rows compatible with DVSwitch history. */
-function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath = null)
+function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath = null, $configPath = null, $catalogPath = null)
 {
     if ($paths === null) {
         $paths = glob('/var/log/usrp2m17/USRP2M17*.log') ?: array();
@@ -14,6 +14,8 @@ function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath
         $historyPath = '/var/lib/dvswitch-m17-dashboard/reflector-history.tsv';
     }
     if ($rxHeartbeatPath === null) { $rxHeartbeatPath = '/run/dvswitch-m17-audio-monitor/rx-active'; }
+    if ($configPath === null) { $configPath = '/etc/USRP2M17.ini'; }
+    if ($catalogPath === null) { $catalogPath = '/var/lib/mmdvm/M17Hosts.json'; }
 
     $history = array();
     if (is_file($historyPath) && is_readable($historyPath) && !is_link($historyPath)) {
@@ -59,12 +61,35 @@ function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath
             $epoch = (int)$date->format('U');
             $target = 'M17 reflector';
             $reflector = '';
-            $historyAt = null;
+            $latestSelection = null;
+            $selectionAtEvent = null;
             foreach ($history as $selection) {
-                if ($selection[0] <= $epoch && ($historyAt === null || $selection[0] >= $historyAt)) {
-                    $reflector = $selection[1];
-                    $target = $selection[2] !== '' ? $selection[2] : $selection[1];
-                    $historyAt = $selection[0];
+                if ($latestSelection === null || $selection[0] >= $latestSelection[0]) { $latestSelection = $selection; }
+                if ($selection[0] <= $epoch && ($selectionAtEvent === null || $selection[0] >= $selectionAtEvent[0])) {
+                    $selectionAtEvent = $selection;
+                }
+            }
+            // Older log entries can predate the saved selector history; use its latest reflector in that case.
+            $selected = $selectionAtEvent !== null ? $selectionAtEvent : $latestSelection;
+            if ($selected !== null) {
+                $reflector = $selected[1];
+                $friendly = $selected[2] !== '' ? $selected[2] : $reflector;
+                $target = $friendly.' ('.$reflector.')';
+            } else {
+                // Recover the selected module from USRP2M17.ini when history has not yet been created.
+                $config = is_string($configPath) && is_readable($configPath) ? @parse_ini_file($configPath, true, INI_SCANNER_RAW) : false;
+                $name = is_array($config) ? trim((string)($config['M17 Network']['Name'] ?? '')) : '';
+                if (preg_match('/^([A-Za-z0-9_-]+)\s+([A-Za-z0-9])$/', $name, $parts)) {
+                    $reflector = $parts[1].'-'.strtoupper($parts[2]);
+                    $friendly = $parts[1];
+                    $catalog = is_string($catalogPath) && is_readable($catalogPath) ? json_decode((string)@file_get_contents($catalogPath), true) : null;
+                    foreach (is_array($catalog['reflectors'] ?? null) ? $catalog['reflectors'] : array() as $entry) {
+                        if (is_array($entry) && ($entry['designator'] ?? '') === $parts[1] && is_string($entry['name'] ?? null) && trim($entry['name']) !== '') {
+                            $friendly = trim($entry['name']).' '.strtoupper($parts[2]);
+                            break;
+                        }
+                    }
+                    $target = $friendly.' ('.$reflector.')';
                 }
             }
             $source = $match[3] === 'M17' ? 'Net' : 'LNet';
