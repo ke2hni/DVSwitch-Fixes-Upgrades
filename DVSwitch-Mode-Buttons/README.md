@@ -1,4 +1,4 @@
-<!-- Version: 1.1.2; Created: 2026-11-09T23:19:00-05:00 by KE2HNI; Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — document 12-character Tune and favorite target fields. -->
+<!-- Version: 1.1.3; Created: 2026-11-09T23:19:00-05:00 by KE2HNI; Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — document M17 sponsor fallback for null names. -->
 
 ![Platform](https://img.shields.io/badge/platform-DVSwitch-24527a)
 ![Debian](https://img.shields.io/badge/tested-Debian%2012%20%7C%2013-a80030)
@@ -328,3 +328,5 @@ Version 1.0.0-test90 imports favorites from an already-installed standalone M17 
 
 
 Version 1.0.0-test95 widens the shared TG/Ref Tune field to 12 visible characters, including padding. The favorites editor target field also shows 12 characters; the 35-character input limit and validation remain unchanged.
+
+Version 1.0.0-test96 uses a valid M17 sponsor when the reflector catalog name is null or blank. If neither name nor sponsor is valid, it uses only the reflector designator as the friendly name.

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-# Version: 1.0.2
+# Version: 1.0.3
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — use a valid sponsor when the catalog name is null and fall back to the reflector ID.
 # Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — keep reflector history readable so Gateway Activity can resolve names and IDs.
 # Updated: 2026-11-14T12:00:00-05:00 by KE2HNI — accept URF entries with module or row ports and default omitted M17 reflector ports.
 """Select an M17 reflector by updating USRP2M17's INI and restarting its service."""
@@ -23,6 +24,18 @@ CONFIG = Path('/etc/USRP2M17.ini')
 CATALOG = Path('/var/lib/mmdvm/M17Hosts.json')
 BACKUP_DIR = Path('/var/backups/dvswitch-mods/m17-dashboard')
 STATE_DIR = Path('/var/lib/dvswitch-m17-dashboard')
+
+
+def usable_catalog_label(value):
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value if value and value.casefold() != 'null' else None
+
+
+def catalog_friendly_name(row, designator, module):
+    label = usable_catalog_label(row.get('name')) or usable_catalog_label(row.get('sponsor'))
+    return f'{label} {module}' if label else designator
 
 
 def fail(message):
@@ -93,8 +106,8 @@ def read_catalog_target(target):
         except ipaddress.AddressValueError as error:
             raise ValueError(f'{designator} has no numeric IPv4 address accepted by USRP2M17.') from error
         port = reflector_udp_port(row, module, designator)
-        friendly = row.get('name') if isinstance(row.get('name'), str) else designator
-        return designator, module, address, port, f'{friendly.strip()} {module}'.strip()
+        friendly = catalog_friendly_name(row, designator, module)
+        return designator, module, address, port, friendly
     raise ValueError(f'{target} is not listed as an active M17 reflector module in the local catalog.')
 
 

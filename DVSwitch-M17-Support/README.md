@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.6.7; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — document dashboard-readable reflector history permissions. -->
+<!-- Version: 1.6.8; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — document M17 reflector name and sponsor fallback. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -24,6 +24,8 @@ Follow [INSTALL-USRP2M17.md](INSTALL-USRP2M17.md) for the complete first-time in
 ## M17 dashboard integration
 
 After USRP2M17 and the M17 private-node commands are installed, choose manager option 9 and select **Install or upgrade M17 dashboard support**. Option 9 is independent of DVSwitch Mode Buttons (option 2): with Mode Buttons installed, M17 uses its shared toolbar and favorites editor; without it, this component supplies its own M17 button, tuning controls, and editable favorites. You can install option 2 before or after option 9. Upgrading dashboard support refreshes the status endpoint and restarts the M17 RX monitor so new receive-heartbeat code is loaded by an already-running service. If the bridge was installed before this dashboard release, run manager option 8 and choose **Install or upgrade USRP2M17** once so the bridge logs include callsigns at both voice start and end. The dashboard adds an M17 Net card and M17 events to the existing Gateway Activity and Local Activity tables. The main Gateway Activity row appears with the callsign and an `RX M17` indicator during a live network call; after the transmission ends, that same callsign row shows its completed duration. TRX Info stays on `RX M17` through brief heartbeat gaps, then returns to listening after audio stops. Reflectors are downloaded from the M17 Project's `M17Hosts.json` catalog weekly; catalog refreshes do not rewrite editable favorites. Initial favorites are seeded once with one entry per usable reflector (module A when available, otherwise its first M17 module), and subsequent edits and deletions are kept. To use another module, tune with a `reflector-module` target (for example `URF018-B`) and save it as a favorite.
+
+M17 reflector labels use the catalog `name` when it contains a usable value. If `name` is JSON `null`, blank, or the text `null`, the dashboard uses a usable `sponsor`; when both fields are missing or invalid, it shows only the reflector designator as the friendly label. Gateway Activity still appends the full reflector ID in parentheses. Existing history rows with a null label are resolved by the same rule when displayed.
 
 The install-state directory is set to mode `0755` so Apache can test whether M17 dashboard support is installed and show the M17 mode button in the shared toolbar. The install-state file remains root-only (`0600`). When the shared toolbar is absent, the M17-owned dashboard script renders a standalone M17 control row instead.
 

@@ -1,6 +1,7 @@
 <?php
 // DVSwitch-M17-Dashboard: M17 Net card v1
-// Version: 1.1.1; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Version: 1.1.2; Created: 2026-11-09T23:19:00-05:00; Created by KE2HNI
+// Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — use sponsor fallback for null M17 names and reflector ID if neither label is valid.
 // Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — show M17 reflector IDs with friendly names in status and Net cards.
 // Updated: 2026-11-17T15:50:00-05:00 by KE2HNI — match both M17 labels to the copper text used by other Net cards.
 // Updated: 2026-11-17T21:05:06-05:00 by KE2HNI — use the exact #b5651d copper color in both inline labels for dark and light themes.
@@ -10,6 +11,28 @@
 // Updated: 2026-11-11T15:40:00-05:00 by KE2HNI — only show M17 status when the live Analog_Bridge mode is M17.
 // Updated: 2026-11-11T16:20:00-05:00 by KE2HNI — preserve M17 display while Analog_Bridge retains an unrelated previous DV mode.
 // Updated: 2026-11-11T23:35:00-05:00 by KE2HNI — treat selected M17 private-node state as authoritative while Analog_Bridge reports ASL.
+
+function dvsM17UsableCatalogLabel($value) {
+    if (!is_string($value)) { return ''; }
+    $value = trim($value);
+    return $value !== '' && strtolower($value) !== 'null' ? $value : '';
+}
+
+function dvsM17CatalogFriendlyLabel($designator, $module) {
+    static $reflectors = null;
+    if ($reflectors === null) {
+        $catalog = is_readable('/var/lib/mmdvm/M17Hosts.json')
+            ? json_decode((string)file_get_contents('/var/lib/mmdvm/M17Hosts.json'), true) : array();
+        $reflectors = is_array($catalog['reflectors'] ?? null) ? $catalog['reflectors'] : array();
+    }
+    foreach ($reflectors as $row) {
+        if (!is_array($row) || ($row['designator'] ?? '') !== $designator) { continue; }
+        $label = dvsM17UsableCatalogLabel($row['name'] ?? null);
+        if ($label === '') { $label = dvsM17UsableCatalogLabel($row['sponsor'] ?? null); }
+        return $label !== '' ? $label.' '.$module : $designator;
+    }
+    return $designator;
+}
 
 function dvsM17CurrentDisplayTarget() {
     $target = dvsM17TargetDetails();
@@ -27,17 +50,8 @@ function dvsM17TargetDetails() {
     $network = is_array($config) && isset($config['M17 Network']) ? $config['M17 Network'] : array();
     $name = isset($network['Name']) ? trim((string)$network['Name']) : '';
     if ($name === '') { return array('id' => 'Not linked', 'room' => 'Not linked'); }
-    $identifier = $name;
-    if (preg_match('/^(.+)\s+([A-Z0-9])$/', $name, $parts) && is_readable('/var/lib/mmdvm/M17Hosts.json')) {
-        $identifier = $parts[1].'-'.$parts[2];
-        $catalog = json_decode((string)file_get_contents('/var/lib/mmdvm/M17Hosts.json'), true);
-        foreach (is_array($catalog['reflectors'] ?? null) ? $catalog['reflectors'] : array() as $row) {
-            if (!is_array($row) || ($row['designator'] ?? '') !== $parts[1]) { continue; }
-            if (is_string($row['name'] ?? null) && trim($row['name']) !== '') { $name = trim($row['name']).' '.$parts[2]; }
-            break;
-        }
-    }
-    return array('id' => $identifier, 'room' => $name);
+    if (!preg_match('/^(.+)\s+([A-Z0-9])$/', $name, $parts)) { return array('id' => $name, 'room' => $name); }
+    return array('id' => $parts[1].'-'.$parts[2], 'room' => dvsM17CatalogFriendlyLabel($parts[1], $parts[2]));
 }
 
 function dvsM17ShowNetCard() {
@@ -48,29 +62,9 @@ function dvsM17ShowNetCard() {
     $name = isset($network['Name']) ? trim((string)$network['Name']) : '';
     $room = $name !== '' ? $name : 'M17 reflector';
     $identifier = $name;
-    if (preg_match('/^(.+)\s+([A-Z0-9])$/', $name, $parts) && is_readable('/var/lib/mmdvm/M17Hosts.json')) {
+    if (preg_match('/^(.+)\s+([A-Z0-9])$/', $name, $parts)) {
         $identifier = $parts[1].'-'.$parts[2];
-        $catalog = json_decode((string)file_get_contents('/var/lib/mmdvm/M17Hosts.json'), true);
-        foreach (is_array($catalog['reflectors'] ?? null) ? $catalog['reflectors'] : array() as $row) {
-            if (!is_array($row) || ($row['designator'] ?? '') !== $parts[1]) { continue; }
-            $enabled = is_array($row['enabled_modes'] ?? null) ? array_map('strtoupper', array_filter($row['enabled_modes'], 'is_string')) : array();
-            $modules = array();
-            foreach (is_array($row['modules'] ?? null) ? $row['modules'] : array() as $item) {
-                if (is_string($item)) {
-                    $module = strtoupper($item);
-                    if ($enabled && !in_array('M17', $enabled, true)) { continue; }
-                } elseif (is_array($item) && is_string($item['module'] ?? null)) {
-                    $module = strtoupper($item['module']);
-                    $mode = strtoupper((string)($item['mode'] ?? ''));
-                    if ($mode !== 'M17' && !($mode === 'ALL' && in_array('M17', $enabled, true))) { continue; }
-                } else { continue; }
-                if (preg_match('/^[A-Z0-9]$/', $module)) { $modules[] = $module; }
-            }
-            if (in_array($parts[2], $modules, true) && is_string($row['name'] ?? null) && trim($row['name']) !== '') {
-                $room = trim($row['name']).' '.$parts[2];
-            }
-            break;
-        }
+        $room = dvsM17CatalogFriendlyLabel($parts[1], $parts[2]);
     }
     $isActive = function_exists('isProcessRunning') ? isProcessRunning('USRP2M17') : false;
     $label = htmlspecialchars($room, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');

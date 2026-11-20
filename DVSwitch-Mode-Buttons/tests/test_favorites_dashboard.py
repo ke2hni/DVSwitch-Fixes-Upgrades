@@ -1,5 +1,6 @@
-"""Version: 1.0.7. Cover M17 favorites, friendly names, and expanded target inputs."""
+"""Version: 1.0.8. Cover sponsor fallback for null M17 reflector names."""
 
+# Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — verify valid sponsor and reflector-ID fallbacks for M17 labels.
 # Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — verify the 12-character reflector target fields.
 
 from pathlib import Path
@@ -68,7 +69,8 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test95"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test96"', INSTALLER)
+        self.assertIn("$name = isset($row['sponsor'])", ENDPOINT)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY'\n(.*?)^PY$", INSTALLER, re.M | re.S)
@@ -124,7 +126,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test95"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test96"', INSTALLER)
 
     def test_first_install_imports_standalone_m17_favorites_optionally(self):
         match = re.search(r"python3 - \"\$FAVORITES_STARTER\" /etc/dvswitch-m17-dashboard/favorites\.json > \"\$favorite_tmp\" <<'PY_M17_IMPORT'\n(.*?)\nPY_M17_IMPORT", INSTALLER, re.S)

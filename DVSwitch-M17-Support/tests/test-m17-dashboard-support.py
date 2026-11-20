@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.16
+# Version: 1.2.17
+# Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — verify name/sponsor/designator fallback in selector, favorites, and activity history.
 # Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — test Apache-readable reflector history on install and after reflector changes.
 # Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — verify M17 target-field sizing without changing unrelated card layout.
 # Updated: 2026-11-17T21:05:06-05:00 by KE2HNI — assert matching M17 reflector label copper in both themes.
@@ -88,12 +89,20 @@ def main():
         }, {
             'designator': 'URF-BAD', 'name': 'URF Invalid Port', 'modules': ['C'],
             'ipv4': '192.0.2.128', 'port': 'invalid',
+        }, {
+            'designator': 'M17-321', 'name': None, 'sponsor': 'Sponsor Room', 'modules': ['A'],
+            'ipv4': '192.0.2.129',
+        }, {
+            'designator': 'M17-322', 'name': 'null', 'sponsor': ' null ', 'modules': ['A'],
+            'ipv4': '192.0.2.130',
         }]}), encoding='utf-8')
         old_catalog = SELECT.CATALOG
         SELECT.CATALOG = catalog
         try:
             item = SELECT.read_catalog_target('M17-123-C')
             assert item == ('M17-123', 'C', '192.0.2.123', 17000, 'Test Reflector C')
+            assert SELECT.read_catalog_target('M17-321-A')[4] == 'Sponsor Room A'
+            assert SELECT.read_catalog_target('M17-322-A')[4] == 'M17-322'
             assert SELECT.read_catalog_target('URF-001-C')[1] == 'C'
             assert SELECT.read_catalog_target('URF-718-C')[3] == 17000
             assert SELECT.read_catalog_target('URF-MODULE-C')[3] == 17001
@@ -204,6 +213,10 @@ def main():
                          {'module': 'D', 'mode': 'All'}], 'ipv4': '192.0.2.124'},
             {'designator': 'URF-002', 'name': 'DMR Only', 'enabled_modes': ['DMR'],
              'modules': [{'module': 'A', 'mode': 'All'}], 'ipv4': '192.0.2.125'},
+            {'designator': 'M17-321', 'name': None, 'sponsor': 'Sponsor Room', 'modules': ['A'],
+             'ipv4': '192.0.2.126'},
+            {'designator': 'M17-322', 'name': 'null', 'sponsor': 'null', 'modules': ['A'],
+             'ipv4': '192.0.2.127'},
         ]
     }
     with tempfile.TemporaryDirectory() as directory:
@@ -216,7 +229,10 @@ def main():
         subprocess.run(['python3', '-c', blocks['PY_SEED'], str(catalog), str(favorites), str(marker)], check=True)
         seeded = json.loads(favorites.read_text(encoding='utf-8'))['M17']
         targets = {item['target'] for item in seeded}
-        assert targets == {'M17-123-A', 'URF-001-C'}, targets
+        assert targets == {'M17-123-A', 'URF-001-C', 'M17-321-A', 'M17-322-A'}, targets
+        names_by_target = {item['target']: item['name'] for item in seeded}
+        assert names_by_target['M17-321-A'] == 'Sponsor Room A'
+        assert names_by_target['M17-322-A'] == 'M17-322'
         edited = {'M17': [{'name': 'My saved room', 'target': 'M17-123-C'}]}
         favorites.write_text(json.dumps(edited), encoding='utf-8')
         subprocess.run(['python3', '-c', blocks['PY_SEED'], str(catalog), str(favorites), str(marker)], check=True)
@@ -308,6 +324,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert "<span style=\"color:#b5651d;\">'.$label" in card
     assert '#ef7215' not in card
     assert "$selected = $selectionAtEvent !== null ? $selectionAtEvent : $firstSelection" in activity
+    assert 'dvsM17ActivityCatalogLabel($reflector, $catalogPath)' in activity
     assert "$reflector = $selected[1]" in activity and "$target = $friendly.' ('.$reflector.')'" in activity
     assert '$latestSelection' not in activity and 'selected reflector in USRP2M17.ini' not in activity
     assert 'received (start|end) of voice transmission from' in activity
@@ -319,30 +336,47 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
             log = root / 'USRP2M17.log'
             history = root / 'reflector-history.tsv'
             heartbeat = root / 'rx-active'
+            catalog = root / 'M17Hosts.json'
+            catalog.write_text(json.dumps({'reflectors': [
+                {'designator': 'M17-321', 'name': None, 'sponsor': 'Sponsor Room'},
+                {'designator': 'M17-322', 'name': 'null', 'sponsor': None},
+            ]}), encoding='utf-8')
             log.write_text(
                 'M: 2026-11-17 23:00:00.000 M17 received start of voice transmission from N0ABC\n'
                 'M: 2026-11-17 23:00:05.000 M17 received end of voice transmission from N0ABC, 5.0 seconds\n'
-                'M: 2026-11-17 23:01:00.000 M17 received start of voice transmission from K1XYZ\n',
+                'M: 2026-11-17 23:01:00.000 M17 received start of voice transmission from K1XYZ\n'
+                'M: 2026-11-17 23:02:00.000 M17 received start of voice transmission from N9SUP\n'
+                'M: 2026-11-17 23:02:05.000 M17 received end of voice transmission from N9SUP, 5.0 seconds\n'
+                'M: 2026-11-17 23:03:00.000 M17 received start of voice transmission from N9ID\n'
+                'M: 2026-11-17 23:03:05.000 M17 received end of voice transmission from N9ID, 5.0 seconds\n',
                 encoding='utf-8')
             old_selection = int(datetime(2026, 11, 17, 23, 0, 10, tzinfo=timezone.utc).timestamp())
             new_selection = int(datetime(2026, 11, 17, 23, 0, 30, tzinfo=timezone.utc).timestamp())
+            sponsor_selection = int(datetime(2026, 11, 17, 23, 1, 30, tzinfo=timezone.utc).timestamp())
+            id_selection = int(datetime(2026, 11, 17, 23, 2, 30, tzinfo=timezone.utc).timestamp())
             history.write_text(
                 f'{old_selection}\tM17-123-C\tFriendly Room C\n'
-                f'{new_selection}\tM17-456-A\tNew Room A\n', encoding='utf-8')
+                f'{new_selection}\tM17-456-A\tNew Room A\n'
+                f'{sponsor_selection}\tM17-321-A\tM17-321 A\n'
+                f'{id_selection}\tM17-322-A\tnull A\n', encoding='utf-8')
             heartbeat.touch()
-            php_check = ('require $argv[1]; echo json_encode(dvsM17ActivityRows([$argv[2]], $argv[3], $argv[4]));')
+            php_check = ('require $argv[1]; echo json_encode(dvsM17ActivityRows([$argv[2]], $argv[3], $argv[4], $argv[5]));')
             rows = json.loads(subprocess.run(
                 ['php', '-r', php_check, str(ROOT / 'dashboard/dvswitch-m17-activity.php'),
-                 str(log), str(history), str(heartbeat)], check=True, capture_output=True, text=True).stdout)
+                 str(log), str(history), str(heartbeat), str(catalog)], check=True, capture_output=True, text=True).stdout)
             completed = next(row for row in rows if row[2] == 'N0ABC')
             active = next(row for row in rows if row[2] == 'K1XYZ')
+            sponsor_row = next(row for row in rows if row[2] == 'N9SUP')
+            id_row = next(row for row in rows if row[2] == 'N9ID')
             assert completed[6] == '5.0' and completed[5] == 'Net'
             assert completed[4] == 'Friendly Room C (M17-123-C)'
             assert active[6] is None and active[5] == 'Net'
             assert active[4] == 'New Room A (M17-456-A)'
+            assert sponsor_row[4] == 'Sponsor Room A (M17-321-A)'
+            assert id_row[4] == 'M17-322 (M17-322-A)'
             inactive_rows = json.loads(subprocess.run(
                 ['php', '-r', php_check, str(ROOT / 'dashboard/dvswitch-m17-activity.php'),
-                 str(log), str(history), str(root / 'missing-heartbeat')],
+                 str(log), str(history), str(root / 'missing-heartbeat'), str(catalog)],
                 check=True, capture_output=True, text=True).stdout)
             assert not any(row[2] == 'K1XYZ' for row in inactive_rows)
     assert 'ensureM17Activity' not in layout and 'refreshM17Activity' not in layout

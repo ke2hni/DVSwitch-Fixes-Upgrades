@@ -1,11 +1,12 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.5
+// Version: 1.0.6
+// Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — recover null legacy history labels from sponsor, then reflector ID.
 // Updated: 2026-11-18T21:49:00-05:00 by KE2HNI — preserve the initial M17 target for older events without prior history.
 // Created: 2026-11-09T23:33:00-05:00 by KE2HNI
 
 /** Read active and completed USRP2M17 voice events as rows compatible with DVSwitch history. */
-function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath = null)
+function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath = null, $catalogPath = null)
 {
     if ($paths === null) {
         $paths = glob('/var/log/usrp2m17/USRP2M17*.log') ?: array();
@@ -20,7 +21,12 @@ function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath
         foreach ((array)file($historyPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
             $fields = explode("\t", $line, 3);
             if (count($fields) === 3 && ctype_digit($fields[0]) && $fields[1] !== '') {
-                $history[] = array((int)$fields[0], $fields[1], trim($fields[2]));
+                $reflector = trim($fields[1]);
+                $friendly = trim($fields[2]);
+                if (!dvsM17ActivityHistoryLabelIsValid($friendly, $reflector)) {
+                    $friendly = dvsM17ActivityCatalogLabel($reflector, $catalogPath);
+                }
+                $history[] = array((int)$fields[0], $reflector, $friendly);
             }
         }
     }
@@ -98,6 +104,41 @@ function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath
         return $time !== 0 ? $time : ($right['sequence'] <=> $left['sequence']);
     });
     return array_map(function ($event) { return $event['row']; }, $events);
+}
+
+/** A literal JSON-style null must never become the displayed reflector name. */
+function dvsM17ActivityHistoryLabelIsValid($label, $reflector)
+{
+    $label = trim((string)$label);
+    if ($label === '' || strtolower($label) === 'null') { return false; }
+    if (preg_match('/^([A-Za-z0-9_-]+)-([A-Z0-9])$/', trim((string)$reflector), $match)) {
+        $module = $match[2];
+        if (strtolower($label) === 'null '.$module || strtoupper($label) === $module
+            || $label === $match[1].' '.$module) { return false; }
+    }
+    return true;
+}
+
+/** Resolve legacy null history with catalog name, sponsor, or the reflector designator. */
+function dvsM17ActivityCatalogLabel($reflector, $catalogPath = null)
+{
+    if (!preg_match('/^([A-Za-z0-9_-]+)-([A-Z0-9])$/', trim((string)$reflector), $match)) {
+        return trim((string)$reflector);
+    }
+    $designator = $match[1];
+    $module = $match[2];
+    if ($catalogPath === null) { $catalogPath = '/var/lib/mmdvm/M17Hosts.json'; }
+    $catalog = is_string($catalogPath) && is_readable($catalogPath)
+        ? json_decode((string)file_get_contents($catalogPath), true) : array();
+    foreach (($catalog['reflectors'] ?? array()) as $row) {
+        if (!is_array($row) || ($row['designator'] ?? '') !== $designator) { continue; }
+        foreach (array('name', 'sponsor') as $field) {
+            $label = is_string($row[$field] ?? null) ? trim($row[$field]) : '';
+            if ($label !== '' && strtolower($label) !== 'null') { return $label.' '.$module; }
+        }
+        break;
+    }
+    return $designator;
 }
 
 /** Add M17 network and local events, retaining the newest entry per caller/source. */

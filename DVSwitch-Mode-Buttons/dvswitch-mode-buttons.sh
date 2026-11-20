@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test95
+# Version: 1.0.0-test96
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
+# Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — use M17 sponsor when catalog name is null; fall back to reflector ID.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — bump installer for alphabetical mode button display.
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — optionally import standalone M17 favorites when first installing shared controls.
 # Updated: 2026-11-12T17:30:00-05:00 by KE2HNI — add final-node-removal cleanup that leaves shared dashboard PHP and bridge files for archival/removal.
 # Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — widen the shared target field to show 12 characters without clipping.
 set -Eeuo pipefail
 
-VERSION="1.0.0-test95"
+VERSION="1.0.0-test96"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -474,7 +475,8 @@ if (isset($_GET['targetNames'])) {
             foreach ($database['reflectors'] as $row) {
                 if (!is_array($row) || !isset($row['designator'], $row['modules']) || !is_array($row['modules'])) continue;
                 $designator = trim((string)$row['designator']);
-                $name = isset($row['name']) && is_string($row['name']) ? trim($row['name']) : $designator;
+                $name = isset($row['name']) && is_string($row['name']) && trim($row['name']) !== '' && strtolower(trim($row['name'])) !== 'null' ? trim($row['name']) : '';
+                if ($name === '') { $name = isset($row['sponsor']) && is_string($row['sponsor']) && trim($row['sponsor']) !== '' && strtolower(trim($row['sponsor'])) !== 'null' ? trim($row['sponsor']) : ''; }
                 $enabledModes = isset($row['enabled_modes']) && is_array($row['enabled_modes']) ? array_map('strtoupper', array_filter($row['enabled_modes'], 'is_string')) : array();
                 foreach ($row['modules'] as $module) {
                     $moduleMode = '';
@@ -488,7 +490,7 @@ if (isset($_GET['targetNames'])) {
                     $module = strtoupper(trim((string)$module));
                     $target = $designator.'-'.$module;
                     if (preg_match('/^[A-Za-z0-9_-]{1,30}$/', $designator) && preg_match('/^[A-Z0-9]$/', $module))
-                        $names[$target] = preg_replace('/\\s+/u', ' ', $name).' '.$module;
+                        $names[$target] = $name !== '' ? preg_replace('/\\s+/u', ' ', $name).' '.$module : $designator;
                 }
             }
         }

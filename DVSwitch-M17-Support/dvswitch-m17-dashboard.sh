@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.6
+# Version: 1.1.7
+# Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — use sponsor fallback for null M17 catalog names in history and seeded favorites.
 # Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — make reflector history readable to the dashboard during install and upgrade.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — restart the RX monitor after upgrades so the heartbeat code is loaded.
 # Updated: 2026-11-17T15:05:00-05:00 by KE2HNI — install reflector IDs and the M17-only Gateway Activity panel.
@@ -253,6 +254,13 @@ python3 "$CATALOG_UPDATE"
 python3 - /var/lib/mmdvm/M17Hosts.json /etc/USRP2M17.ini /var/lib/dvswitch-m17-dashboard/reflector-history.tsv <<'PY_CURRENT'
 import configparser, json, os, re, sys, time
 from pathlib import Path
+def usable_label(value):
+    if not isinstance(value,str): return None
+    value=value.strip()
+    return value if value and value.casefold()!='null' else None
+def catalog_label(row,designator,module):
+    label=usable_label(row.get('name')) or usable_label(row.get('sponsor'))
+    return f'{label} {module}' if label else designator
 catalog_path, config_path, history_path = map(Path, sys.argv[1:])
 if not history_path.exists() or not history_path.stat().st_size:
     catalog=json.loads(catalog_path.read_text(encoding='utf-8'))
@@ -275,10 +283,10 @@ if not history_path.exists() or not history_path.stat().st_size:
                 else: continue
                 if re.fullmatch(r'[A-Z0-9]',module) and module not in modules: modules.append(module)
             if desired_module not in modules: break
-            friendly=row.get('name') if isinstance(row.get('name'),str) else designator
+            friendly=catalog_label(row,designator,desired_module)
             history_path.parent.mkdir(mode=0o755,parents=True,exist_ok=True)
             with history_path.open('a',encoding='utf-8') as history:
-                history.write(f"{int(time.time())}\t{designator}-{desired_module}\t{friendly.strip()} {desired_module}\n")
+                history.write(f"{int(time.time())}\t{designator}-{desired_module}\t{friendly.strip()}\n")
             break
 if history_path.is_file() and not history_path.is_symlink():
     os.chmod(history_path, 0o644)
@@ -292,6 +300,13 @@ python3 - /var/lib/mmdvm/M17Hosts.json "$M17_FAVORITES" /var/lib/dvswitch-m17-da
 import json, os, re, sys, tempfile
 import ipaddress
 from pathlib import Path
+def usable_label(value):
+    if not isinstance(value,str): return None
+    value=value.strip()
+    return value if value and value.casefold()!='null' else None
+def catalog_label(row,designator,module):
+    label=usable_label(row.get('name')) or usable_label(row.get('sponsor'))
+    return f'{label} {module}' if label else designator
 catalog,favorites,marker=map(Path,sys.argv[1:])
 if not marker.exists():
     data=json.loads(catalog.read_text(encoding='utf-8'))
@@ -319,8 +334,8 @@ if not marker.exists():
             modules=supported
             if not modules: continue
             module='A' if 'A' in modules else modules[0]
-            name=row.get('name') if isinstance(row.get('name'),str) and row['name'].strip() else designator
-            items.append({'name':(name.strip()+' '+module)[:35],'target':designator+'-'+module})
+            name=catalog_label(row,designator,module)
+            items.append({'name':name[:35],'target':designator+'-'+module})
         saved['M17']=sorted(items,key=lambda item:(item['name'].casefold(),item['target'].casefold()))[:250]
     fd,tmp=tempfile.mkstemp(dir=favorites.parent)
     with os.fdopen(fd,'w',encoding='utf-8') as output: json.dump(saved,output,ensure_ascii=False,indent=2); output.write('\n')
