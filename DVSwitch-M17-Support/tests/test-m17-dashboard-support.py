@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.18
+# Version: 1.2.19
+# Updated: 2026-11-21T16:00:00-05:00 by KE2HNI — expect the active event to use the reflector selection effective at its 23:04 start.
 # Updated: 2026-11-21T15:50:00-05:00 by KE2HNI — verify remote M17 callsign is retained when the end record logs AE5ME.
 # Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — verify separately installed catalog selector and module controls.
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — verify name/sponsor/designator fallback in selector, favorites, and activity history.
@@ -377,7 +378,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
             assert paired_mismatch[6] == '5.0' and paired_mismatch[5] == 'Net'
             assert completed[4] == 'Friendly Room C (M17-123-C)'
             assert active[6] is None and active[5] == 'Net'
-            assert active[4] == 'New Room A (M17-456-A)'
+            assert active[4] == 'M17-322 (M17-322-A)'
             assert sponsor_row[4] == 'Sponsor Room A (M17-321-A)'
             assert id_row[4] == 'M17-322 (M17-322-A)'
             inactive_rows = json.loads(subprocess.run(
