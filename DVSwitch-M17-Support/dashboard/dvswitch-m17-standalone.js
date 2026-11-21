@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
- * Version: 1.0.1 — Created 2026-11-11T11:30:00-05:00 by KE2HNI.
+ * Version: 1.0.2 — Created 2026-11-11T11:30:00-05:00 by KE2HNI.
+ * Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — separate reflector catalog and module selection from editable favorites.
  * Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — show 12 characters in the M17 reflector field.
  * Supplies M17 dashboard controls when the optional shared Mode Buttons component is absent.
  */
@@ -15,9 +16,9 @@
   var section = document.createElement('section');
   section.id = 'dvs-m17-standalone';
   section.setAttribute('aria-label', 'M17 mode and reflector controls');
-  section.innerHTML = '<div class="dvs-m17-title">Select Mode</div><button type="button" class="button link dvs-m17-mode">M17</button><div class="dvs-m17-controls"><strong>Favorites</strong><select class="dvs-m17-list" aria-label="M17 reflector favorites"><option value="">Select favorite</option></select><button type="button" class="button link dvs-m17-edit">Edit</button><form class="dvs-m17-tune"><input type="text" maxlength="35" placeholder="M17-001-A" aria-label="M17 reflector and module"><button type="submit" class="button link">Tune</button><button type="button" class="button link dvs-m17-add">+ Favorite</button></form><span class="dvs-m17-message" role="status" aria-live="polite"></span></div><dialog class="dvs-m17-dialog"><h3>Edit M17 Favorites</h3><div class="dvs-m17-rows"></div><button type="button" class="button link dvs-m17-new">Add Favorite</button> <button type="button" class="button link dvs-m17-save">Save</button> <button type="button" class="button link dvs-m17-close">Cancel / Close</button><p class="dvs-m17-edit-message" role="status"></p></dialog>';
+  section.innerHTML = '<div class="dvs-m17-title">Select Mode</div><button type="button" class="button link dvs-m17-mode">M17</button><div class="dvs-m17-controls"><span class="dvs-m17-catalog-controls"><select class="dvs-m17-catalog-reflector" aria-label="M17 reflector from catalog"><option value="">M17 reflectors</option></select><select class="dvs-m17-catalog-module" aria-label="M17 reflector module" disabled><option value="">Module</option></select></span><strong>Favorites</strong><select class="dvs-m17-list" aria-label="M17 reflector favorites"><option value="">Select favorite</option></select><button type="button" class="button link dvs-m17-edit">Edit</button><form class="dvs-m17-tune"><input type="text" maxlength="35" placeholder="M17-001-A" aria-label="M17 reflector and module"><button type="submit" class="button link">Tune</button><button type="button" class="button link dvs-m17-add">+ Favorite</button></form><span class="dvs-m17-message" role="status" aria-live="polite"></span></div><dialog class="dvs-m17-dialog"><h3>Edit M17 Favorites</h3><div class="dvs-m17-rows"></div><button type="button" class="button link dvs-m17-new">Add Favorite</button> <button type="button" class="button link dvs-m17-save">Save</button> <button type="button" class="button link dvs-m17-close">Cancel / Close</button><p class="dvs-m17-edit-message" role="status"></p></dialog>';
   var style = document.createElement('style');
-  style.textContent = '#dvs-m17-standalone{text-align:center;margin:4px auto 8px}#dvs-m17-standalone .dvs-m17-title{font-weight:bold;margin-bottom:3px}#dvs-m17-standalone button{min-width:72px;height:32px;padding:4px 10px}#dvs-m17-standalone .dvs-m17-mode.selected{background:#008000}#dvs-m17-standalone .dvs-m17-controls{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px}#dvs-m17-standalone select,#dvs-m17-standalone input{box-sizing:border-box;height:32px;padding:4px 8px}#dvs-m17-standalone select{width:min(260px,25vw)}#dvs-m17-standalone input{width:calc(12ch + 18px)}#dvs-m17-standalone form{display:inline-flex;gap:6px;margin:0}#dvs-m17-standalone .dvs-m17-message{font-size:12px}#dvs-m17-standalone dialog{max-width:min(700px,94vw);max-height:80vh;overflow:auto;background:#111827;color:inherit;border:1px solid #8795a8;border-radius:8px}#dvs-m17-standalone .dvs-m17-row{display:flex;gap:6px;margin:5px;justify-content:center}#dvs-m17-standalone .dvs-m17-row input:first-child{width:min(35ch,45vw)}@media(max-width:600px){#dvs-m17-standalone .dvs-m17-controls{gap:4px}#dvs-m17-standalone select{width:36vw}}';
+  style.textContent = '#dvs-m17-standalone{text-align:center;margin:4px auto 8px}#dvs-m17-standalone .dvs-m17-title{font-weight:bold;margin-bottom:3px}#dvs-m17-standalone button{min-width:72px;height:32px;padding:4px 10px}#dvs-m17-standalone .dvs-m17-mode.selected{background:#008000}#dvs-m17-standalone .dvs-m17-controls{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px}#dvs-m17-standalone select,#dvs-m17-standalone input{box-sizing:border-box;height:32px;padding:4px 8px}#dvs-m17-standalone select{width:min(260px,25vw)}#dvs-m17-standalone .dvs-m17-catalog-controls{display:inline-flex;align-items:center;gap:4px}#dvs-m17-standalone .dvs-m17-catalog-reflector{width:min(220px,20vw)}#dvs-m17-standalone .dvs-m17-catalog-module{width:78px}#dvs-m17-standalone input{width:calc(12ch + 18px)}#dvs-m17-standalone form{display:inline-flex;gap:6px;margin:0}#dvs-m17-standalone .dvs-m17-message{font-size:12px}#dvs-m17-standalone dialog{max-width:min(700px,94vw);max-height:80vh;overflow:auto;background:#111827;color:inherit;border:1px solid #8795a8;border-radius:8px}#dvs-m17-standalone .dvs-m17-row{display:flex;gap:6px;margin:5px;justify-content:center}#dvs-m17-standalone .dvs-m17-row input:first-child{width:min(35ch,45vw)}@media(max-width:600px){#dvs-m17-standalone .dvs-m17-controls{gap:4px}#dvs-m17-standalone select{width:36vw}#dvs-m17-standalone .dvs-m17-catalog-reflector{width:30vw}#dvs-m17-standalone .dvs-m17-catalog-module{width:68px}}';
   document.head.appendChild(style);
   host.parentNode.insertBefore(section, host);
 
@@ -26,6 +27,39 @@
   var form = section.querySelector('.dvs-m17-tune');
   var input = form.querySelector('input');
   var message = section.querySelector('.dvs-m17-message');
+  var catalog = section.querySelector('.dvs-m17-catalog-reflector');
+  var catalogModule = section.querySelector('.dvs-m17-catalog-module');
+  var rxButton = Array.from(document.querySelectorAll('button')).find(function (button) {
+    return button.textContent.replace(/\s+/g, ' ').trim().includes('RX Monitor');
+  });
+  if (rxButton) {
+    var oldRxParent = rxButton.parentElement;
+    section.querySelector('.dvs-m17-controls').insertBefore(rxButton, section.querySelector('.dvs-m17-controls').firstChild);
+    if (oldRxParent && oldRxParent !== section.querySelector('.dvs-m17-controls') && oldRxParent.tagName === 'DIV' && !oldRxParent.textContent.trim()) oldRxParent.remove();
+  }
+  fetch('/dvswitch/dvswitch-m17-dashboard.php?catalog=1', {cache: 'no-store'})
+    .then(function (response) { return response.json().then(function (data) { if (!response.ok || !data.ok) throw new Error(data.error || 'M17 catalog unavailable.'); return data; }); })
+    .then(function (data) {
+      data.reflectors.forEach(function (row) {
+        var option = new Option(row.name + ' (' + row.designator + ')', row.designator);
+        option._m17Row = row;
+        catalog.appendChild(option);
+      });
+    })
+    .catch(function (error) { catalog.title = error.message; });
+  catalog.addEventListener('change', function () {
+    var row = catalog.selectedOptions[0] && catalog.selectedOptions[0]._m17Row;
+    catalogModule.replaceChildren(new Option('Module', ''));
+    catalogModule.disabled = !row;
+    if (!row) return;
+    row.modules.forEach(function (value) { catalogModule.appendChild(new Option(value, value)); });
+    catalogModule.value = row.modules.includes('A') ? 'A' : row.modules[0];
+    input.value = row.designator + '-' + catalogModule.value;
+  });
+  catalogModule.addEventListener('change', function () {
+    var row = catalog.selectedOptions[0] && catalog.selectedOptions[0]._m17Row;
+    if (row && this.value) input.value = row.designator + '-' + this.value;
+  });
   var dialog = section.querySelector('dialog');
   var rows = section.querySelector('.dvs-m17-rows');
   var editing = [];

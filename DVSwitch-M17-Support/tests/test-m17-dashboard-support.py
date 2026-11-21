@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Version: 1.2.17
+# Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — verify separately installed catalog selector and module controls.
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — verify name/sponsor/designator fallback in selector, favorites, and activity history.
 # Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — test Apache-readable reflector history on install and after reflector changes.
 # Updated: 2026-11-18T22:45:00-05:00 by KE2HNI — verify M17 target-field sizing without changing unrelated card layout.
@@ -290,7 +291,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
         assert 'RX M17' in lh.read_text() and 'Gateway Activity receive indicator v1' in lh.read_text()
         # Accept the installer's cache-busted layout tag as well as the unversioned form.
         assert re.search(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?">', index.read_text())
-        assert '<script src="/dvswitch/dvswitch-m17-standalone.js?v=1.0.1"></script>' in index.read_text()
+        assert '<script src="/dvswitch/dvswitch-m17-standalone.js?v=1.0.2"></script>' in index.read_text()
         subprocess.run(['python3', '-c', blocks['PY_UNINSTALL'], str(functions), str(status), str(localtx), str(index), str(lh)], check=True)
         assert 'dvsM17MergeActivity' not in functions.read_text()
         assert 'dvsM17ShowNetCard' not in status.read_text()

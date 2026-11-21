@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.7
+# Version: 1.1.8
+# Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — expose separate M17 catalog reflector and module controls.
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — use sponsor fallback for null M17 catalog names in history and seeded favorites.
 # Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — make reflector history readable to the dashboard during install and upgrade.
 # Updated: 2026-11-17T13:47:19-05:00 by KE2HNI — restart the RX monitor after upgrades so the heartbeat code is loaded.
@@ -228,14 +229,14 @@ for path in (functions,status,localtx,index,lh):
             text=text.replace('$counter = 0;',marker+'\n$counter = 0;',1)
         elif text.count(marker)!=1: raise SystemExit('ERROR: duplicate M17 Local Activity markers.')
     else:
-        layout_tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.3.0"></script>'
+        layout_tag='<script src="/dvswitch/dvswitch-m17-layout.js?v=1.3.1"></script>'
         old_layout=re.findall(r'<script src="/dvswitch/dvswitch-m17-layout\.js(?:\?[^\"]*)?"></script>',text)
         if len(old_layout)>1: raise SystemExit('ERROR: duplicate M17 layout script tags.')
         if old_layout: text=text.replace(old_layout[0],layout_tag,1)
         else:
             if text.count('</body>')!=1: raise SystemExit('ERROR: index.php body ending is missing or ambiguous.')
             text=text.replace('</body>',layout_tag+'\n</body>',1)
-        standalone_tag='<script src="/dvswitch/dvswitch-m17-standalone.js?v=1.0.1"></script>'
+        standalone_tag='<script src="/dvswitch/dvswitch-m17-standalone.js?v=1.0.2"></script>'
         standalone_refs=re.findall(r'<script src="/dvswitch/dvswitch-m17-standalone\.js(?:\?[^"]*)?"></script>',text)
         if len(standalone_refs)>1: raise SystemExit('ERROR: duplicate M17 standalone script tags.')
         if standalone_refs:

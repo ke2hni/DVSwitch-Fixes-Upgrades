@@ -1,5 +1,6 @@
-/* DVSwitch M17 dashboard layout v1.3.0
+/* DVSwitch M17 dashboard layout v1.3.1
  * Created: 2026-11-10T21:35:00-05:00 by KE2HNI
+ * Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — add separate M17 catalog and module selectors beside the moved RX Monitor.
  * Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — show RX M17 in TRX Info while M17 USRP audio is arriving.
  * Updated: 2026-11-17T23:02:59-05:00 by KE2HNI — remove legacy M17 activity panel left by cached dashboard layouts.
  * Updated: 2026-11-10T22:25:00-05:00 by KE2HNI — replace cards on live refresh and restore status-panel frames.
@@ -231,7 +232,67 @@
     }).catch(function () {});
   }
 
+  function ensureM17CatalogControls() {
+    var root = document.getElementById('dvs-favorites');
+    var line = root && root.querySelector('.dvs-favorites-control-line');
+    var rxButton = line && line.querySelector('.dvs-rx-monitor-inline');
+    if (!line || !rxButton) return;
+    var controls = line.querySelector('.dvs-m17-catalog-controls');
+    if (!controls) {
+      controls = document.createElement('span');
+      controls.className = 'dvs-m17-catalog-controls';
+      controls.setAttribute('aria-label', 'M17 reflector catalog');
+      controls.innerHTML = '<select class="dvs-m17-catalog-reflector" aria-label="M17 reflector from catalog"><option value="">M17 reflectors</option></select><select class="dvs-m17-catalog-module" aria-label="M17 reflector module" disabled><option value="">Module</option></select>';
+      line.insertBefore(controls, rxButton.nextSibling);
+      var style = document.createElement('style');
+      style.id = 'dvs-m17-catalog-controls-style';
+      style.textContent = '.dvs-m17-catalog-controls{display:inline-flex;align-items:center;gap:4px;margin-right:2px}.dvs-m17-catalog-controls select{box-sizing:border-box;height:32px;padding:4px 6px}.dvs-m17-catalog-reflector{width:min(220px,20vw)}.dvs-m17-catalog-module{width:78px}.dvs-m17-catalog-controls select:disabled{opacity:.65}@media(max-width:600px){.dvs-m17-catalog-reflector{width:30vw}.dvs-m17-catalog-module{width:68px}}';
+      document.head.appendChild(style);
+      loadM17Catalog(controls);
+      controls.querySelector('.dvs-m17-catalog-reflector').addEventListener('change', function () {
+        var reflector = controls.querySelector('.dvs-m17-catalog-reflector');
+        var moduleSelect = controls.querySelector('.dvs-m17-catalog-module');
+        var row = reflector.selectedOptions[0] && reflector.selectedOptions[0]._m17Row;
+        moduleSelect.replaceChildren(new Option('Module', ''));
+        moduleSelect.disabled = !row;
+        if (!row) return;
+        row.modules.forEach(function (module) { moduleSelect.appendChild(new Option(module, module)); });
+        moduleSelect.value = row.modules.includes('A') ? 'A' : row.modules[0];
+        setM17CatalogTarget(row.designator, moduleSelect.value);
+      });
+      controls.querySelector('.dvs-m17-catalog-module').addEventListener('change', function () {
+        var row = controls.querySelector('.dvs-m17-catalog-reflector').selectedOptions[0]._m17Row;
+        if (row && this.value) setM17CatalogTarget(row.designator, this.value);
+      });
+    }
+    var selected = isM17ModeSelected('');
+    controls.hidden = !selected;
+    controls.style.display = selected ? 'inline-flex' : 'none';
+  }
+
+  function loadM17Catalog(controls) {
+    fetch('/dvswitch/dvswitch-m17-dashboard.php?catalog=1', {cache: 'no-store'}).then(function (response) {
+      return response.json().then(function (data) { if (!response.ok || !data.ok) throw new Error(data.error || 'M17 catalog unavailable.'); return data; });
+    }).then(function (data) {
+      var select = controls.querySelector('.dvs-m17-catalog-reflector');
+      data.reflectors.forEach(function (row) {
+        var option = new Option(row.name + ' (' + row.designator + ')', row.designator);
+        option._m17Row = row;
+        select.appendChild(option);
+      });
+    }).catch(function (error) { controls.querySelector('.dvs-m17-catalog-reflector').title = error.message; });
+  }
+
+  function setM17CatalogTarget(designator, module) {
+    var input = document.getElementById('dvs-target-input');
+    if (input) {
+      input.value = designator + '-' + module;
+      input.dispatchEvent(new Event('input', {bubbles: true}));
+    }
+  }
+
   function updateRxMonitorLabel() {
+    ensureM17CatalogControls();
     var rx = Array.from(document.querySelectorAll('button')).find(function (button) {
       return /(?:M17 )?RX Monitor/.test(button.textContent.replace(/\s+/g, ' ').trim());
     });
