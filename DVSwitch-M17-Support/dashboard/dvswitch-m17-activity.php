@@ -1,6 +1,7 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.7
+// Version: 1.0.8
+// Updated: 2026-11-21T16:10:00-05:00 by KE2HNI — detect legacy null-module history labels case-insensitively before catalog fallback.
 // Updated: 2026-11-21T15:45:00-05:00 by KE2HNI — pair M17 end records with their start callsign because USRP2M17 logs the reflector callsign on end.
 // Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — recover null legacy history labels from sponsor, then reflector ID.
 // Updated: 2026-11-18T21:49:00-05:00 by KE2HNI — preserve the initial M17 target for older events without prior history.
@@ -121,7 +122,7 @@ function dvsM17ActivityHistoryLabelIsValid($label, $reflector)
     if ($label === '' || strtolower($label) === 'null') { return false; }
     if (preg_match('/^([A-Za-z0-9_-]+)-([A-Z0-9])$/', trim((string)$reflector), $match)) {
         $module = $match[2];
-        if (strtolower($label) === 'null '.$module || strtoupper($label) === $module
+        if (strtolower($label) === 'null '.strtolower($module) || strtoupper($label) === $module
             || $label === $match[1].' '.$module) { return false; }
     }
     return true;
