@@ -1,6 +1,7 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.6
+// Version: 1.0.7
+// Updated: 2026-11-21T15:45:00-05:00 by KE2HNI — pair M17 end records with their start callsign because USRP2M17 logs the reflector callsign on end.
 // Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — recover null legacy history labels from sponsor, then reflector ID.
 // Updated: 2026-11-18T21:49:00-05:00 by KE2HNI — preserve the initial M17 target for older events without prior history.
 // Created: 2026-11-09T23:33:00-05:00 by KE2HNI
@@ -87,9 +88,16 @@ function dvsM17ActivityRows($paths = null, $historyPath = null, $rxHeartbeatPath
                 $open[$match[3]] = array('row' => $row, 'epoch' => $epoch, 'sequence' => $sequence++);
                 continue;
             }
+
+            // The end record's callsign can be the reflector/gateway callsign (for example,
+            // AE5ME), while the start record contains the actual remote caller. Pair by the
+            // M17 or USRP stream and keep the start row's caller, time, and selected reflector.
+            if (isset($open[$match[3]])) {
+                $row = $open[$match[3]]['row'];
+                unset($open[$match[3]]);
+            }
             $row[6] = number_format((float)($match[6] ?? 0), 1, '.', '');
             $events[] = array('row' => $row, 'sequence' => $sequence++);
-            unset($open[$match[3]]);
         }
     }
 

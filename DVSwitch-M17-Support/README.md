@@ -1,6 +1,6 @@
 # DVSwitch M17 Private-Node Switching Support
 
-<!-- Version: 1.6.9; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — document separate M17 catalog and module selectors. -->
+<!-- Version: 1.7.0; Created: 2026-11-09T00:41:12-05:00 by KE2HNI; Updated: 2026-11-21T15:45:00-05:00 by KE2HNI — document matching completed M17 activity to the callsign from its start event. -->
 
 This component provides two commands for an ASL node that has an M17 USRP private-node stanza and DVSwitch's Analog_Bridge private-node stanza:
 
@@ -29,7 +29,7 @@ M17 reflector labels use the catalog `name` when it contains a usable value. If 
 
 The install-state directory is set to mode `0755` so Apache can test whether M17 dashboard support is installed and show the M17 mode button in the shared toolbar. The install-state file remains root-only (`0600`). When the shared toolbar is absent, the M17-owned dashboard script renders a standalone M17 control row instead.
 
-In M17 mode, Analog Bridge Info displays the reflector/module identifier (for example `M17-404-A`), and the M17 Net card shows that identifier together with the catalog friendly name. Its friendly name uses the same copper text color as other network cards in dark mode. M17 activity stays in the main Gateway Activity table alongside the other modes, with targets formatted as `Friendly Name (M17-404-A)`, live callsigns shown as `RX M17`, and completed durations replacing the live indicator for that callsign. Each event uses the newest reflector selection recorded at or before that event; later tuning does not relabel older rows. If an event predates the saved history, it uses the first recorded reflector rather than changing to the current selection. The older dedicated M17 Gateway Activity panel is removed during layout startup.
+In M17 mode, Analog Bridge Info displays the reflector/module identifier (for example `M17-404-A`), and the M17 Net card shows that identifier together with the catalog friendly name. Its friendly name uses the same copper text color as other network cards in dark mode. M17 activity stays in the main Gateway Activity table alongside the other modes, with targets formatted as `Friendly Name (M17-404-A)`, live callsigns shown as `RX M17`, and completed durations replacing the live indicator for that callsign. Each event uses the reflector selection recorded at its start; the end log entry supplies its duration and closes the same M17 or USRP stream, while the start entry supplies the caller callsign and timestamp. This handles USRP2M17 logs where the end line reports the reflector/gateway callsign (such as AE5ME), not the remote caller. Later tuning does not relabel older rows. If an event predates the saved history, it uses the first recorded reflector rather than changing to the current selection. The older dedicated M17 Gateway Activity panel is removed during layout startup.
 
 The M17 reflector history is readable by Apache so Gateway Activity can resolve each event to `Friendly Name (Reflector-ID)`. The installer corrects permissions on existing history files during upgrade, and reflector changes keep newly appended history readable. Without readable history, activity rows fall back to the generic `M17 reflector` label.
 

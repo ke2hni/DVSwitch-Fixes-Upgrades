@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.17
+# Version: 1.2.18
+# Updated: 2026-11-21T15:50:00-05:00 by KE2HNI — verify remote M17 callsign is retained when the end record logs AE5ME.
 # Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — verify separately installed catalog selector and module controls.
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — verify name/sponsor/designator fallback in selector, favorites, and activity history.
 # Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — test Apache-readable reflector history on install and after reflector changes.
@@ -345,11 +346,13 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
             log.write_text(
                 'M: 2026-11-17 23:00:00.000 M17 received start of voice transmission from N0ABC\n'
                 'M: 2026-11-17 23:00:05.000 M17 received end of voice transmission from N0ABC, 5.0 seconds\n'
-                'M: 2026-11-17 23:01:00.000 M17 received start of voice transmission from K1XYZ\n'
+                'M: 2026-11-17 23:01:00.000 M17 received start of voice transmission from W9NJP\n'
+                'M: 2026-11-17 23:01:05.000 M17 received end of voice transmission from AE5ME, 5.0 seconds\n'
                 'M: 2026-11-17 23:02:00.000 M17 received start of voice transmission from N9SUP\n'
                 'M: 2026-11-17 23:02:05.000 M17 received end of voice transmission from N9SUP, 5.0 seconds\n'
                 'M: 2026-11-17 23:03:00.000 M17 received start of voice transmission from N9ID\n'
-                'M: 2026-11-17 23:03:05.000 M17 received end of voice transmission from N9ID, 5.0 seconds\n',
+                'M: 2026-11-17 23:03:05.000 M17 received end of voice transmission from N9ID, 5.0 seconds\n'
+                'M: 2026-11-17 23:04:00.000 M17 received start of voice transmission from K1XYZ\n',
                 encoding='utf-8')
             old_selection = int(datetime(2026, 11, 17, 23, 0, 10, tzinfo=timezone.utc).timestamp())
             new_selection = int(datetime(2026, 11, 17, 23, 0, 30, tzinfo=timezone.utc).timestamp())
@@ -366,10 +369,12 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
                 ['php', '-r', php_check, str(ROOT / 'dashboard/dvswitch-m17-activity.php'),
                  str(log), str(history), str(heartbeat), str(catalog)], check=True, capture_output=True, text=True).stdout)
             completed = next(row for row in rows if row[2] == 'N0ABC')
+            paired_mismatch = next(row for row in rows if row[2] == 'W9NJP')
             active = next(row for row in rows if row[2] == 'K1XYZ')
             sponsor_row = next(row for row in rows if row[2] == 'N9SUP')
             id_row = next(row for row in rows if row[2] == 'N9ID')
             assert completed[6] == '5.0' and completed[5] == 'Net'
+            assert paired_mismatch[6] == '5.0' and paired_mismatch[5] == 'Net'
             assert completed[4] == 'Friendly Room C (M17-123-C)'
             assert active[6] is None and active[5] == 'Net'
             assert active[4] == 'New Room A (M17-456-A)'
