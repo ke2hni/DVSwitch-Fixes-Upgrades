@@ -1,10 +1,11 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.2.18
+# Version: 1.2.19
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — make M17 dashboard option 9 independent of Mode Buttons.
 # Updated: 2026-11-15T12:00:00+00:00 by KE2HNI — require private-node duplex safety checks before install actions.
+# Updated: 2026-11-21T21:56:50-05:00 by KE2HNI — group ASL and M17 options and show the M17 installation order.
 
 # Repository-wide front end. Existing repair/modification files remain the
 # authoritative installers and validators; this manager selects and records
@@ -13,7 +14,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SCRIPT_VERSION="1.2.18"
+readonly SCRIPT_VERSION="1.2.19"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly STATE_DIR="/var/lib/dvswitch-mods/manager"
 readonly STATE_FILE="$STATE_DIR/active-installs.tsv"
@@ -189,10 +190,14 @@ show_menu() {
         "3) Install/launch the Dark Mode dashboard installer" \
         "4) Install/launch the Widescreen Display Layout installer" \
         "5) Uninstall all manager-recorded standard components" \
+        "" \
+        "===== ASL DASHBOARD CONTROL =====" \
         "6) Install ASL 3 Support" \
+        "" \
+        "===== M17 SUPPORT =====" \
         "7) Install M17 private-node switch commands" \
-        "8) Install/configure or uninstall the USRP2M17 M17 bridge" \
-        "9) Install or remove M17 dashboard support" \
+        "8) Install/configure or uninstall the USRP2M17 M17 bridge (after option 7)" \
+        "9) Install or remove M17 dashboard support (after options 7 and 8)" \
         "0) Exit" \
         ""
     printf 'Choose an option [0/1/2/3/4/5/6/7/8/9]: '

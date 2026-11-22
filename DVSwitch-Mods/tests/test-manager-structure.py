@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# Version: 1.0.6
+# Version: 1.0.7
 # Created: 2026-10-25T18:41:47-04:00 by KE2HNI
 # Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — verify M17 dashboard install does not require Mode Buttons.
+# Updated: 2026-11-21T21:56:50-05:00 by KE2HNI — verify ASL/M17 menu grouping and M17 option order.
 # SPDX-License-Identifier: MIT
 
 """Static safety and coverage checks for the two public managers."""
@@ -78,8 +79,8 @@ def main() -> None:
             '"5) Uninstall all manager-recorded standard components"' in master and
             '"6) Install ASL 3 Support"' in master and
             '"7) Install M17 private-node switch commands"' in master and
-            '"8) Install/configure or uninstall the USRP2M17 M17 bridge"' in master and
-            '"9) Install or remove M17 dashboard support"' in master and
+            '"8) Install/configure or uninstall the USRP2M17 M17 bridge (after option 7)"' in master and
+            '"9) Install or remove M17 dashboard support (after options 7 and 8)"' in master and
             '2) run_mode_buttons_installer ;;' in master and
             '5) initialize_state; uninstall_requested all ;;' in master and
             'Choose an option [0/1/2/3/4/5/6/7/8/9]:' in master and
@@ -98,6 +99,16 @@ def main() -> None:
             'cd -- "$script_dir"' in master and
             './dvswitch-mode-buttons.sh' in master,
             "combined-repository menu does not launch Mode Buttons or preserve the shifted options")
+    menu_start = master.index('show_menu() {')
+    menu_start = master.index('"DVSwitch-Mods installer menu', menu_start)
+    menu = master[menu_start:master.index("    printf 'Choose an option", menu_start)]
+    require('"===== ASL DASHBOARD CONTROL ====="' in menu and
+            '"===== M17 SUPPORT ====="' in menu and
+            menu.index('"===== ASL DASHBOARD CONTROL ====="') < menu.index('"6) Install ASL 3 Support"') <
+            menu.index('"===== M17 SUPPORT ====="') < menu.index('"7) Install M17 private-node switch commands"') <
+            menu.index('"8) Install/configure or uninstall the USRP2M17 M17 bridge (after option 7)"') <
+            menu.index('"9) Install or remove M17 dashboard support (after options 7 and 8)"'),
+            "ASL/M17 menu sections or dependency order are incorrect")
     require("last_state_line" in master and "remove_last_state_line" in master,
             "recorded LIFO uninstall implementation is missing")
     require('component_is_recorded "$COMPONENT"' in master and
