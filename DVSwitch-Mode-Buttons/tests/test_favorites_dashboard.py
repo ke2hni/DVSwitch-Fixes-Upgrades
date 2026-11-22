@@ -1,5 +1,6 @@
-"""Version: 1.0.9. Verify M17 favorites use their dedicated endpoint and storage."""
+"""Version: 1.1.0. Verify M17 favorites use dedicated storage and checks ignore host ASL state."""
 
+# Updated: 2026-11-22T20:05:00-05:00 by KE2HNI — isolate legacy-ASL check from the host's installed ASL Support files.
 # Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — verify M17 favorite reads and saves are separate from shared favorites.
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — verify valid sponsor and reflector-ID fallbacks for M17 labels.
 # Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — verify the 12-character reflector target fields.
@@ -104,10 +105,11 @@ class FavoritesDashboardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / 'index.php'
             target.write_text(original)
-            result = subprocess.run(['python3', '-c', match.group(1), str(target)], capture_output=True, text=True)
+            prelude = "import os; os.path.isfile=lambda _path: False; exec(compile(%r, '<checker>', 'exec'))" % match.group(1)
+            result = subprocess.run(['python3', '-c', prelude, str(target)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(target.read_text(), original)
-        self.assertIn('legacy ASL button', result.stdout)
+        self.assertIn('NOTICE: legacy ASL button is embedded', result.stdout)
 
     def test_check_recognizes_the_full_asl_support_installation(self):
         match = re.search(r"python3 - \"\$TARGET\" <<'PY_BUTTONS_CHECK'\n(.*?)^PY_BUTTONS_CHECK$", INSTALLER, re.M | re.S)
