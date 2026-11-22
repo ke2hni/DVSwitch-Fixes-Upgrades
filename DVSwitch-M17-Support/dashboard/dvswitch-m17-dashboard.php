@@ -1,6 +1,7 @@
 <?php
 // SPDX-License-Identifier: MIT
-// Version: 1.0.2; Created: 2026-11-11T11:30:00-05:00 by KE2HNI
+// Version: 1.0.3; Created: 2026-11-11T11:30:00-05:00 by KE2HNI
+// Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — read M17 favorites only from the dedicated M17 file.
 // Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — expose catalog reflectors and their selectable M17 modules separately from favorites.
 // Updated: 2026-11-17T09:34:00-05:00 by KE2HNI — report live M17 receive activity and prefer the newest selected-mode state.
 // M17-owned API for dashboard installs that do not include Mode Buttons.
@@ -72,10 +73,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['catalog'])) {
 $favoritesPath = '/etc/dvswitch-m17-dashboard/favorites.json';
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['favorites'])) {
     $saved = is_readable($favoritesPath) ? json_decode((string)file_get_contents($favoritesPath), true) : null;
-    if (!is_array($saved) && is_readable('/etc/dvswitch-mode-buttons/favorites.json')) {
-        $shared = json_decode((string)file_get_contents('/etc/dvswitch-mode-buttons/favorites.json'), true);
-        $saved = is_array($shared) && isset($shared['M17']) && is_array($shared['M17']) ? $shared['M17'] : array();
-    }
     m17Reply(true, array('favorites' => is_array($saved) ? $saved : array()));
 }
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['status'])) {

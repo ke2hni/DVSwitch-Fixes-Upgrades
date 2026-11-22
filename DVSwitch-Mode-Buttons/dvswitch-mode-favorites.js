@@ -1,4 +1,5 @@
-/* Version: 1.1.0 — fit twelve visible target characters after field padding. Updated 2026-11-18T22:25:00-05:00 by KE2HNI. */
+/* Version: 1.2.0 — keep M17 favorites in the dedicated M17 favorites file. Updated 2026-11-21T18:20:00-05:00 by KE2HNI. */
+/* Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — fit twelve visible target characters after field padding. */
 /* Dashboard favorites for DVSwitch Mode Buttons. */
 (function () {
   'use strict';
@@ -58,9 +59,18 @@
       return /^[A-Za-z0-9_-]{1,35}$/.test(target);
     }
 
+    function favoritesEndpoint(mode) {
+      return mode === 'M17'
+        ? '/dvswitch/dvswitch-m17-dashboard.php'
+        : '/dvswitch/dvswitch-mode-buttons.php';
+    }
+
     async function load(mode) {
       if (!validMode(mode)) return [];
-      const response = await fetch('/dvswitch/dvswitch-mode-buttons.php?favorites=' + encodeURIComponent(mode), { cache: 'no-store' });
+      const url = mode === 'M17'
+        ? favoritesEndpoint(mode) + '?favorites=1'
+        : favoritesEndpoint(mode) + '?favorites=' + encodeURIComponent(mode);
+      const response = await fetch(url, { cache: 'no-store' });
       const result = await response.json();
       if (!response.ok || !result.ok || !Array.isArray(result.favorites)) throw new Error(result.error || 'Unable to load favorites.');
       return result.favorites;
@@ -244,9 +254,12 @@
         return byName || left.target.localeCompare(right.target, undefined, { sensitivity: 'base' });
       });
       try {
-        const response = await fetch('/dvswitch/dvswitch-mode-buttons.php', {
+        const isM17 = selector.value === 'M17';
+        const response = await fetch(favoritesEndpoint(selector.value), {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: selector.value, favorites: favorites })
+          body: JSON.stringify(isM17
+            ? { action: 'save', favorites: favorites }
+            : { mode: selector.value, favorites: favorites })
         });
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || 'Unable to save favorites.');

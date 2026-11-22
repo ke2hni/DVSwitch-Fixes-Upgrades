@@ -1,4 +1,6 @@
-"""Version: 1.0.4. Cover M17's larger list and existing per-mode limits."""
+"""Version: 1.0.5. Verify M17 is excluded from the shared favorites helper."""
+
+# Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — M17 writes now use the dedicated M17 helper.
 
 import importlib.machinery
 import importlib.util
@@ -50,13 +52,13 @@ class FavoritesSortTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'invalid mode or favorites list'):
                 favorites.save_favorites('YSF', favorites_101, target)
 
-    def test_m17_allows_250_favorites_but_rejects_251(self):
+    def test_shared_helper_rejects_m17_favorites(self):
         items = [{'name': f'Reflector {index:03}', 'target': f'M17-{index:03}-A'} for index in range(250)]
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / 'favorites.json'
-            self.assertEqual(favorites.save_favorites('M17', items, target), 250)
             with self.assertRaisesRegex(ValueError, 'invalid mode or favorites list'):
-                favorites.save_favorites('M17', items + [{'name': 'Overflow', 'target': 'M17-999-A'}], target)
+                favorites.save_favorites('M17', items, target)
+            self.assertFalse(target.exists())
 
     def test_save_sorts_names_per_mode_and_keeps_targets_attached(self):
         with tempfile.TemporaryDirectory() as directory:

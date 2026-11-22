@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Jeff Milne, KE2HNI
-# Version: 1.1.8
+# Version: 1.1.9
+# Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — migrate M17 favorites to their own file and keep them out of shared mode favorites.
 # Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — expose separate M17 catalog reflector and module controls.
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — use sponsor fallback for null M17 catalog names in history and seeded favorites.
 # Updated: 2026-11-19T18:15:00-05:00 by KE2HNI — make reflector history readable to the dashboard during install and upgrade.
@@ -39,6 +40,7 @@ readonly STANDALONE_TARGET=/usr/share/dvswitch/dvswitch-m17-standalone.js
 readonly ENDPOINT_SOURCE="$DIR/dashboard/dvswitch-m17-dashboard.php"
 readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php
 readonly FAVORITES_HELPER="$DIR/dashboard/dvswitch-m17-favorites.py"
+readonly FAVORITES_MIGRATE="$DIR/dashboard/dvswitch-m17-favorites-migrate.py"
 readonly MODE_HELPER="$DIR/dashboard/dvswitch-m17-dashboard-mode"
 readonly AUDIO_MONITOR_SOURCE="$DIR/dashboard/dvswitch-m17-audio-monitor.py"
 readonly AUDIO_MONITOR=/usr/local/sbin/dvswitch-m17-audio-monitor
@@ -61,13 +63,14 @@ if [[ "$action" == --uninstall ]]; then
   [[ -f "$STATE" ]] || die 'No M17 dashboard installation record exists.'
 else
   [[ -f /etc/USRP2M17.ini ]] || die 'Install USRP2M17 through manager option 8 first.'
-  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$STANDALONE_JS" && -f "$ENDPOINT_SOURCE" && -f "$FAVORITES_HELPER" && -f "$MODE_HELPER" && -f "$AUDIO_MONITOR_SOURCE" && -f "$AUDIO_MONITOR_SERVICE" && -f "$AUDIO_PROXY_CONF_SOURCE" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
+  [[ -f "$DIR/dashboard/dvswitch-m17-activity.php" && -f "$DIR/dashboard/dvswitch-m17-net-card.php" && -f "$DIR/dashboard/dvswitch-m17-layout.js" && -f "$STANDALONE_JS" && -f "$ENDPOINT_SOURCE" && -f "$FAVORITES_HELPER" && -f "$FAVORITES_MIGRATE" && -f "$MODE_HELPER" && -f "$AUDIO_MONITOR_SOURCE" && -f "$AUDIO_MONITOR_SERVICE" && -f "$AUDIO_PROXY_CONF_SOURCE" && -f "$DIR/dashboard/dvswitch-m17-select.py" && -f "$DIR/dashboard/dvswitch-m17-catalog-update.py" ]] || die 'M17 dashboard support files are incomplete.'
 fi
 
 if [[ "$action" == --check ]]; then
   php -l "$FUNCTIONS" >/dev/null && php -l "$STATUS" >/dev/null && php -l "$LOCALTX" >/dev/null && php -l "$INDEX" >/dev/null && php -l "$LH" >/dev/null && php -l "$ENDPOINT_SOURCE" >/dev/null
   php -l "$DIR/dashboard/dvswitch-m17-activity.php" >/dev/null && php -l "$DIR/dashboard/dvswitch-m17-net-card.php" >/dev/null
   python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$FAVORITES_HELPER"
+  python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$FAVORITES_MIGRATE"
   python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8").read())' "$AUDIO_MONITOR_SOURCE"
   printf 'PASS: M17 dashboard prerequisites and PHP syntax are ready; --check made no changes.\n'
   exit 0
@@ -109,7 +112,7 @@ PY_UNINSTALL
   systemctl disable --now dvswitch-m17-catalog-update.timer >/dev/null 2>&1 || true
   systemctl disable --now dvswitch-m17-audio-monitor.service >/dev/null 2>&1 || true
   if command -v a2disconf >/dev/null 2>&1; then a2disconf dvswitch-m17-audio >/dev/null 2>&1 || true; fi
-  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$AUDIO_MONITOR_SERVICE_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$AUDIO_MONITOR" "$SELECT" "$CATALOG_UPDATE" /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-dashboard-mode "$ENDPOINT" /usr/share/dvswitch/dvswitch-m17-gateway-activity.php "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STANDALONE_TARGET" "$SUDOERS" "$STATE"
+  rm -f /etc/systemd/system/dvswitch-m17-catalog-update.service /etc/systemd/system/dvswitch-m17-catalog-update.timer "$AUDIO_MONITOR_SERVICE_TARGET" "$AUDIO_PROXY_CONF_TARGET" "$AUDIO_MONITOR" "$SELECT" "$CATALOG_UPDATE" /usr/local/sbin/dvswitch-m17-favorites /usr/local/sbin/dvswitch-m17-favorites-migrate /usr/local/sbin/dvswitch-m17-dashboard-mode "$ENDPOINT" /usr/share/dvswitch/dvswitch-m17-gateway-activity.php "$DASH/dvswitch-m17-activity.php" "$DASH/dvswitch-m17-net-card.php" "$LAYOUT_TARGET" "$STANDALONE_TARGET" "$SUDOERS" "$STATE"
   systemctl daemon-reload
   if command -v apache2ctl >/dev/null 2>&1 && apache2ctl configtest >/dev/null 2>&1; then systemctl reload apache2 >/dev/null 2>&1 || true; fi
   printf 'PASS: M17 dashboard integration removed; favorites, bridge config, and reflector catalog were preserved.\n'
@@ -125,6 +128,7 @@ install -o root -g root -m 0644 "$STANDALONE_JS" "$STANDALONE_TARGET"
 install -o root -g root -m 0644 "$ENDPOINT_SOURCE" "$ENDPOINT"
 install -o root -g root -m 0755 "$DIR/dashboard/dvswitch-m17-select.py" "$SELECT"
 install -o root -g root -m 0755 "$FAVORITES_HELPER" /usr/local/sbin/dvswitch-m17-favorites
+install -o root -g root -m 0755 "$FAVORITES_MIGRATE" /usr/local/sbin/dvswitch-m17-favorites-migrate
 install -o root -g root -m 0755 "$MODE_HELPER" /usr/local/sbin/dvswitch-m17-dashboard-mode
 install -o root -g root -m 0755 "$DIR/dashboard/dvswitch-m17-catalog-update.py" "$CATALOG_UPDATE"
 install -o root -g root -m 0755 "$AUDIO_MONITOR_SOURCE" "$AUDIO_MONITOR"
@@ -137,6 +141,7 @@ a2enconf dvswitch-m17-audio >/dev/null
 apache2ctl configtest >/dev/null || die 'Apache rejected the M17 audio WebSocket proxy configuration.'
 systemctl reload apache2 || die 'Apache could not reload the M17 audio WebSocket proxy configuration.'
 install -d -o root -g root -m 0755 /etc/dvswitch-m17-dashboard
+/usr/local/sbin/dvswitch-m17-favorites-migrate || die 'M17 favorites could not be separated safely.'
 if [[ -e "$SUDOERS" || -L "$SUDOERS" ]]; then
   [[ -f "$SUDOERS" && ! -L "$SUDOERS" ]] && grep -q '^# DVSwitch-M17-Dashboard:' "$SUDOERS" || die "Refusing to replace an unowned sudoers file: $SUDOERS"
 fi
@@ -292,11 +297,7 @@ if not history_path.exists() or not history_path.stat().st_size:
 if history_path.is_file() and not history_path.is_symlink():
     os.chmod(history_path, 0o644)
 PY_CURRENT
-if [[ -f /usr/share/dvswitch/dvswitch-mode-buttons.php ]]; then
-  M17_FAVORITES=/etc/dvswitch-mode-buttons/favorites.json
-else
-  M17_FAVORITES=/etc/dvswitch-m17-dashboard/favorites.json
-fi
+M17_FAVORITES=/etc/dvswitch-m17-dashboard/favorites.json
 python3 - /var/lib/mmdvm/M17Hosts.json "$M17_FAVORITES" /var/lib/dvswitch-m17-dashboard/m17-favorites-seeded <<'PY_SEED'
 import json, os, re, sys, tempfile
 import ipaddress
@@ -311,9 +312,9 @@ def catalog_label(row,designator,module):
 catalog,favorites,marker=map(Path,sys.argv[1:])
 if not marker.exists():
     data=json.loads(catalog.read_text(encoding='utf-8'))
-    saved=json.loads(favorites.read_text(encoding='utf-8'))
-    if not isinstance(saved,dict): raise SystemExit('ERROR: existing dashboard favorites are not a JSON object.')
-    if not isinstance(saved.get('M17'),list) or not saved['M17']:
+    saved=json.loads(favorites.read_text(encoding='utf-8')) if favorites.exists() else []
+    if not isinstance(saved,list): raise SystemExit('ERROR: standalone M17 favorites must be a JSON array.')
+    if not saved:
         items=[]
         for row in data.get('reflectors',[]):
             if not isinstance(row,dict): continue
@@ -337,13 +338,13 @@ if not marker.exists():
             module='A' if 'A' in modules else modules[0]
             name=catalog_label(row,designator,module)
             items.append({'name':name[:35],'target':designator+'-'+module})
-        saved['M17']=sorted(items,key=lambda item:(item['name'].casefold(),item['target'].casefold()))[:250]
+        saved=sorted(items,key=lambda item:(item['name'].casefold(),item['target'].casefold()))[:250]
     fd,tmp=tempfile.mkstemp(dir=favorites.parent)
     with os.fdopen(fd,'w',encoding='utf-8') as output: json.dump(saved,output,ensure_ascii=False,indent=2); output.write('\n')
     if os.geteuid()==0: os.chown(tmp,0,0)
     os.chmod(tmp,0o644); os.replace(tmp,favorites)
     marker.parent.mkdir(mode=0o755,parents=True,exist_ok=True); marker.write_text('M17 starter favorites seeded once.\n',encoding='utf-8'); marker.chmod(0o644)
-    print(f"PASS: seeded {len(saved.get('M17',[]))} M17 favorites; future edits and deletions are preserved.")
+    print(f"PASS: initialized {len(saved)} standalone M17 favorites; future edits and deletions are preserved.")
 else:
     print('PASS: existing M17 favorites preserved.')
 PY_SEED

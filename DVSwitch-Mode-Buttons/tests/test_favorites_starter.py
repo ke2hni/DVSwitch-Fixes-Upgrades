@@ -1,4 +1,6 @@
-"""Version: 1.0.3. Verify M17 favorites key and preservation of user data."""
+"""Version: 1.0.4. Verify shared favorites exclude M17 and preserve other user data."""
+
+# Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — keep M17 out of the shared favorites file.
 
 import json
 import os
@@ -17,8 +19,8 @@ class FavoritesStarterTests(unittest.TestCase):
     def test_starter_has_examples_for_each_supported_mode(self):
         data = json.loads(STARTER.read_text())
         # ASL node favorites are user data owned by the separate ASL Support module.
-        self.assertEqual(set(data), {"BM", "TGIF", "STFU", "YSF", "P25", "NXDN", "DSTAR", "M17"})
-        self.assertTrue(all(data[mode] for mode in data if mode != "M17"))
+        self.assertEqual(set(data), {"BM", "TGIF", "STFU", "YSF", "P25", "NXDN", "DSTAR"})
+        self.assertTrue(all(data.values()))
         self.assertTrue(all(set(item) == {"name", "target"} for items in data.values() for item in items))
         # Keep starter labels within the shared editor and save-helper name limit.
         self.assertTrue(all(1 <= len(item["name"].strip()) <= 35 for items in data.values() for item in items))

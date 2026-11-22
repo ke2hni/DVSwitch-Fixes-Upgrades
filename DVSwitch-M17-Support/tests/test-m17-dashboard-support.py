@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Version: 1.2.19
+# Version: 1.2.20
+# Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — verify migration and separate storage of M17 favorites.
 # Updated: 2026-11-21T16:00:00-05:00 by KE2HNI — expect the active event to use the reflector selection effective at its 23:04 start.
 # Updated: 2026-11-21T15:50:00-05:00 by KE2HNI — verify remote M17 callsign is retained when the end record logs AE5ME.
 # Updated: 2026-11-21T14:10:00-05:00 by KE2HNI — verify separately installed catalog selector and module controls.
@@ -198,6 +199,8 @@ def main():
     assert "readonly ENDPOINT=/usr/share/dvswitch/dvswitch-m17-dashboard.php" in installer
     assert "readonly LH=$DASH/lh.php" in installer
     assert "M17_FAVORITES=/etc/dvswitch-m17-dashboard/favorites.json" in installer
+    assert 'dvswitch-m17-favorites-migrate.py' in installer
+    assert '/usr/local/sbin/dvswitch-m17-favorites-migrate' in installer
     assert 'DVSwitch Mode Buttons is not installed. Install it separately' not in installer
     blocks = {}
     for marker in ('PY_UNINSTALL', 'PY_INSTALL', 'PY_CURRENT', 'PY_SEED'):
@@ -228,18 +231,41 @@ def main():
         favorites = root / 'favorites.json'
         marker = root / 'seeded'
         catalog.write_text(json.dumps(seed_catalog), encoding='utf-8')
-        favorites.write_text(json.dumps({'M17': []}), encoding='utf-8')
+        favorites.write_text('[]', encoding='utf-8')
         subprocess.run(['python3', '-c', blocks['PY_SEED'], str(catalog), str(favorites), str(marker)], check=True)
-        seeded = json.loads(favorites.read_text(encoding='utf-8'))['M17']
+        seeded = json.loads(favorites.read_text(encoding='utf-8'))
         targets = {item['target'] for item in seeded}
         assert targets == {'M17-123-A', 'URF-001-C', 'M17-321-A', 'M17-322-A'}, targets
         names_by_target = {item['target']: item['name'] for item in seeded}
         assert names_by_target['M17-321-A'] == 'Sponsor Room A'
         assert names_by_target['M17-322-A'] == 'M17-322'
-        edited = {'M17': [{'name': 'My saved room', 'target': 'M17-123-C'}]}
+        edited = [{'name': 'My saved room', 'target': 'M17-123-C'}]
         favorites.write_text(json.dumps(edited), encoding='utf-8')
         subprocess.run(['python3', '-c', blocks['PY_SEED'], str(catalog), str(favorites), str(marker)], check=True)
         assert json.loads(favorites.read_text(encoding='utf-8')) == edited
+
+    import importlib.util
+    migrate_spec = importlib.util.spec_from_file_location('m17_favorites_migrate', ROOT / 'dashboard/dvswitch-m17-favorites-migrate.py')
+    migrate_module = importlib.util.module_from_spec(migrate_spec)
+    migrate_spec.loader.exec_module(migrate_module)
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        shared = root / 'mode-buttons/favorites.json'
+        standalone = root / 'm17-dashboard/favorites.json'
+        shared.parent.mkdir()
+        shared.write_text(json.dumps({'BM': [{'name': 'BM room', 'target': '91'}],
+                                      'M17': [{'name': 'Old room', 'target': 'M17-001-A'},
+                                              {'name': 'Another room', 'target': 'M17-002-C'}]}), encoding='utf-8')
+        standalone.parent.mkdir()
+        standalone.write_text(json.dumps([{'name': 'Saved room', 'target': 'M17-001-A'}]), encoding='utf-8')
+        migrate_module.migrate(shared, standalone)
+        assert json.loads(standalone.read_text(encoding='utf-8')) == [
+            {'name': 'Saved room', 'target': 'M17-001-A'},
+            {'name': 'Another room', 'target': 'M17-002-C'},
+        ]
+        assert json.loads(shared.read_text(encoding='utf-8')) == {'BM': [{'name': 'BM room', 'target': '91'}]}
+        migrate_module.migrate(shared, standalone)
+        assert len(json.loads(standalone.read_text(encoding='utf-8'))) == 2
 
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -446,6 +472,7 @@ if (file_exists('/tmp/ABInfo_'.ABINFO.'.json')) {
     assert "'/usr/local/sbin/dvswitch-m17-dashboard-mode'" in api
     assert "'/usr/local/sbin/dvswitch-m17-select'" in api
     assert '/etc/dvswitch-m17-dashboard/favorites.json' in api
+    assert "'/etc/dvswitch-mode-buttons/favorites.json'" not in api[api.index("$favoritesPath ="):api.index("if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['status']))")]
     assert 'at most 250 entries' in favorites_helper
     with tempfile.TemporaryDirectory() as directory:
         favorite_path = Path(directory) / 'favorites.json'

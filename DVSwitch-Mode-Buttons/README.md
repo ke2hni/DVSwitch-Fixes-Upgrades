@@ -1,4 +1,4 @@
-<!-- Version: 1.1.3; Created: 2026-11-09T23:19:00-05:00 by KE2HNI; Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — document M17 sponsor fallback for null names. -->
+<!-- Version: 1.1.4; Created: 2026-11-09T23:19:00-05:00 by KE2HNI; Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — document M17 favorites separation. -->
 
 ![Platform](https://img.shields.io/badge/platform-DVSwitch-24527a)
 ![Debian](https://img.shields.io/badge/tested-Debian%2012%20%7C%2013-a80030)
@@ -25,7 +25,7 @@ embedded ASL button; ASL Support adds its own button and controls when installed
 
 Seven standard digital-mode buttons are included: **BM · TGIF · STFU · YSF · P25 · NXDN · D-Star**. Optional M17 is added by `DVSwitch-M17-Support` after USRP2M17 is installed; it has its own favorites and reflector selector.
 
-Mode Buttons remains independently installable. If M17 dashboard support is installed first, a first-time Mode Buttons installation optionally imports its M17 favorites; without M17 support, installation proceeds with the normal starter favorites.
+Mode Buttons remains independently installable. Favorites for BM, TGIF, STFU, YSF, P25, NXDN, and D-Star are stored in `/etc/dvswitch-mode-buttons/favorites.json`. M17 favorites are owned by `DVSwitch-M17-Support` and stored separately in `/etc/dvswitch-m17-dashboard/favorites.json`; the shared installer does not import or save M17 favorites there.
 
 ## 🚀 Quick start — install everything
 
@@ -67,7 +67,7 @@ Choose **1** to install the buttons or upgrade an existing installation to the c
 - BM/TGIF MMDVM Bridge and Analog Bridge preset switching through the unified mode helper.
 - Per-mode target persistence.
 - A single-line dashboard control for tuning the active digital mode to a talkgroup or reflector ID.
-- Mode-specific dashboard Favorites. Only the active mode's entries appear beside Tune; **Edit** opens a scrollable popup with a mode selector and instructions. Add a row for a new favorite, edit its name and TG/reflector ID, or select **Delete** to remove a row. Select **Save** to keep the changes for that mode; **Cancel / Close** or Esc closes the editor and discards unsaved changes. Up to 100 favorites can be saved per mode. Selecting a favorite sends its TG/ref through the same Tune control. **+ Favorite** opens the active mode's editor with the current target prefilled. It also looks up the matching friendly name from the source used by that mode's dashboard card. STFU targets use the BrandMeister talkgroup list, matching the STFU card behavior in DVSwitch-Mods, even if the separate DMR Master card currently shows TGIF. Favorites are stored in `/etc/dvswitch-mode-buttons/favorites.json` and remain available after uninstall/reinstall.
+- Mode-specific dashboard Favorites. Only the active mode's entries appear beside Tune; **Edit** opens a scrollable popup with a mode selector and instructions. Add a row for a new favorite, edit its name and TG/reflector ID, or select **Delete** to remove a row. Select **Save** to keep the changes for that mode; **Cancel / Close** or Esc closes the editor and discards unsaved changes. Up to 100 favorites can be saved per standard mode. Selecting a favorite sends its TG/ref through the same Tune control. **+ Favorite** opens the active mode's editor with the current target prefilled. It also looks up the matching friendly name from the source used by that mode's dashboard card. STFU targets use the BrandMeister talkgroup list, matching the STFU card behavior in DVSwitch-Mods, even if the separate DMR Master card currently shows TGIF. Standard-mode favorites are stored in `/etc/dvswitch-mode-buttons/favorites.json` and remain available after uninstall/reinstall. M17 favorites are stored separately by the M17 dashboard component.
 - Standalone DMR Master card rendering for BM and TGIF; while STFU, YSF, P25, NXDN, or D-Star is active, it retains the last BM/TGIF talkgroup instead of displaying another mode’s tune ID.
 - Friendly-name wrapping inside the DMR card.
 - A saved DMR talkgroup that the dashboard updates only while BM or TGIF is active; STFU and other mode IDs never replace it.

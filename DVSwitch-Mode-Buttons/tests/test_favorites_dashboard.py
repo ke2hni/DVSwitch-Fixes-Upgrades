@@ -1,5 +1,6 @@
-"""Version: 1.0.8. Cover sponsor fallback for null M17 reflector names."""
+"""Version: 1.0.9. Verify M17 favorites use their dedicated endpoint and storage."""
 
+# Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — verify M17 favorite reads and saves are separate from shared favorites.
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — verify valid sponsor and reflector-ID fallbacks for M17 labels.
 # Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — verify the 12-character reflector target fields.
 
@@ -29,6 +30,9 @@ class FavoritesDashboardTests(unittest.TestCase):
         for mode in ('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'M17'):
             self.assertIn("'" + mode + "'", SCRIPT)
         self.assertIn("favoriteLimit(mode) { return mode === 'M17' ? 250 : 100; }", SCRIPT)
+        self.assertIn("mode === 'M17'\n        ? '/dvswitch/dvswitch-m17-dashboard.php'", SCRIPT)
+        self.assertIn("favoritesEndpoint(mode) + '?favorites=1'", SCRIPT)
+        self.assertIn("{ action: 'save', favorites: favorites }", SCRIPT)
         self.assertNotIn('ASL', SCRIPT)
 
     def test_favorites_responses_are_ignored_after_mode_changes(self):
@@ -69,7 +73,7 @@ class FavoritesDashboardTests(unittest.TestCase):
         self.assertNotIn('ASL', HELPER)
         self.assertNotIn('ASL_NODE_HELPER', (ROOT / 'dvswitch-mode-buttons').read_text())
         self.assertNotIn('--refresh-asl', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test96"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test97"', INSTALLER)
         self.assertIn("$name = isset($row['sponsor'])", ENDPOINT)
 
     def test_upgrade_replaces_embedded_legacy_asl_button(self):
@@ -122,25 +126,17 @@ class FavoritesDashboardTests(unittest.TestCase):
 
     def test_favorites_editor_and_upgrade_markup_remain(self):
         self.assertIn('<strong>Cancel or Esc</strong> closes this editor and discards unsaved changes.', INSTALLER)
-        self.assertIn('dvswitch-mode-favorites.js?v=1.1.0', INSTALLER)
+        self.assertIn('dvswitch-mode-favorites.js?v=1.2.0', INSTALLER)
         self.assertIn('id="dvs-target-tuner"', INSTALLER)
         self.assertIn('id="dvs-favorites"', INSTALLER)
         self.assertIn('max-height:45vh', INSTALLER)
-        self.assertIn('VERSION="1.0.0-test96"', INSTALLER)
+        self.assertIn('VERSION="1.0.0-test97"', INSTALLER)
 
-    def test_first_install_imports_standalone_m17_favorites_optionally(self):
-        match = re.search(r"python3 - \"\$FAVORITES_STARTER\" /etc/dvswitch-m17-dashboard/favorites\.json > \"\$favorite_tmp\" <<'PY_M17_IMPORT'\n(.*?)\nPY_M17_IMPORT", INSTALLER, re.S)
-        self.assertIsNotNone(match)
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            starter = root / 'starter.json'
-            standalone = root / 'm17.json'
-            starter.write_text(json.dumps({'BM': [], 'M17': []}), encoding='utf-8')
-            standalone.write_text(json.dumps([{'name': 'Test room A', 'target': 'M17-001-A'}]), encoding='utf-8')
-            result = subprocess.run(['python3', '-c', match.group(1), str(starter), str(standalone)],
-                                    capture_output=True, text=True, check=True)
-            self.assertEqual(json.loads(result.stdout)['M17'],
-                             [{'name': 'Test room A', 'target': 'M17-001-A'}])
+    def test_m17_favorites_are_never_read_or_saved_in_shared_endpoint(self):
+        self.assertIn("$favoriteModes = array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR');", ENDPOINT)
+        self.assertIn("Use the M17 dashboard endpoint for M17 favorites.", ENDPOINT)
+        self.assertIn('/usr/local/sbin/dvswitch-m17-favorites-migrate', INSTALLER)
+        self.assertNotIn('PY_M17_IMPORT', INSTALLER)
 
 
 if __name__ == '__main__':

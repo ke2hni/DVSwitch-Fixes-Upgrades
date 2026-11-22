@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Version: 1.0.0-test96
+# Version: 1.0.0-test97
 # Created: 2026-11-09T23:19:00-05:00 by KE2HNI
 # Updated: 2026-11-19T19:25:00-05:00 by KE2HNI — use M17 sponsor when catalog name is null; fall back to reflector ID.
 # Updated: 2026-11-10T21:35:00-05:00 by KE2HNI — bump installer for alphabetical mode button display.
-# Updated: 2026-11-11T11:30:00-05:00 by KE2HNI — optionally import standalone M17 favorites when first installing shared controls.
+# Updated: 2026-11-21T18:20:00-05:00 by KE2HNI — store M17 favorites only through the M17 dashboard endpoint.
 # Updated: 2026-11-12T17:30:00-05:00 by KE2HNI — add final-node-removal cleanup that leaves shared dashboard PHP and bridge files for archival/removal.
 # Updated: 2026-11-18T22:25:00-05:00 by KE2HNI — widen the shared target field to show 12 characters without clipping.
 set -Eeuo pipefail
 
-VERSION="1.0.0-test96"
+VERSION="1.0.0-test97"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 INI="/opt/MMDVM_Bridge/MMDVM_Bridge.ini"
 ANALOG_INI="/opt/Analog_Bridge/Analog_Bridge.ini"
@@ -46,7 +46,7 @@ die(){ echo "ERROR: $*" >&2; exit 1; }
 grep -q '^switch_dmr_network(){' ./dvswitch-mode-buttons || die 'unified DMR switch function is missing'
 bash -n ./dvswitch-mode-buttons ./dvswitch-mode-targets ./dvswitch-mode-tune ./install-mode-target-persistence.sh ./install-standalone-dmr-master-card.sh ./dvswitch-display-layout.sh || die 'installer source syntax validation failed'
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-favorites").read_text(), "dvswitch-mode-favorites", "exec")' || die 'favorites helper syntax validation failed'
-python3 -c 'import json; from pathlib import Path; data=json.loads(Path("favorites.json").read_text()); expected={"BM","TGIF","STFU","YSF","P25","NXDN","DSTAR","M17"}; assert set(data)==expected; assert all(isinstance(items,list) and all(isinstance(item,dict) and set(item)=={"name","target"} for item in items) for items in data.values())' || die 'favorites starter file validation failed'
+python3 -c 'import json; from pathlib import Path; data=json.loads(Path("favorites.json").read_text()); expected={"BM","TGIF","STFU","YSF","P25","NXDN","DSTAR"}; assert set(data)==expected; assert all(isinstance(items,list) and all(isinstance(item,dict) and set(item)=={"name","target"} for item in items) for items in data.values())' || die 'favorites starter file validation failed'
 python3 -c 'from pathlib import Path; compile(Path("dvswitch-mode-layout-state").read_text(), "dvswitch-mode-layout-state", "exec")' || die 'display-layout ownership helper syntax validation failed'
 
 BACKUP_DIR=/var/backups/dvswitch-mode-buttons
@@ -451,9 +451,10 @@ install_dashboard_components(){
 declare(strict_types=1);
 $allowed = array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR', 'M17');
 $targetModes = $allowed;
+$favoriteModes = array('BM', 'TGIF', 'STFU', 'YSF', 'P25', 'NXDN', 'DSTAR');
 if (isset($_GET['favorites'])) {
     $mode = strtoupper(trim((string)$_GET['favorites']));
-    if (!in_array($mode, $targetModes, true)) { http_response_code(400); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Unsupported mode')); exit; }
+    if (!in_array($mode, $favoriteModes, true)) { http_response_code(400); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Use the M17 dashboard endpoint for M17 favorites.')); exit; }
     $saved = is_readable('/etc/dvswitch-mode-buttons/favorites.json') ? json_decode((string)file_get_contents('/etc/dvswitch-mode-buttons/favorites.json'), true) : array();
     $items = is_array($saved) && isset($saved[$mode]) && is_array($saved[$mode]) ? $saved[$mode] : array();
     header('Content-Type: application/json'); echo json_encode(array('ok' => true, 'mode' => $mode, 'favorites' => $items)); exit;
@@ -535,7 +536,7 @@ if (isset($_GET['targetNames'])) {
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && stripos((string)($_SERVER['CONTENT_TYPE'] ?? ''), 'application/json') === 0) {
     $payload = json_decode((string)file_get_contents('php://input'), true);
-    if (!is_array($payload) || !isset($payload['mode'], $payload['favorites']) || !in_array($payload['mode'], $targetModes, true) || !is_array($payload['favorites'])) {
+    if (!is_array($payload) || !isset($payload['mode'], $payload['favorites']) || !in_array($payload['mode'], $favoriteModes, true) || !is_array($payload['favorites'])) {
         http_response_code(400); header('Content-Type: application/json'); echo json_encode(array('ok' => false, 'error' => 'Invalid favorites request.')); exit;
     }
     $pipes = array();
@@ -669,7 +670,7 @@ if marker not in text:
 <form id="dvs-target-tuner" aria-label="Tune talkgroup or reflector"><input id="dvs-target-input" name="target" type="text" inputmode="numeric" maxlength="35" autocomplete="off" placeholder="TG/Ref" aria-label="Talkgroup or reflector ID"><button id="dvs-target-submit" type="submit" class="button link">Tune</button><button type="button" class="button link dvs-favorites-add-current" aria-label="Add tuned ID to favorites for the current mode">+ Favorite</button><span id="dvs-target-message" role="status" aria-live="polite"></span></form></div>
 <div class="dvs-favorites-list-status" role="status" aria-live="polite"></div><dialog class="dvs-favorites-editor" aria-labelledby="dvs-favorites-editor-title"><div class="dvs-favorites-dialog-content"><h2 id="dvs-favorites-editor-title">Edit Favorites</h2><p class="dvs-favorites-help">Choose a mode, then edit the favorite name and talkgroup or reflector ID. Use <strong>Add Favorite</strong> for a new row or <strong>Delete</strong> to remove one. Select <strong>Save</strong> to keep your changes. <strong>Cancel or Esc</strong> closes this editor and discards unsaved changes. Changes apply only to the selected mode.</p><label class="dvs-favorites-mode-label">Mode <select class="dvs-favorites-mode"></select></label><div class="dvs-favorites-rows" aria-label="Favorite entries"></div><div class="dvs-favorites-dialog-actions"><button type="button" class="button link dvs-favorites-add">Add Favorite</button><button type="button" class="button link dvs-favorites-save">Save</button><button type="button" class="button link dvs-favorites-cancel">Cancel / Close</button></div><div class="dvs-favorites-status" role="status" aria-live="polite"></div></div></dialog></section>
 <style>#dvs-mode-buttons{text-align:center;margin:4px auto 5px}#dvs-mode-buttons .dvs-mode-buttons-title{font-weight:bold;margin-bottom:2px}#dvs-mode-buttons button{min-width:72px;height:32px;padding:4px 10px}#dvs-mode-buttons button.selected{background-color:#008000}#dvs-mode-buttons button:disabled{opacity:.65}#dvs-favorites{text-align:center;margin:0 auto 8px;max-width:100%}#dvs-favorites .dvs-favorites-control-line{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;gap:8px;margin:0 0 8px;min-height:34px;white-space:nowrap}#dvs-favorites .dvs-favorites-heading{font-weight:bold;white-space:nowrap}#dvs-target-tuner{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;gap:6px;margin:0;min-height:34px;white-space:nowrap}/* Fit 12 visible target characters plus padding while accepting longer mode IDs. */#dvs-target-input{box-sizing:border-box;width:calc(12ch + 18px);height:32px;padding:4px 8px}#dvs-target-submit,#dvs-favorites .dvs-favorites-add-current{min-width:64px;height:32px;padding:4px 10px}#dvs-target-message{min-width:0;font-size:12px;text-align:left}#dvs-target-message.error{color:#d9534f}#dvs-favorites-select{box-sizing:border-box;width:min(260px,25vw);height:32px;padding:4px 8px}#dvs-favorites .dvs-favorites-editor{box-sizing:border-box;width:min(720px,calc(100vw - 24px));max-width:none;max-height:88vh;margin:auto;padding:0;border:1px solid #8795a8;border-radius:8px;background:#111827;color:inherit;box-shadow:0 12px 40px #0009}#dvs-favorites .dvs-favorites-editor::backdrop{background:#0009}#dvs-favorites .dvs-favorites-dialog-content{display:flex;flex-direction:column;max-height:88vh;padding:18px}#dvs-favorites-editor-title{margin:0 0 8px;font-size:1.2em}#dvs-favorites .dvs-favorites-help{margin:0 auto 12px;max-width:620px;text-align:left;line-height:1.45;white-space:normal}#dvs-favorites .dvs-favorites-mode-label{margin-bottom:8px}#dvs-favorites .dvs-favorites-rows{overflow-y:auto;overscroll-behavior:contain;max-height:45vh;padding:2px}#dvs-favorites .dvs-favorites-dialog-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:10px}#dvs-favorites .dvs-favorites-status{margin-top:8px}#dvs-favorites .dvs-favorites-list-status{font-size:12px;min-height:1em}.dvs-rx-monitor-inline{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;min-width:137px;height:34px;margin:0 8px 0 0;padding:4px 10px}.dvs-rx-monitor-inline img{vertical-align:middle}#dvs-favorites-mode{margin-left:5px;padding:4px}.dvs-favorite-edit-row{display:flex;gap:5px;justify-content:center;margin:4px}.dvs-favorite-edit-row input{box-sizing:border-box;width:min(35ch,55vw);min-width:0;padding:4px}.dvs-favorite-edit-row input:nth-child(2){box-sizing:border-box;width:10ch}.dvs-favorites-status{font-size:12px;min-height:1em}@media(max-width:600px){#dvs-favorites .dvs-favorites-dialog-content{padding:12px}#dvs-favorites .dvs-favorites-rows{max-height:42vh}#dvs-favorites .dvs-favorites-control-line{gap:4px}#dvs-target-tuner{gap:4px}#dvs-favorites-select{width:22vw}#dvs-target-message{max-width:16vw;overflow-wrap:anywhere}.dvs-rx-monitor-inline{min-width:0;margin-right:4px;padding:4px}.dvs-favorite-edit-row input:first-child{width:min(35ch,calc(100vw - 220px))}.dvs-favorite-edit-row input:nth-child(2){width:10ch}.dvs-favorite-edit-row{gap:3px}}</style>
-<script src="/dvswitch/dvswitch-mode-favorites.js?v=1.1.0"></script>'''
+<script src="/dvswitch/dvswitch-mode-favorites.js?v=1.2.0"></script>'''
     rx_move_marker='// DVSwitch-Mods: RX Monitor left of status v1'
     if rx_move_marker in text:
         if text.count(rx_move_marker) != 1:
@@ -713,33 +714,13 @@ password_state(){
 }
 
 install_favorites_starter(){
+  # When M17 support is installed, move its legacy shared entry before editing the shared-mode file.
+  if [[ -x /usr/local/sbin/dvswitch-m17-favorites-migrate ]]; then
+    /usr/local/sbin/dvswitch-m17-favorites-migrate || die 'M17 favorites could not be separated safely.'
+  fi
   if [[ ! -e "$FAVORITES_FILE" && ! -L "$FAVORITES_FILE" ]]; then
     install -d -o root -g root -m 755 "$(dirname "$FAVORITES_FILE")"
-    if [[ -r /var/lib/dvswitch-m17-dashboard/install-state.json && -r /etc/dvswitch-m17-dashboard/favorites.json ]]; then
-      local favorite_tmp
-      favorite_tmp=$(mktemp "${FAVORITES_FILE}.tmp.XXXXXX")
-      python3 - "$FAVORITES_STARTER" /etc/dvswitch-m17-dashboard/favorites.json > "$favorite_tmp" <<'PY_M17_IMPORT'
-import json,re,sys
-starter=json.load(open(sys.argv[1],encoding='utf-8'))
-try:
-    m17=json.load(open(sys.argv[2],encoding='utf-8'))
-    valid=(isinstance(m17,list) and len(m17)<=250 and all(
-        isinstance(item,dict) and set(item)=={'name','target'} and
-        isinstance(item['name'],str) and 1<=len(item['name'])<=35 and
-        isinstance(item['target'],str) and re.fullmatch(r'[A-Za-z0-9_-]{1,35}',item['target'])
-        for item in m17))
-    if valid:
-        starter['M17']=m17
-except (OSError,ValueError,TypeError):
-    pass
-json.dump(starter,sys.stdout,ensure_ascii=False,indent=2); sys.stdout.write('\n')
-PY_M17_IMPORT
-      install -o root -g root -m 644 "$favorite_tmp" "$FAVORITES_FILE"
-      rm -f "$favorite_tmp"
-      echo "PASS: imported standalone M17 favorites when present."
-    else
-      install -o root -g root -m 644 "$FAVORITES_STARTER" "$FAVORITES_FILE"
-    fi
+    install -o root -g root -m 644 "$FAVORITES_STARTER" "$FAVORITES_FILE"
     echo "PASS: installed starter favorites at $FAVORITES_FILE."
   else
     echo "PASS: existing favorites preserved at $FAVORITES_FILE."
